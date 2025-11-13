@@ -17,10 +17,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.modules.core import EventBus, Logger
-from src.modules.embeddings import EmbeddingService
-from src.modules.embeddings.provider import GoogleEmbeddingProvider
-from src.modules.embeddings.models import ProviderConfig
-from src.modules.embeddings.cache import EmbeddingCache
+from src.modules.embeddings import (
+    EmbeddingService,
+    GoogleEmbeddingProvider,
+    ProviderConfig,
+    EmbeddingCache,
+)
 
 
 async def test_single_embedding():

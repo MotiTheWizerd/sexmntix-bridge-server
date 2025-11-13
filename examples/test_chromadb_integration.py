@@ -22,11 +22,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from src.infrastructure.chromadb.client import ChromaDBClient
 from src.infrastructure.chromadb.repository import VectorRepository
-from src.modules.embeddings.service import EmbeddingService
-from src.modules.embeddings.provider import GoogleEmbeddingProvider
-from src.modules.embeddings.cache import EmbeddingCache
-from src.modules.embeddings.models import ProviderConfig
-from src.services.vector_storage_service import VectorStorageService
+from src.modules.embeddings import (
+    EmbeddingService,
+    GoogleEmbeddingProvider,
+    EmbeddingCache,
+    ProviderConfig,
+)
+from src.modules.vector_storage import VectorStorageService
 from src.modules.core import EventBus, Logger
 from dotenv import load_dotenv
 

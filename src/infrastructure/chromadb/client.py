@@ -4,11 +4,12 @@ ChromaDB Client Wrapper
 Provides a persistent ChromaDB client with configuration and collection management.
 Based on TypeScript architecture from 03-chromadb-storage.md.
 
-Storage Path: ./data/chromadb
+Storage Path: ./data/chromadb/{user_id}/{project_id}
 Collection Naming: semantix_memories_{user_id}_{project_id}
 """
 
 import os
+from pathlib import Path
 from typing import Optional
 import chromadb
 from chromadb.config import Settings
@@ -20,20 +21,31 @@ class ChromaDBClient:
     Wrapper for ChromaDB PersistentClient with collection caching.
 
     Features:
-    - Persistent local storage
-    - Multi-user/project isolation via collection naming
+    - Persistent local storage with nested user_id/project_id directories
+    - Multi-user/project isolation via collection naming and storage paths
     - Collection caching for performance
     - Automatic collection creation
     """
 
-    def __init__(self, storage_path: str = "./data/chromadb"):
+    def __init__(self, storage_path: str = "./data/chromadb", user_id: Optional[str] = None, project_id: Optional[str] = None):
         """
         Initialize ChromaDB persistent client.
 
         Args:
-            storage_path: Path to ChromaDB storage directory
+            storage_path: Base path to ChromaDB storage directory
+            user_id: Optional user ID for nested directory structure
+            project_id: Optional project ID for nested directory structure
         """
-        self.storage_path = storage_path
+        self.base_storage_path = storage_path
+        self.default_user_id = user_id
+        self.default_project_id = project_id
+
+        # Build storage path with nesting if user_id/project_id provided
+        if user_id and project_id:
+            self.storage_path = str(Path(storage_path) / user_id / project_id)
+        else:
+            self.storage_path = storage_path
+
         self._ensure_storage_path()
 
         # Initialize persistent client
@@ -47,6 +59,9 @@ class ChromaDBClient:
 
         # Collection cache for performance
         self._collections: dict[str, Collection] = {}
+
+        # Client cache for different user/project combinations
+        self._clients: dict[str, chromadb.PersistentClient] = {}
 
     def _ensure_storage_path(self):
         """Create storage directory if it doesn't exist."""

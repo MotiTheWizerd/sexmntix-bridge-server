@@ -3,7 +3,7 @@ Dependency for VectorStorageService injection.
 """
 
 import os
-from src.services.vector_storage_service import VectorStorageService
+from src.modules.vector_storage import VectorStorageService
 from src.infrastructure.chromadb.client import ChromaDBClient
 from src.infrastructure.chromadb.repository import VectorRepository
 from src.api.dependencies.embedding import get_embedding_service

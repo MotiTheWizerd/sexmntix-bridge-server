@@ -13,7 +13,7 @@ from src.api.schemas.memory_log import (
 )
 from src.database.repositories.memory_log_repository import MemoryLogRepository
 from src.modules.core import EventBus, Logger
-from src.services.vector_storage_service import VectorStorageService
+from src.modules.vector_storage import VectorStorageService
 
 router = APIRouter(prefix="/memory-logs", tags=["memory-logs"])
 
@@ -24,25 +24,26 @@ async def create_memory_log(
     db: AsyncSession = Depends(get_db_session),
     event_bus: EventBus = Depends(get_event_bus),
     logger: Logger = Depends(get_logger),
-    vector_service: VectorStorageService = Depends(get_vector_storage_service),
 ):
     """
-    Create a new memory log with automatic embedding generation.
+    Create a new memory log with automatic embedding generation via event-driven architecture.
 
-    Workflow:
-    1. Store memory log in PostgreSQL
-    2. Generate embedding from searchable text
-    3. Store embedding in PostgreSQL
-    4. Store vector in ChromaDB for semantic search
+    Hybrid Event-Driven Workflow:
+    1. Store memory log in PostgreSQL (synchronous for immediate persistence)
+    2. Emit memory_log.stored event with memory_log_id
+    3. ChromaDB handler generates embedding and stores vector (async background task)
 
-    User and project IDs enable multi-tenant isolation.
+    This approach ensures data integrity while enabling async vector storage
+    for better performance and non-blocking failures.
+
+    User and project IDs enable multi-tenant isolation in vector storage.
     """
     logger.info(f"Creating memory log for task: {data.task}")
 
     # Convert the entire payload to dict with JSON-serializable values
     raw_data = data.model_dump(mode="json")
 
-    # Create initial memory log in PostgreSQL (without embedding yet)
+    # Create memory log in PostgreSQL (synchronous for immediate response with ID)
     repo = MemoryLogRepository(db)
     memory_log = await repo.create(
         task=data.task,
@@ -53,36 +54,27 @@ async def create_memory_log(
         project_id=data.project_id,
     )
 
-    event_bus.publish("memory_log.created", {"id": memory_log.id, "task": data.task})
-    logger.info(f"Memory log created with id: {memory_log.id}")
+    logger.info(f"Memory log stored in PostgreSQL with id: {memory_log.id}")
 
-    # Generate and store vector embedding (if user_id and project_id provided)
-    if data.user_id and data.project_id:
-        try:
-            memory_id, embedding = await vector_service.store_memory_vector(
-                memory_log_id=memory_log.id,
-                memory_data=raw_data,
-                user_id=data.user_id,
-                project_id=data.project_id
-            )
+    # Emit event for async vector storage (background task via event handler)
+    event_data = {
+        "memory_log_id": memory_log.id,
+        "task": data.task,
+        "agent": data.agent,
+        "date": data.date,
+        "raw_data": raw_data,
+        "user_id": data.user_id,
+        "project_id": data.project_id,
+    }
 
-            # Update memory log with embedding in PostgreSQL
-            memory_log = await repo.update(
-                id=memory_log.id,
-                embedding=embedding
-            )
+    # Use publish (not publish_async) to schedule as background task
+    # This triggers the memory_log.stored event handler asynchronously
+    event_bus.publish("memory_log.stored", event_data)
 
-            logger.info(
-                f"Vector stored: {memory_id} for memory_log {memory_log.id}"
-            )
-        except Exception as e:
-            logger.error(f"Failed to store vector for memory_log {memory_log.id}: {e}")
-            # Continue without embedding - non-blocking failure
-    else:
-        logger.warning(
-            f"Skipping vector storage: user_id or project_id not provided "
-            f"for memory_log {memory_log.id}"
-        )
+    logger.info(
+        f"Memory log created with id {memory_log.id}, "
+        f"vector storage scheduled as background task"
+    )
 
     return memory_log
 

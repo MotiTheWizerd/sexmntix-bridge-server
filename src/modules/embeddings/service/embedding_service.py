@@ -9,17 +9,14 @@ from datetime import datetime
 from src.services.base_service import BaseService
 from src.modules.core import EventBus, Logger
 
-from .provider import BaseEmbeddingProvider, GoogleEmbeddingProvider
-from .cache import EmbeddingCache
-from .models import (
-    EmbeddingCreate,
+from ..providers import BaseEmbeddingProvider
+from ..caching import EmbeddingCache
+from ..models import (
     EmbeddingResponse,
-    EmbeddingBatch,
     EmbeddingBatchResponse,
-    ProviderConfig,
     ProviderHealthResponse,
 )
-from .exceptions import InvalidTextError, ProviderError
+from ..exceptions import InvalidTextError
 
 
 class EmbeddingService(BaseService):

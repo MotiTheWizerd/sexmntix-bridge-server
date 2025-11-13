@@ -7,10 +7,12 @@ from src.api.middleware.logging import LoggingMiddleware
 from src.api.routes import health, memory_logs, mental_notes, users, socket_test, memory_logs_example, embeddings
 from src.services.socket_service import SocketService
 from src.events.emitters import EventEmitter
-from src.modules.embeddings import EmbeddingService
-from src.modules.embeddings.provider import GoogleEmbeddingProvider
-from src.modules.embeddings.models import ProviderConfig
-from src.modules.embeddings.cache import EmbeddingCache
+from src.modules.embeddings import (
+    EmbeddingService,
+    GoogleEmbeddingProvider,
+    ProviderConfig,
+    EmbeddingCache,
+)
 import socketio
 import os
 from dotenv import load_dotenv
@@ -65,6 +67,26 @@ async def lifespan(app: FastAPI):
     app.state.db_manager = DatabaseManager(database_url)
     app.state.logger.info("Database connection initialized")
     app.state.logger.info("Socket.IO service initialized")
+
+    # Initialize event handlers for memory log storage
+    if embedding_service:
+        from src.api.dependencies.event_handlers import initialize_event_handlers
+        from src.api.dependencies.vector_storage import get_vector_storage_service
+        from src.api.dependencies.database import get_db_session
+
+        try:
+            vector_service = get_vector_storage_service()
+            initialize_event_handlers(
+                event_bus=event_bus,
+                logger=logger,
+                db_session_factory=get_db_session,
+                vector_service=vector_service
+            )
+            logger.info("Event-driven memory log storage initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize event handlers: {e}")
+    else:
+        logger.warning("Event handlers not initialized - embedding service unavailable")
 
     yield
 
