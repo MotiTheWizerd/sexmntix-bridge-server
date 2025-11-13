@@ -38,7 +38,7 @@ from src.api.dependencies.database import get_db_session
 
 # Configuration
 USER_ID = "9b1cdb78-df73-4ae4-8f80-41be3c0fdc1e"
-PROJECT_ID = "9eb5fae0-a7d2-42da-92b5-e744752a35b5"
+PROJECT_ID = "152ec016-2c28-4609-ab1b-dff831b3ba96"
 DELTA_DIR = Path(".semantix/memories/delta")
 PROCESSED_DIR = Path(".semantix/memories/processed")
 ERRORS_DIR = Path(".semantix/memories/errors")
@@ -136,25 +136,12 @@ async def main():
         cache_enabled=True
     )
 
-    # Initialize ChromaDB and vector storage with nested user_id/project_id paths
-    chromadb_client = ChromaDBClient(
-        storage_path="./data/chromadb",
-        user_id=USER_ID,
-        project_id=PROJECT_ID
-    )
-    vector_repository = VectorRepository(chromadb_client)
-
-    vector_service = VectorStorageService(
-        event_bus=event_bus,
-        logger=logger,
-        embedding_service=embedding_service,
-        vector_repository=vector_repository
-    )
-
-    # Initialize event handlers
+    # Initialize event handlers (with per-project isolation)
+    # Handlers will create VectorStorageService dynamically for each event
     handlers = MemoryLogStorageHandlers(
         db_session_factory=get_db_session,
-        vector_service=vector_service,
+        embedding_service=embedding_service,
+        event_bus=event_bus,
         logger=logger
     )
 
@@ -241,15 +228,25 @@ async def main():
     print(f"  - Cache misses: {cache_stats['miss_count']}")
     print(f"  - Hit rate: {cache_stats['hit_rate_percent']:.1f}%")
 
-    # Verify storage
+    # Verify storage - create isolated ChromaDB client for verification
     print(f"\nVerifying vector storage...")
-    count = await vector_repository.count(USER_ID, PROJECT_ID)
+    from src.api.dependencies.vector_storage import create_vector_storage_service
+
+    verification_service = create_vector_storage_service(
+        user_id=USER_ID,
+        project_id=PROJECT_ID,
+        embedding_service=embedding_service,
+        event_bus=event_bus,
+        logger=logger
+    )
+
+    count = await verification_service.count_memories(USER_ID, PROJECT_ID)
     print(f"  - Vectors stored for user/project: {count}")
 
     # Search test
     if stats["succeeded"] > 0:
         print(f"\nTesting semantic search...")
-        results = await vector_service.search_similar_memories(
+        results = await verification_service.search_similar_memories(
             query="event-driven architecture and ChromaDB integration",
             user_id=USER_ID,
             project_id=PROJECT_ID,

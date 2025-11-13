@@ -3,53 +3,186 @@ Dependency for VectorStorageService injection.
 """
 
 import os
+from typing import Dict
+from fastapi import Request
 from src.modules.vector_storage import VectorStorageService
+from src.modules.embeddings import EmbeddingService
+from src.modules.core import EventBus, Logger
 from src.infrastructure.chromadb.client import ChromaDBClient
 from src.infrastructure.chromadb.repository import VectorRepository
-from src.api.dependencies.embedding import get_embedding_service
 
 
-# Initialize ChromaDB client (singleton)
-CHROMADB_PATH = os.getenv("CHROMADB_PATH", "./data/chromadb")
-_chromadb_client = ChromaDBClient(storage_path=CHROMADB_PATH)
-_vector_repository = VectorRepository(_chromadb_client)
+# ChromaDB base path
+CHROMADB_BASE_PATH = os.getenv("CHROMADB_PATH", "./data/chromadb")
 
-# Initialize vector storage service (singleton)
+# Cache for ChromaDB clients per user/project (for performance)
+_chromadb_clients: Dict[str, ChromaDBClient] = {}
+
+# Initialize vector storage service (singleton for embedding service)
 _vector_storage_service: VectorStorageService | None = None
 
 
-def get_vector_storage_service() -> VectorStorageService:
+def get_chromadb_client(user_id: str, project_id: str) -> ChromaDBClient:
     """
-    Get or create VectorStorageService instance.
+    Get or create a ChromaDB client for specific user/project.
+
+    Implements client caching for performance - each unique user/project
+    combination gets its own isolated ChromaDB instance.
+
+    Args:
+        user_id: User identifier
+        project_id: Project identifier
+
+    Returns:
+        ChromaDBClient instance for the user/project
+    """
+    # Create cache key
+    cache_key = f"{user_id}:{project_id}"
+
+    # Return cached client if exists
+    if cache_key in _chromadb_clients:
+        return _chromadb_clients[cache_key]
+
+    # Create new client with nested path: data/chromadb/{user_id}/{project_id}/
+    client = ChromaDBClient(
+        storage_path=CHROMADB_BASE_PATH,
+        user_id=user_id,
+        project_id=project_id
+    )
+
+    # Cache for future requests
+    _chromadb_clients[cache_key] = client
+
+    return client
+
+
+def _create_vector_storage_service(
+    embedding_service: EmbeddingService,
+    event_bus: EventBus,
+    logger: Logger,
+    vector_repository: VectorRepository
+) -> VectorStorageService:
+    """
+    Create VectorStorageService instance.
+
+    Args:
+        embedding_service: EmbeddingService instance
+        event_bus: EventBus instance
+        logger: Logger instance
+        vector_repository: VectorRepository instance
 
     Returns:
         VectorStorageService instance
-
-    Raises:
-        RuntimeError: If embedding service is not available
     """
-    global _vector_storage_service
+    return VectorStorageService(
+        event_bus=event_bus,
+        logger=logger,
+        embedding_service=embedding_service,
+        vector_repository=vector_repository
+    )
 
-    if _vector_storage_service is None:
-        # Get embedding service
-        embedding_service = get_embedding_service()
 
-        if embedding_service is None:
-            raise RuntimeError(
-                "EmbeddingService not available. "
-                "Ensure GOOGLE_API_KEY is configured in .env"
-            )
+def create_vector_storage_service(
+    user_id: str,
+    project_id: str,
+    embedding_service: EmbeddingService,
+    event_bus: EventBus,
+    logger: Logger
+) -> VectorStorageService:
+    """
+    Create VectorStorageService for specific user/project.
 
-        # Import dependencies
-        from src.api.dependencies.event_bus import get_event_bus
-        from src.api.dependencies.logger import get_logger
+    This function creates an isolated VectorStorageService with its own
+    ChromaDB client pointing to data/chromadb/{user_id}/{project_id}/
 
-        # Create vector storage service
-        _vector_storage_service = VectorStorageService(
-            event_bus=get_event_bus(),
-            logger=get_logger(),
-            embedding_service=embedding_service,
-            vector_repository=_vector_repository
+    Args:
+        user_id: User identifier
+        project_id: Project identifier
+        embedding_service: EmbeddingService instance
+        event_bus: EventBus instance
+        logger: Logger instance
+
+    Returns:
+        VectorStorageService instance for the user/project
+    """
+    # Get or create ChromaDB client for this user/project
+    chromadb_client = get_chromadb_client(user_id, project_id)
+
+    # Create vector repository with the isolated client
+    vector_repository = VectorRepository(chromadb_client)
+
+    # Create vector storage service
+    return _create_vector_storage_service(
+        embedding_service=embedding_service,
+        event_bus=event_bus,
+        logger=logger,
+        vector_repository=vector_repository
+    )
+
+
+def initialize_vector_storage_service(
+    embedding_service: EmbeddingService,
+    event_bus: EventBus,
+    logger: Logger
+) -> None:
+    """
+    Initialize vector storage dependencies during app startup.
+
+    Note: With per-project isolation, VectorStorageService instances are
+    created on-demand per request. This function just validates dependencies.
+
+    Args:
+        embedding_service: EmbeddingService instance
+        event_bus: EventBus instance
+        logger: Logger instance
+    """
+    if embedding_service is None:
+        raise RuntimeError(
+            "EmbeddingService not available. "
+            "Ensure GOOGLE_API_KEY is configured in .env"
         )
 
-    return _vector_storage_service
+    # Store references for later use (event handlers, etc.)
+    # No longer creating singleton VectorStorageService
+    logger.info("Vector storage dependencies initialized (per-project isolation enabled)")
+
+
+def get_vector_storage_service(
+    request: Request,
+    user_id: str,
+    project_id: str
+) -> VectorStorageService:
+    """
+    Get VectorStorageService instance as FastAPI dependency.
+
+    Creates an isolated VectorStorageService for the specific user/project.
+
+    Args:
+        request: FastAPI request object
+        user_id: User identifier from request
+        project_id: Project identifier from request
+
+    Returns:
+        VectorStorageService instance for the user/project
+
+    Raises:
+        RuntimeError: If embedding service not available
+    """
+    embedding_service = request.app.state.embedding_service
+    event_bus = request.app.state.event_bus
+    logger = request.app.state.logger
+
+    if embedding_service is None:
+        raise RuntimeError(
+            "EmbeddingService not available. "
+            "Ensure GOOGLE_API_KEY is configured in .env"
+        )
+
+    # Create service for this specific user/project
+    return create_vector_storage_service(
+        user_id=user_id,
+        project_id=project_id,
+        embedding_service=embedding_service,
+        event_bus=event_bus,
+        logger=logger
+    )

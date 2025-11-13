@@ -8,8 +8,8 @@ from typing import Callable
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.modules.core import EventBus, Logger
+from src.modules.embeddings import EmbeddingService
 from src.events.internal_handlers import MemoryLogStorageHandlers
-from src.modules.vector_storage import VectorStorageService
 
 
 _handlers_initialized = False
@@ -19,7 +19,7 @@ def initialize_event_handlers(
     event_bus: EventBus,
     logger: Logger,
     db_session_factory: Callable,
-    vector_service: VectorStorageService
+    embedding_service: EmbeddingService
 ):
     """
     Initialize and register all internal event handlers.
@@ -30,7 +30,7 @@ def initialize_event_handlers(
         event_bus: Application event bus
         logger: Application logger
         db_session_factory: Factory function to create database sessions
-        vector_service: Vector storage service instance
+        embedding_service: Embedding service for generating vectors
     """
     global _handlers_initialized
 
@@ -40,10 +40,11 @@ def initialize_event_handlers(
 
     logger.info("Initializing internal event handlers...")
 
-    # Create handler instance
+    # Create handler instance with services needed to create VectorStorageService dynamically
     handlers = MemoryLogStorageHandlers(
         db_session_factory=db_session_factory,
-        vector_service=vector_service,
+        embedding_service=embedding_service,
+        event_bus=event_bus,
         logger=logger
     )
 

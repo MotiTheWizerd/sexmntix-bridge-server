@@ -7,9 +7,10 @@ to PostgreSQL and ChromaDB, enabling event-driven architecture.
 
 from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.modules.core import Logger
+from src.modules.core import EventBus, Logger
+from src.modules.embeddings import EmbeddingService
 from src.database.repositories.memory_log_repository import MemoryLogRepository
-from src.modules.vector_storage import VectorStorageService
+from src.api.dependencies.vector_storage import create_vector_storage_service
 
 
 class MemoryLogStorageHandlers:
@@ -18,12 +19,16 @@ class MemoryLogStorageHandlers:
 
     Decouples vector storage from main request flow,
     allowing async background processing and non-blocking failures.
+
+    With per-project isolation, creates VectorStorageService dynamically
+    for each event based on user_id and project_id.
     """
 
     def __init__(
         self,
         db_session_factory,
-        vector_service: VectorStorageService,
+        embedding_service: EmbeddingService,
+        event_bus: EventBus,
         logger: Logger
     ):
         """
@@ -31,11 +36,13 @@ class MemoryLogStorageHandlers:
 
         Args:
             db_session_factory: Callable returning AsyncSession for PostgreSQL
-            vector_service: Service for ChromaDB vector storage
+            embedding_service: Service for generating embeddings
+            event_bus: Event bus for publishing events
             logger: Logger instance
         """
         self.db_session_factory = db_session_factory
-        self.vector_service = vector_service
+        self.embedding_service = embedding_service
+        self.event_bus = event_bus
         self.logger = logger
 
     async def handle_memory_log_stored(self, event_data: Dict[str, Any]):
@@ -66,11 +73,21 @@ class MemoryLogStorageHandlers:
                 return
 
             self.logger.info(
-                f"Generating and storing vector for memory_log {memory_log_id}"
+                f"Generating and storing vector for memory_log {memory_log_id} "
+                f"(user: {user_id}, project: {project_id})"
+            )
+
+            # Create VectorStorageService for this specific user/project
+            vector_service = create_vector_storage_service(
+                user_id=user_id,
+                project_id=project_id,
+                embedding_service=self.embedding_service,
+                event_bus=self.event_bus,
+                logger=self.logger
             )
 
             # Generate embedding and store in ChromaDB
-            memory_id, embedding = await self.vector_service.store_memory_vector(
+            memory_id, embedding = await vector_service.store_memory_vector(
                 memory_log_id=memory_log_id,
                 memory_data=event_data["raw_data"],
                 user_id=user_id,

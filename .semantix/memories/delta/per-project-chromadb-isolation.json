@@ -1,0 +1,192 @@
+{
+  "task": "per-project-chromadb-isolation",
+  "agent": "claude-sonnet-4.5",
+  "date": "2025-11-13",
+  "component": "vector-storage-architecture",
+
+  "temporal_context": {
+    "date_iso": "2025-11-13",
+    "year": 2025,
+    "month": 11,
+    "week_number": 46,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "5: Complete architectural refactoring from singleton shared ChromaDB to dynamic per-project isolation - required changes across API dependencies, routes, event handlers, and batch processing. Implemented client caching, dynamic service creation, and nested directory structure while maintaining backward compatibility",
+    "business": "5: Critical for scalability and production readiness - prevents single massive database, enables per-project backups, improves performance, and provides true multi-tenant isolation. Essential for future growth with multiple users and projects",
+    "coordination": "4: Changes spanned 6 files across dependency injection, API routes, event handlers, app initialization, and batch scripts - required careful orchestration to maintain consistency while transitioning from singleton to dynamic architecture"
+  },
+
+  "files_modified": "6",
+  "files_touched": [
+    "src/api/dependencies/vector_storage.py",
+    "src/api/routes/memory_logs.py",
+    "src/events/internal_handlers.py",
+    "src/api/dependencies/event_handlers.py",
+    "src/api/app.py",
+    "test_event_flow.py"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "fix-chromadb-query-errors",
+    "batch-memory-processing-nested-chromadb-structure",
+    "chromadb-semantic-search-integration"
+  ],
+
+  "outcomes": {
+    "performance_impact": "Each project now has isolated database - prevents single-database bottleneck, faster queries on smaller datasets, enables horizontal scaling across storage volumes",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Single shared ChromaDB for all users/projects → Dynamic per-project isolated databases with client caching and nested directory structure (data/chromadb/{user_id}/{project_id}/)",
+
+  "root_cause": "Original architecture used singleton ChromaDBClient initialized at startup, creating single shared database for all users and projects. This design would not scale - one huge database, no per-project backups, performance degradation as data grows, and risk of corruption affecting all projects",
+
+  "solution": {
+    "approach": "Refactored from singleton to dynamic architecture - ChromaDB clients created on-demand per user/project with caching for performance. Each user/project combination gets isolated database at nested path. API routes and event handlers create VectorStorageService dynamically using user_id and project_id from requests/events",
+    "key_changes": [
+      "src/api/dependencies/vector_storage.py: Added get_chromadb_client(user_id, project_id) with client caching (_chromadb_clients dict). Replaced singleton _chromadb_client with dynamic creation. Added create_vector_storage_service() that creates isolated service per user/project. Updated initialize_vector_storage_service() to only validate dependencies, not create singleton",
+      "src/api/routes/memory_logs.py: Updated search_memory_logs endpoint - removed VectorStorageService dependency injection, added Request parameter, manually create VectorStorageService using create_vector_storage_service() with user_id/project_id from search_request body",
+      "src/events/internal_handlers.py: Updated MemoryLogStorageHandlers.__init__() to take embedding_service + event_bus instead of vector_service. Modified handle_memory_log_stored() to create VectorStorageService dynamically per event using create_vector_storage_service() with user_id/project_id from event_data",
+      "src/api/dependencies/event_handlers.py: Updated initialize_event_handlers() signature to take embedding_service instead of vector_service. Pass embedding_service + event_bus to MemoryLogStorageHandlers constructor",
+      "src/api/app.py: Updated lifespan startup to call initialize_vector_storage_service() for validation only (returns None now). Pass embedding_service to initialize_event_handlers() instead of vector_service. Added log message about per-project isolation enabled",
+      "test_event_flow.py: Updated ChromaDBClient initialization to pass user_id and project_id for nested path. Updated handlers initialization to pass embedding_service + event_bus. Added import and call to create_vector_storage_service() for verification and search tests"
+    ]
+  },
+
+  "validation": "Batch processing completed successfully - 9 vectors stored in nested structure at data/chromadb/9b1cdb78.../152ec016.../ with chroma.sqlite3 file. Semantic search working with 67.98% max similarity. Verified nested directory structure created correctly. Client caching working (returns cached client on subsequent calls)",
+
+  "gotchas": [
+    {
+      "issue": "Root-level chroma.sqlite3 file remained from old singleton architecture - attempted deletion failed with 'Device or resource busy' error because API server or old ChromaDBClient still had file handle open",
+      "solution": "Must stop API server before deleting root chroma.sqlite3. After server restart with new code, only nested structure will be used (data/chromadb/{user_id}/{project_id}/chroma.sqlite3). Legacy root file can be safely deleted when server stopped",
+      "category": "environment",
+      "severity": "medium"
+    },
+    {
+      "issue": "Event handlers needed to create VectorStorageService dynamically per event, but original design passed singleton vector_service in constructor - caused initialization errors when handlers tried to use non-existent singleton",
+      "solution": "Refactored MemoryLogStorageHandlers to accept embedding_service + event_bus instead of vector_service. In handle_memory_log_stored(), call create_vector_storage_service() with user_id/project_id from event_data to create isolated service per event",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "API route dependency injection expects Dependencies in function signature, but VectorStorageService now requires user_id/project_id which come from request body, not available at dependency injection time",
+      "solution": "Removed VectorStorageService from Depends(), added Request parameter, manually create service in route handler using create_vector_storage_service() with user_id/project_id extracted from search_request.user_id and search_request.project_id",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Batch script broke after removing singleton vector_repository - verification and search tests failed because they tried to use non-existent vector_repository.count() and vector_service.search_similar_memories()",
+      "solution": "Import create_vector_storage_service() in batch script, create verification_service dynamically using USER_ID and PROJECT_ID, use verification_service.count_memories() and verification_service.search_similar_memories() for tests",
+      "category": "testing",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "Architectural shift from singleton to per-resource isolation requires careful handling of dependency injection and initialization lifecycle. Cannot use traditional FastAPI Depends() when resource identity (user_id/project_id) comes from request body rather than path/query parameters. Client caching critical for performance when creating multiple instances. Event-driven systems need dynamic service creation per event to support multi-tenancy. Always verify legacy files cleaned up after architectural changes to avoid confusion about which system is active",
+
+  "tags": [
+    "chromadb",
+    "per-project-isolation",
+    "multi-tenancy",
+    "dynamic-client-creation",
+    "client-caching",
+    "nested-directory-structure",
+    "singleton-to-dynamic-refactoring",
+    "dependency-injection",
+    "architectural-refactoring",
+    "scalability",
+    "vector-storage",
+    "fastapi-dependencies"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "get_chromadb_client(user_id, project_id) - Returns cached ChromaDBClient or creates new one with nested path data/chromadb/{user_id}/{project_id}/",
+      "create_vector_storage_service(user_id, project_id, embedding_service, event_bus, logger) - Creates isolated VectorStorageService for specific user/project",
+      "_chromadb_clients: Dict[str, ChromaDBClient] - Global cache dictionary with cache_key = f'{user_id}:{project_id}'",
+      "Manual service creation in routes - vector_service = create_vector_storage_service(user_id=search_request.user_id, project_id=search_request.project_id, ...)",
+      "Dynamic service creation in event handlers - vector_service = create_vector_storage_service(user_id=event_data['user_id'], project_id=event_data['project_id'], ...)"
+    ],
+    "api_surface": [
+      "get_chromadb_client(user_id: str, project_id: str) -> ChromaDBClient - Get or create cached client for user/project",
+      "create_vector_storage_service(user_id: str, project_id: str, embedding_service: EmbeddingService, event_bus: EventBus, logger: Logger) -> VectorStorageService - Create isolated service",
+      "initialize_vector_storage_service(embedding_service: EmbeddingService, event_bus: EventBus, logger: Logger) -> None - Validate dependencies only, no singleton creation",
+      "search_memory_logs(search_request: MemoryLogSearchRequest, request: Request, logger: Logger) - Route handler creates service dynamically",
+      "MemoryLogStorageHandlers.__init__(db_session_factory, embedding_service: EmbeddingService, event_bus: EventBus, logger: Logger) - Constructor for per-project event handlers"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "initialize_vector_storage_service() now returns None instead of VectorStorageService - callers must not expect return value",
+      "MemoryLogStorageHandlers constructor signature changed - now takes embedding_service + event_bus instead of vector_service",
+      "initialize_event_handlers() signature changed - now takes embedding_service instead of vector_service",
+      "VectorStorageService is no longer singleton - must create per request/event using create_vector_storage_service()",
+      "ChromaDB database location changed from data/chromadb/ to data/chromadb/{user_id}/{project_id}/ - existing data in root requires migration or re-ingestion"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Add cleanup script to delete root-level chroma.sqlite3 and legacy collections when API server stopped",
+      "Implement ChromaDB client connection pooling limits to prevent too many open connections with many projects",
+      "Add API endpoint to list all user/project combinations with their database sizes for monitoring",
+      "Create admin tool to migrate existing root-level collections to nested structure if needed",
+      "Add database archival strategy - compress and move old project databases to cold storage",
+      "Implement database backup automation per project with configurable retention policies",
+      "Add metrics for ChromaDB client cache hit rate and total cached clients",
+      "Create database cleanup job to remove unused project databases after X days of inactivity",
+      "Add project-level database size limits and quota enforcement",
+      "Implement database replication for critical projects"
+    ],
+    "architecture_decisions": {
+      "per_project_isolation": "Chose nested directory structure (data/chromadb/{user_id}/{project_id}/) over collection-based isolation within single database. Benefits: true physical isolation, independent backups, better performance with smaller databases, easy cleanup/archival per project, horizontal scaling across volumes. Trade-off: more file system overhead, but acceptable given benefits",
+      "client_caching": "Implemented global dictionary cache (_chromadb_clients) for ChromaDBClient instances per user/project. Alternative considered: no caching (create new client per request) - rejected due to connection overhead and initialization cost. Cache never evicts to avoid re-initialization overhead - acceptable since number of active projects relatively small",
+      "dynamic_service_creation": "Create VectorStorageService per request/event rather than singleton. Alternative considered: service pool with checkout/checkin - rejected as overly complex. Dynamic creation acceptable with client caching underneath - repository and service creation is lightweight",
+      "manual_dependency_injection": "Routes manually create VectorStorageService rather than using FastAPI Depends(). Alternative considered: custom dependency with body parameter extraction - rejected as less explicit and harder to understand. Manual creation makes user_id/project_id dependency clear",
+      "event_handler_refactoring": "Event handlers create VectorStorageService per event rather than holding singleton reference. Ensures correct isolation when processing events from different users/projects in parallel. Alternative: pass user_id/project_id through handler chain - rejected as handlers would need modification",
+      "nested_path_format": "Used {user_id}/{project_id} directory structure rather than {project_id} only or hash-based. Provides clear organization by user, easy to locate project data, simple to implement user-level operations. Trade-off: exposes user_id in filesystem but acceptable for internal storage"
+    },
+    "extension_points": [
+      "src/api/dependencies/vector_storage.py - Add client eviction policy to _chromadb_clients cache if memory becomes concern - implement LRU or time-based eviction",
+      "src/api/dependencies/vector_storage.py - Add get_all_chromadb_clients() for admin operations that need to operate across all projects",
+      "src/infrastructure/chromadb/client.py - Add database size calculation method to ChromaDBClient for quota enforcement",
+      "src/api/routes/memory_logs.py - Add admin endpoint /admin/chromadb/databases to list all user/project databases with sizes",
+      "src/api/routes/memory_logs.py - Add endpoint /memory-logs/migrate to migrate data from root to nested structure",
+      "src/api/app.py - Add cleanup task in shutdown to close all cached ChromaDBClient connections gracefully",
+      "test_event_flow.py - Extend batch script to support processing multiple user/project combinations from config file"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "architectural-refactoring-with-validation",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "multi-tenant-isolation",
+    "quality_standards": "production-ready-scalability"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "per-project-isolation",
+      "multi-tenancy",
+      "vector-database-storage",
+      "semantic-memory-management"
+    ],
+    "technical_patterns": [
+      "dynamic-resource-creation",
+      "client-caching",
+      "nested-directory-structure",
+      "singleton-to-dynamic-migration",
+      "dependency-injection-refactoring"
+    ],
+    "integration_points": [
+      "chromadb-persistent-client",
+      "fastapi-request-lifecycle",
+      "event-driven-background-processing",
+      "google-embedding-api"
+    ]
+  }
+}

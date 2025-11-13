@@ -71,18 +71,23 @@ async def lifespan(app: FastAPI):
     # Initialize event handlers for memory log storage
     if embedding_service:
         from src.api.dependencies.event_handlers import initialize_event_handlers
-        from src.api.dependencies.vector_storage import get_vector_storage_service
+        from src.api.dependencies.vector_storage import initialize_vector_storage_service
         from src.api.dependencies.database import get_db_session
 
         try:
-            vector_service = get_vector_storage_service()
+            # Initialize vector storage dependencies (validates configuration)
+            initialize_vector_storage_service(
+                embedding_service, event_bus, logger
+            )
+
+            # Initialize event handlers with per-project isolation
             initialize_event_handlers(
                 event_bus=event_bus,
                 logger=logger,
                 db_session_factory=get_db_session,
-                vector_service=vector_service
+                embedding_service=embedding_service
             )
-            logger.info("Event-driven memory log storage initialized")
+            logger.info("Event-driven memory log storage initialized (per-project isolation)")
         except Exception as e:
             logger.error(f"Failed to initialize event handlers: {e}")
     else:

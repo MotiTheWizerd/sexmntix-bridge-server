@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from src.api.dependencies.database import get_db_session
 from src.api.dependencies.event_bus import get_event_bus
 from src.api.dependencies.logger import get_logger
-from src.api.dependencies.vector_storage import get_vector_storage_service
+from src.api.dependencies.vector_storage import create_vector_storage_service
 from src.api.schemas.memory_log import (
     MemoryLogCreate,
     MemoryLogResponse,
@@ -13,7 +13,6 @@ from src.api.schemas.memory_log import (
 )
 from src.database.repositories.memory_log_repository import MemoryLogRepository
 from src.modules.core import EventBus, Logger
-from src.modules.vector_storage import VectorStorageService
 
 router = APIRouter(prefix="/memory-logs", tags=["memory-logs"])
 
@@ -113,13 +112,14 @@ async def list_memory_logs(
 @router.post("/search", response_model=List[MemoryLogSearchResult])
 async def search_memory_logs(
     search_request: MemoryLogSearchRequest,
-    vector_service: VectorStorageService = Depends(get_vector_storage_service),
+    request: Request,
     logger: Logger = Depends(get_logger),
 ):
     """
     Semantic search for memory logs by meaning, not keywords.
 
     Uses vector embeddings to find similar memories based on semantic similarity.
+    Each user/project gets their own isolated ChromaDB database.
 
     Example:
         POST /memory-logs/search
@@ -143,6 +143,15 @@ async def search_memory_logs(
     )
 
     try:
+        # Create VectorStorageService for this specific user/project
+        vector_service = create_vector_storage_service(
+            user_id=search_request.user_id,
+            project_id=search_request.project_id,
+            embedding_service=request.app.state.embedding_service,
+            event_bus=request.app.state.event_bus,
+            logger=logger
+        )
+
         results = await vector_service.search_similar_memories(
             query=search_request.query,
             user_id=search_request.user_id,

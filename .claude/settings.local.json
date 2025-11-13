@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c:*)"
+      "Bash(python -c:*)",
+      "Bash(python test_event_flow.py:*)"
     ],
     "deny": [],
     "ask": []

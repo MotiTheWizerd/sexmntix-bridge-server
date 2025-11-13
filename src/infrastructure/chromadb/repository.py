@@ -197,6 +197,42 @@ class VectorRepository:
 
         return memory_id
 
+    def _sanitize_filter(self, where_filter: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """
+        Sanitize ChromaDB where filter by removing empty nested objects.
+
+        ChromaDB requires each filter key to have a valid operator expression.
+        Empty dicts {} are not valid and cause "Expected operator expression" errors.
+
+        Args:
+            where_filter: Optional metadata filter
+
+        Returns:
+            Sanitized filter or None if empty after cleaning
+
+        Example:
+            Input:  {"additionalProp1": {}, "component": "auth"}
+            Output: {"component": "auth"}
+
+            Input:  {"additionalProp1": {}}
+            Output: None
+        """
+        if where_filter is None:
+            return None
+
+        # Remove keys with empty dict values
+        cleaned_filter = {
+            key: value
+            for key, value in where_filter.items()
+            if not (isinstance(value, dict) and len(value) == 0)
+        }
+
+        # Return None if filter is empty after cleaning
+        if len(cleaned_filter) == 0:
+            return None
+
+        return cleaned_filter
+
     async def search(
         self,
         query_embedding: List[float],
@@ -225,6 +261,10 @@ class VectorRepository:
             }
         """
         collection = self.client.get_collection(user_id, project_id)
+
+        # Sanitize filter: remove empty nested objects and convert to None if fully empty
+        # ChromaDB rejects empty dicts {} as operator expressions
+        where_filter = self._sanitize_filter(where_filter)
 
         # Query ChromaDB
         results = collection.query(
