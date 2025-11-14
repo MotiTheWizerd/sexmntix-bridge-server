@@ -32,7 +32,17 @@ class EventType(str, Enum):
     
     # User events
     USER_STATUS_CHANGED = "user_status_changed"
-    
+
+    # XCP (MCP) Server events
+    XCP_SERVER_STARTED = "xcp_server_started"
+    XCP_SERVER_STOPPED = "xcp_server_stopped"
+    XCP_SESSION_STARTED = "xcp_session_started"
+    XCP_SESSION_ENDED = "xcp_session_ended"
+    XCP_TOOL_CALLED = "xcp_tool_called"
+    XCP_TOOL_COMPLETED = "xcp_tool_completed"
+    XCP_TOOL_FAILED = "xcp_tool_failed"
+    XCP_RESOURCE_ACCESSED = "xcp_resource_accessed"
+
     # Error events
     ERROR = "error"
 
@@ -86,3 +96,46 @@ class ErrorEvent(BaseModel):
     message: str
     code: Optional[str] = None
     details: Optional[Dict[str, Any]] = None
+
+
+class XCPToolEvent(BaseModel):
+    """Event for XCP tool calls"""
+    tool_name: str
+    user_id: int
+    project_id: str
+    arguments: Dict[str, Any]
+    session_id: Optional[str] = None
+
+
+class XCPToolCompletedEvent(BaseModel):
+    """Event for successful XCP tool completion"""
+    tool_name: str
+    user_id: int
+    project_id: str
+    result: Any
+    duration_ms: float
+    session_id: Optional[str] = None
+
+
+class XCPToolFailedEvent(BaseModel):
+    """Event for failed XCP tool execution"""
+    tool_name: str
+    user_id: int
+    project_id: str
+    error_message: str
+    error_code: Optional[str] = None
+    session_id: Optional[str] = None
+
+
+class XCPSessionEvent(BaseModel):
+    """Event for XCP session lifecycle"""
+    session_id: str
+    client_info: Optional[Dict[str, Any]] = None
+
+
+class XCPResourceEvent(BaseModel):
+    """Event for XCP resource access"""
+    resource_uri: str
+    user_id: int
+    project_id: str
+    session_id: Optional[str] = None

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python -c:*)",
       "Bash(python test_event_flow.py:*)",
-      "Bash(python -m alembic:*)"
+      "Bash(python -m alembic:*)",
+      "Bash(pip install:*)"
     ],
     "deny": [],
     "ask": []

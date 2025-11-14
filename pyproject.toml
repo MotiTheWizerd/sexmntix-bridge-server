@@ -6,7 +6,7 @@ authors = [
     {name = "Moti Elmakyes",email = "you@example.com"}
 ]
 readme = "README.md"
-requires-python = "^3.11"
+requires-python = ">=3.11"
 dependencies = [
     "fastapi (>=0.121.0,<0.122.0)",
     "uvicorn (>=0.38.0,<0.39.0)",
@@ -22,7 +22,8 @@ dependencies = [
     "aiohttp (>=3.13.2,<4.0.0)",
     "email-validator (>=2.3.0,<3.0.0)",
     "chromadb (>=0.4.0,<1.0.0)",
-    "httpx (>=0.27.0,<1.0.0)"
+    "httpx (>=0.27.0,<1.0.0)",
+    "mcp (>=1.1.0,<2.0.0)"
 ]
 
 
