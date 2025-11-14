@@ -55,10 +55,19 @@ class MemoryLogStorageHandlers:
             event_data: Event payload containing memory log data and ID
         """
         try:
+            self.logger.info(
+                f"[EVENT_HANDLER] Received memory_log.stored event with keys: {list(event_data.keys())}"
+            )
+
             # Skip if user_id or project_id not provided
             user_id = event_data.get("user_id")
             project_id = event_data.get("project_id")
             memory_log_id = event_data.get("memory_log_id")
+
+            self.logger.info(
+                f"[EVENT_HANDLER] Processing memory_log_id={memory_log_id}, "
+                f"user_id={user_id}, project_id={project_id}"
+            )
 
             if not user_id or not project_id:
                 self.logger.warning(
@@ -72,9 +81,23 @@ class MemoryLogStorageHandlers:
                 )
                 return
 
+            raw_data = event_data.get("raw_data", {})
+            content = raw_data.get("content", "")
+            content_preview = content[:100] if content else "NO CONTENT"
+
             self.logger.info(
-                f"Generating and storing vector for memory_log {memory_log_id} "
+                f"[EVENT_HANDLER] Generating and storing vector for memory_log {memory_log_id} "
                 f"(user: {user_id}, project: {project_id})"
+            )
+            self.logger.info(
+                f"[EVENT_HANDLER] raw_data keys: {list(raw_data.keys())}"
+            )
+            self.logger.info(
+                f"[EVENT_HANDLER] content field - exists: {bool(content)}, "
+                f"type: {type(content).__name__}, length: {len(content) if content else 0}"
+            )
+            self.logger.info(
+                f"[EVENT_HANDLER] content preview: {content_preview}"
             )
 
             # Create VectorStorageService for this specific user/project
@@ -87,12 +110,14 @@ class MemoryLogStorageHandlers:
             )
 
             # Generate embedding and store in ChromaDB
+            self.logger.info(f"[EVENT_HANDLER] Calling store_memory_vector...")
             memory_id, embedding = await vector_service.store_memory_vector(
                 memory_log_id=memory_log_id,
-                memory_data=event_data["raw_data"],
+                memory_data=raw_data,
                 user_id=user_id,
                 project_id=project_id
             )
+            self.logger.info(f"[EVENT_HANDLER] Vector stored with memory_id: {memory_id}")
 
             # Update PostgreSQL with embedding (optional - may not exist in DB)
             try:

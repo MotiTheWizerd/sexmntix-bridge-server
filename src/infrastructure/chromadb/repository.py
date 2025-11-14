@@ -17,6 +17,7 @@ from datetime import datetime
 from chromadb import Collection
 
 from .client import ChromaDBClient
+from src.modules.core.telemetry.logger import get_logger
 
 
 class SearchResult:
@@ -94,6 +95,7 @@ class VectorRepository:
             client: ChromaDB client instance
         """
         self.client = client
+        self.logger = get_logger(__name__)
 
     def _generate_memory_id(self, memory_log_id: int, user_id: str, project_id: str) -> str:
         """
@@ -110,6 +112,49 @@ class VectorRepository:
             Unique memory ID string
         """
         return f"memory_{memory_log_id}_{user_id}_{project_id}"
+
+    @staticmethod
+    def _convert_to_timestamp(value: Any) -> Optional[int]:
+        """
+        Convert date value to Unix timestamp for ChromaDB storage.
+
+        ChromaDB comparison operators ($gte, $lte) require numeric values.
+
+        Args:
+            value: Date value (datetime object, ISO string, or timestamp)
+
+        Returns:
+            Unix timestamp (seconds since epoch) or None if invalid
+
+        Examples:
+            datetime(2025, 10, 14) -> 1728864000
+            "2025-10-14T00:00:00" -> 1728864000
+            "2025-10-14" -> 1728864000
+            1728864000 -> 1728864000
+        """
+        if value is None or value == "":
+            return None
+
+        # Already a timestamp (int or float)
+        if isinstance(value, (int, float)):
+            return int(value)
+
+        # datetime object
+        if isinstance(value, datetime):
+            return int(value.timestamp())
+
+        # String (ISO format)
+        if isinstance(value, str):
+            try:
+                # Parse ISO string to datetime
+                if "T" not in value:
+                    value = f"{value}T00:00:00"
+                dt = datetime.fromisoformat(value)
+                return int(dt.timestamp())
+            except (ValueError, AttributeError):
+                return None
+
+        return None
 
     def _prepare_metadata(self, memory_log: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -128,7 +173,7 @@ class VectorRepository:
             "task": memory_log.get("task", ""),
             "agent": memory_log.get("agent", ""),
             "component": memory_log.get("component", ""),
-            "date": memory_log.get("date", ""),
+            "date": self._convert_to_timestamp(memory_log.get("date")),
         }
 
         # Handle tags (list -> comma-separated string + individual fields)
@@ -187,6 +232,7 @@ class VectorRepository:
 
         # Extract essential fields for document storage including gotchas
         document_summary = {
+            "content": memory_data.get("content", ""),  # Main content from store_memory
             "task": memory_data.get("task", ""),
             "summary": memory_data.get("summary", ""),
             "component": memory_data.get("component", ""),
@@ -197,6 +243,21 @@ class VectorRepository:
             "solution": memory_data.get("solution", {}),  # Full solution object
             "files_touched": memory_data.get("files_touched", []),  # Files modified
         }
+
+        content_preview = document_summary.get('content', '')[:100]
+        self.logger.info(
+            f"[VECTOR_REPO] add_memory - memory_id={memory_id}, user_id={user_id}, project_id={project_id}"
+        )
+        self.logger.info(
+            f"[VECTOR_REPO] add_memory - memory_data keys: {list(memory_data.keys())}"
+        )
+        self.logger.info(
+            f"[VECTOR_REPO] add_memory - content exists: {bool(document_summary.get('content'))}, "
+            f"length: {len(document_summary.get('content', ''))}, preview: {content_preview}"
+        )
+        self.logger.debug(
+            f"[VECTOR_REPO] add_memory - document_summary keys: {list(document_summary.keys())}"
+        )
 
         # Convert document to JSON string
         document = json.dumps(document_summary, default=str)
@@ -211,7 +272,11 @@ class VectorRepository:
 
         # Force HNSW index rebuild for immediate searchability
         # See: chromadb-hnsw-index-immediate-persistence-fix
-        collection.count()
+        new_count = collection.count()
+
+        self.logger.info(
+            f"[VECTOR_REPO] add_memory - Successfully stored memory. Collection count: {new_count}"
+        )
 
         return memory_id
 
@@ -241,10 +306,15 @@ class VectorRepository:
 
     def _sanitize_filter(self, where_filter: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """
-        Sanitize ChromaDB where filter by removing empty nested objects.
+        Sanitize ChromaDB where filter by removing empty nested objects and transforming date filters.
 
         ChromaDB requires each filter key to have a valid operator expression.
         Empty dicts {} are not valid and cause "Expected operator expression" errors.
+
+        Also handles date range filtering (dates are converted to Unix timestamps):
+        - 'date' field -> {'date': {'$gte': timestamp}}
+        - 'end_date' field -> {'date': {'$lte': timestamp}}
+        - Both combined with $and
 
         Args:
             where_filter: Optional metadata filter
@@ -255,6 +325,9 @@ class VectorRepository:
         Example:
             Input:  {"additionalProp1": {}, "component": "auth"}
             Output: {"component": "auth"}
+
+            Input:  {"date": "2025-10-14", "end_date": "2025-11-13"}
+            Output: {"$and": [{"date": {"$gte": 1728864000}}, {"date": {"$lte": 1731542399}}]}
 
             Input:  {"additionalProp1": {}}
             Output: None
@@ -269,11 +342,53 @@ class VectorRepository:
             if not (isinstance(value, dict) and len(value) == 0)
         }
 
+        # Handle date range filtering
+        date_filters = []
+        other_filters = {}
+
+        for key, value in cleaned_filter.items():
+            if key == "date":
+                if isinstance(value, dict):
+                    # Date already has operators like {"$gte": "2025-10-14", "$lte": "2025-11-13"}
+                    # Convert all operator values to timestamps
+                    converted_ops = {}
+                    for op, date_val in value.items():
+                        timestamp = self._convert_to_timestamp(date_val)
+                        if timestamp is not None:
+                            converted_ops[op] = timestamp
+                    if converted_ops:
+                        other_filters["date"] = converted_ops
+                else:
+                    # Transform plain date value to $gte operator with timestamp conversion
+                    timestamp = self._convert_to_timestamp(value)
+                    if timestamp is not None:
+                        date_filters.append({"date": {"$gte": timestamp}})
+            elif key == "end_date":
+                # Transform end_date to $lte operator on date field with timestamp conversion
+                timestamp = self._convert_to_timestamp(value)
+                if timestamp is not None:
+                    date_filters.append({"date": {"$lte": timestamp}})
+            else:
+                other_filters[key] = value
+
+        # Build final filter
+        if date_filters:
+            if len(date_filters) == 1:
+                date_filter = date_filters[0]
+            else:
+                date_filter = {"$and": date_filters}
+
+            # Combine with other filters
+            if other_filters:
+                return {"$and": [other_filters, date_filter]}
+            else:
+                return date_filter
+
         # Return None if filter is empty after cleaning
-        if len(cleaned_filter) == 0:
+        if len(other_filters) == 0:
             return None
 
-        return cleaned_filter
+        return other_filters
 
     async def search(
         self,
@@ -303,22 +418,33 @@ class VectorRepository:
             }
         """
         collection = self.client.get_collection(user_id, project_id)
-        print(f"[DEBUG] Collection name: {collection.name}, count: {collection.count()}")
+        collection_count = collection.count()
+
+        self.logger.info(
+            f"[VECTOR_REPO] search - user_id={user_id}, project_id={project_id}, "
+            f"collection={collection.name}, count={collection_count}, limit={limit}"
+        )
 
         # Sanitize filter: remove empty nested objects and convert to None if fully empty
         # ChromaDB rejects empty dicts {} as operator expressions
         where_filter = self._sanitize_filter(where_filter)
-        print(f"[DEBUG] Sanitized where_filter: {where_filter}")
+        self.logger.debug(f"[VECTOR_REPO] search - Sanitized where_filter: {where_filter}")
 
         # Query ChromaDB
-        print(f"[DEBUG] Querying with limit={limit}, embedding dims={len(query_embedding)}")
+        self.logger.info(
+            f"[VECTOR_REPO] search - Querying with limit={limit}, embedding_dims={len(query_embedding)}"
+        )
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=limit,
             where=where_filter,
             include=["documents", "metadatas", "distances"]
         )
-        print(f"[DEBUG] Raw ChromaDB results - ids: {len(results.get('ids', [[]])[0]) if results.get('ids') else 0}")
+
+        results_count = len(results.get('ids', [[]])[0]) if results.get('ids') else 0
+        self.logger.info(
+            f"[VECTOR_REPO] search - ChromaDB returned {results_count} results"
+        )
 
         # Convert to SearchResult objects
         search_results = []

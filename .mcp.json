@@ -1,12 +1,10 @@
 {
   "mcpServers": {
     "semantic-bridge": {
-      "command": "python",
-      "args": ["-m", "src.modules.xcp_server"],
+      "command": "poetry",
+      "args": ["run", "python", "-m", "src.modules.xcp_server"],
       "cwd": "c:/projects/semantic-bridge/sexmntix-bridge-server",
-      "env": {
-        "PYTHONPATH": "c:/projects/semantic-bridge/sexmntix-bridge-server"
-      }
+      "env": {}
     }
   }
 }

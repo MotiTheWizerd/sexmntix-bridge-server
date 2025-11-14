@@ -150,11 +150,13 @@ class StoreMemoryTool(BaseTool):
                 raw_data.update(metadata)
 
             self.logger.info(
-                f"Storing memory",
+                f"[STORE_MEMORY] Storing memory with content: {content[:100]}...",
                 extra={
                     "task": task,
                     "user_id": user_id,
-                    "project_id": project_id
+                    "project_id": project_id,
+                    "has_content": bool(content),
+                    "raw_data_keys": list(raw_data.keys())
                 }
             )
 
@@ -184,10 +186,14 @@ class StoreMemoryTool(BaseTool):
                     "project_id": project_id,
                 }
 
+                self.logger.info(
+                    f"[STORE_MEMORY] Publishing memory_log.stored event with data: {list(event_data.keys())}"
+                )
+
                 self.event_bus.publish("memory_log.stored", event_data)
 
                 self.logger.info(
-                    f"Memory stored successfully, vector storage scheduled (id: {memory_log.id})"
+                    f"[STORE_MEMORY] Memory stored successfully, vector storage scheduled (id: {memory_log.id})"
                 )
 
                 return ToolResult(

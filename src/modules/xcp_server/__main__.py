@@ -2,30 +2,35 @@
 XCP Server Standalone Entry Point
 
 Run this module to start the XCP/MCP server as a standalone process:
-    python -m src.modules.xcp_server
+    poetry run python -m src.modules.xcp_server
 
-This is the recommended way to run the XCP server for use with Claude Desktop
-or other MCP clients.
+This is the recommended way to run the XCP server for use with Claude Code or Claude Desktop.
 """
 
 import asyncio
 import sys
-import logging
+import os
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
 
-from src.modules.core.event_bus.event_bus import EventBus
-from src.modules.core.telemetry.logger import setup_logger
-from src.modules.embeddings import EmbeddingService
-from src.modules.embeddings.providers.google import GoogleEmbeddingProvider
-from src.modules.embeddings.models.config import EmbeddingConfig
-from src.modules.embeddings.caching import EmbeddingCache
-from src.modules.vector_storage.service import VectorStorageService
+load_dotenv()
+
+# Import after loading env
+from src.modules.core import EventBus, Logger
+from src.database import DatabaseManager
+from src.modules.embeddings import (
+    EmbeddingService,
+    GoogleEmbeddingProvider,
+    ProviderConfig,
+    EmbeddingCache,
+)
 from src.infrastructure.chromadb.client import ChromaDBClient
 from src.infrastructure.chromadb.repository import VectorRepository
-from src.database.connection import DatabaseConnectionManager
+from src.modules.vector_storage.service import VectorStorageService
 from src.modules.xcp_server import XCPServerService
 from src.modules.xcp_server.models.config import load_xcp_config
 from src.modules.xcp_server.exceptions import XCPServerNotEnabledError
+from src.api.dependencies.event_handlers import initialize_event_handlers
 
 
 async def main():
@@ -35,10 +40,7 @@ async def main():
     config = load_xcp_config()
 
     # Setup logging
-    logger = setup_logger(
-        name="xcp_server",
-        log_level=config.log_level.value.upper()
-    )
+    logger = Logger("xcp_server")
 
     logger.info("=" * 60)
     logger.info(f"Starting {config.server_name} v{config.server_version}")
@@ -50,34 +52,50 @@ async def main():
         sys.exit(1)
 
     # Initialize Event Bus
-    event_bus = EventBus(logger)
+    event_bus = EventBus()
     logger.info("Event bus initialized")
 
-    # Initialize Database Connection Manager
-    db_manager = DatabaseConnectionManager(logger)
-    await db_manager.initialize()
+    # Initialize Database
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        logger.error("DATABASE_URL not set in environment")
+        sys.exit(1)
+
+    db_manager = DatabaseManager(database_url)
     logger.info("Database connection initialized")
 
-    # Create database session factory
+    # Create async context manager factory for database sessions
     @asynccontextmanager
     async def db_session_factory():
-        async with db_manager.get_session() as session:
+        async for session in db_manager.get_session():
             yield session
 
     # Initialize Embedding Service
+    google_api_key = os.getenv("GOOGLE_API_KEY")
+    if not google_api_key:
+        logger.error("GOOGLE_API_KEY not set in environment")
+        await db_manager.close()
+        sys.exit(1)
+
     try:
-        embedding_config = EmbeddingConfig()
+        embedding_config = ProviderConfig(
+            provider_name="google",
+            model_name=os.getenv("EMBEDDING_MODEL", "models/text-embedding-004"),
+            api_key=google_api_key,
+            timeout_seconds=float(os.getenv("EMBEDDING_TIMEOUT", "30.0")),
+            max_retries=int(os.getenv("EMBEDDING_MAX_RETRIES", "3"))
+        )
         embedding_provider = GoogleEmbeddingProvider(embedding_config)
         embedding_cache = EmbeddingCache(
-            max_size=embedding_config.cache_size,
-            ttl_hours=embedding_config.cache_ttl_hours
+            max_size=int(os.getenv("EMBEDDING_CACHE_SIZE", "1000")),
+            ttl_hours=int(os.getenv("EMBEDDING_CACHE_TTL_HOURS", "24"))
         )
         embedding_service = EmbeddingService(
             event_bus=event_bus,
             logger=logger,
             provider=embedding_provider,
             cache=embedding_cache,
-            cache_enabled=embedding_config.cache_enabled
+            cache_enabled=os.getenv("EMBEDDING_CACHE_ENABLED", "true").lower() == "true"
         )
         logger.info("Embedding service initialized")
     except Exception as e:
@@ -87,8 +105,9 @@ async def main():
 
     # Initialize ChromaDB
     try:
-        chromadb_client = ChromaDBClient(logger)
-        vector_repository = VectorRepository(chromadb_client, logger)
+        chromadb_path = os.getenv("CHROMADB_PATH", "./data/chromadb")
+        chromadb_client = ChromaDBClient(storage_path=chromadb_path)
+        vector_repository = VectorRepository(chromadb_client)
         logger.info("ChromaDB client initialized")
     except Exception as e:
         logger.error(f"Failed to initialize ChromaDB: {e}")
@@ -103,6 +122,15 @@ async def main():
         vector_repository=vector_repository
     )
     logger.info("Vector storage service initialized")
+
+    # Initialize event handlers for background vector storage
+    initialize_event_handlers(
+        event_bus=event_bus,
+        logger=logger,
+        db_session_factory=db_session_factory,
+        embedding_service=embedding_service
+    )
+    logger.info("Event handlers initialized for background vector storage")
 
     # Initialize XCP Server Service
     xcp_service = XCPServerService(
@@ -145,7 +173,7 @@ async def main():
         sys.exit(1)
 
     except Exception as e:
-        logger.exception(f"Server error: {e}")
+        logger.error(f"Server error: {e}", exc_info=e)
         sys.exit(1)
 
     finally:

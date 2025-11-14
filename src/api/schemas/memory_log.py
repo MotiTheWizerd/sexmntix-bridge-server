@@ -43,8 +43,8 @@ class MemoryLogResponse(BaseModel):
 
 class MemoryLogSearchRequest(BaseModel):
     query: str
-    user_id: str
-    project_id: str
+    user_id: Optional[str] = "1"  # Default user_id if not provided
+    project_id: Optional[str] = "default"  # Default project_id if not provided
     limit: Optional[int] = 10
     min_similarity: Optional[float] = 0.0
     filters: Optional[Dict[str, Any]] = None

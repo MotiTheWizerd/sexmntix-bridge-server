@@ -76,19 +76,34 @@ class MemoryStorageHandler:
             InvalidTextError: If searchable text is empty
             ProviderError: If embedding generation fails
         """
+        text_preview = searchable_text[:100] if searchable_text else "EMPTY"
         self.logger.info(
-            f"Generating embedding for memory_log {memory_log_id} "
+            f"[STORAGE_HANDLER] Generating embedding for memory_log {memory_log_id} "
             f"(user: {user_id}, project: {project_id})"
+        )
+        self.logger.info(
+            f"[STORAGE_HANDLER] Searchable text - length: {len(searchable_text)}, preview: {text_preview}"
         )
 
         # Generate embedding
-        embedding_response = await self.embedding_service.generate_embedding(
-            text=searchable_text
-        )
+        try:
+            embedding_response = await self.embedding_service.generate_embedding(
+                text=searchable_text
+            )
+            self.logger.info(
+                f"[STORAGE_HANDLER] Embedding generated successfully - "
+                f"dimensions: {len(embedding_response.embedding)}, cached: {embedding_response.cached}"
+            )
+        except Exception as e:
+            self.logger.error(
+                f"[STORAGE_HANDLER] Embedding generation failed for memory_log {memory_log_id}: {e}"
+            )
+            raise
 
         embedding = embedding_response.embedding
 
         # Store in ChromaDB
+        self.logger.info(f"[STORAGE_HANDLER] Storing vector in ChromaDB...")
         memory_id = await self.vector_repository.add_memory(
             memory_log_id=memory_log_id,
             embedding=embedding,
@@ -96,6 +111,7 @@ class MemoryStorageHandler:
             user_id=user_id,
             project_id=project_id
         )
+        self.logger.info(f"[STORAGE_HANDLER] Vector stored successfully with memory_id: {memory_id}")
 
         # Publish event
         self.event_bus.publish("vector.stored", {
@@ -108,7 +124,7 @@ class MemoryStorageHandler:
         })
 
         self.logger.info(
-            f"Vector stored: {memory_id} "
+            f"[STORAGE_HANDLER] Complete - Vector stored: {memory_id} "
             f"(dim: {len(embedding)}, cached: {embedding_response.cached})"
         )
 

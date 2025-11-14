@@ -9,7 +9,8 @@ from src.modules.xcp_server.tools.base import BaseTool, ToolDefinition, ToolPara
 from src.modules.xcp_server.models.config import ToolContext
 from src.modules.xcp_server.exceptions import XCPToolExecutionError
 from src.modules.core import EventBus, Logger
-from src.modules.vector_storage.service import VectorStorageService
+from src.modules.embeddings import EmbeddingService
+from src.api.dependencies.vector_storage import create_vector_storage_service
 
 
 class SemanticSearchTool(BaseTool):
@@ -24,17 +25,17 @@ class SemanticSearchTool(BaseTool):
         self,
         event_bus: EventBus,
         logger: Logger,
-        vector_storage_service: VectorStorageService
+        embedding_service: EmbeddingService
     ):
         """Initialize semantic search tool
 
         Args:
             event_bus: Event bus for publishing events
             logger: Logger instance
-            vector_storage_service: Service for vector storage operations
+            embedding_service: Service for generating embeddings
         """
         super().__init__(event_bus, logger)
-        self.vector_storage_service = vector_storage_service
+        self.embedding_service = embedding_service
 
     def get_definition(self) -> ToolDefinition:
         """Get tool definition for MCP registration
@@ -126,8 +127,17 @@ class SemanticSearchTool(BaseTool):
                 }
             )
 
+            # Create per-user/project vector storage service
+            vector_service = create_vector_storage_service(
+                user_id=user_id,
+                project_id=project_id,
+                embedding_service=self.embedding_service,
+                event_bus=self.event_bus,
+                logger=self.logger
+            )
+
             # Perform semantic search
-            results = await self.vector_storage_service.search_similar_memories(
+            results = await vector_service.search_similar_memories(
                 query=query,
                 user_id=user_id,
                 project_id=project_id,
@@ -138,11 +148,14 @@ class SemanticSearchTool(BaseTool):
             # Format results for better readability
             formatted_results = []
             for result in results:
+                # Get content from document, not metadata
+                document = result.get("document", {})
                 formatted_results.append({
                     "memory_id": result.get("id"),
-                    "content": result.get("metadata", {}).get("content", ""),
+                    "content": document.get("content", ""),
                     "similarity_score": round(result.get("distance", 0.0), 4),
                     "metadata": result.get("metadata", {}),
+                    "document": document,  # Include full document for reference
                     "created_at": result.get("metadata", {}).get("created_at")
                 })
 

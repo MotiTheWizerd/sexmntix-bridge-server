@@ -15,6 +15,7 @@ from typing import Optional
 import chromadb
 from chromadb.config import Settings
 from chromadb import Collection
+from src.modules.core.telemetry.logger import get_logger
 
 
 class ChromaDBClient:
@@ -40,6 +41,7 @@ class ChromaDBClient:
         self.base_storage_path = storage_path
         self.default_user_id = user_id
         self.default_project_id = project_id
+        self.logger = get_logger(__name__)
 
         # Build storage path with nesting if user_id/project_id provided
         if user_id and project_id:
@@ -128,8 +130,13 @@ class ChromaDBClient:
         # Create collection name using hash
         collection_name = self._create_collection_name(user_id, project_id, collection_prefix)
 
+        self.logger.info(
+            f"[CHROMADB_CLIENT] Getting collection: {collection_name} for user_id={user_id}, project_id={project_id}"
+        )
+
         # Return cached collection if available
         if collection_name in self._collections:
+            self.logger.debug(f"[CHROMADB_CLIENT] Returning cached collection: {collection_name}")
             return self._collections[collection_name]
 
         # Create or get collection
@@ -140,6 +147,8 @@ class ChromaDBClient:
 
         # Cache for future use
         self._collections[collection_name] = collection
+
+        self.logger.info(f"[CHROMADB_CLIENT] Collection created/retrieved: {collection_name}, item count: {collection.count()}")
 
         return collection
 

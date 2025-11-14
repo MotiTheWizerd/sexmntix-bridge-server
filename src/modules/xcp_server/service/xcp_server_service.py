@@ -99,7 +99,7 @@ class XCPServerService(BaseService):
         semantic_search_tool = SemanticSearchTool(
             event_bus=self.event_bus,
             logger=self.logger,
-            vector_storage_service=self.vector_storage_service
+            embedding_service=self.embedding_service
         )
         tools.append(semantic_search_tool)
 

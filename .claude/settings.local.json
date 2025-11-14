@@ -4,9 +4,15 @@
       "Bash(python -c:*)",
       "Bash(python test_event_flow.py:*)",
       "Bash(python -m alembic:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "mcp__semantic-bridge__semantic_search",
+      "Bash(python -m src.modules.xcp_server:*)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "semantic-bridge"
+  ]
 }
