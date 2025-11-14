@@ -160,7 +160,18 @@ class ChromaDBClient:
             List of collection names
         """
         collections = self.client.list_collections()
-        return [col.name for col in collections]
+
+        # Handle empty collections list
+        if not collections:
+            return []
+
+        # ChromaDB v0.6.0+ returns collection names (strings) directly
+        # Earlier versions returned collection objects with .name attribute
+        if isinstance(collections[0], str):
+            return collections
+        else:
+            # Fallback for older versions
+            return [col.name for col in collections]
 
     def delete_collection(
         self,
