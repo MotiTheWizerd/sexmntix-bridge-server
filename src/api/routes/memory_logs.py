@@ -152,12 +152,31 @@ async def search_memory_logs(
             logger=logger
         )
 
+        # Build combined filter with tag if provided
+        combined_filter = search_request.filters or {}
+        if search_request.tag:
+            # Add tag filter using $or across tag_0 through tag_4
+            tag_filter = {
+                "$or": [
+                    {"tag_0": search_request.tag},
+                    {"tag_1": search_request.tag},
+                    {"tag_2": search_request.tag},
+                    {"tag_3": search_request.tag},
+                    {"tag_4": search_request.tag}
+                ]
+            }
+            # Combine with existing filters using $and
+            if combined_filter:
+                combined_filter = {"$and": [combined_filter, tag_filter]}
+            else:
+                combined_filter = tag_filter
+
         results = await vector_service.search_similar_memories(
             query=search_request.query,
             user_id=search_request.user_id,
             project_id=search_request.project_id,
             limit=search_request.limit,
-            where_filter=search_request.filters,
+            where_filter=combined_filter,
             min_similarity=search_request.min_similarity
         )
 

@@ -37,8 +37,8 @@ from src.events.internal_handlers import MemoryLogStorageHandlers
 from src.api.dependencies.database import get_db_session
 
 # Configuration
-USER_ID = "9b1cdb78-df73-4ae4-8f80-41be3c0fdc1e"
-PROJECT_ID = "152ec016-2c28-4609-ab1b-dff831b3ba96"
+USER_ID = "1234"
+PROJECT_ID = "5678"
 DELTA_DIR = Path(".semantix/memories/delta")
 PROCESSED_DIR = Path(".semantix/memories/processed")
 ERRORS_DIR = Path(".semantix/memories/errors")

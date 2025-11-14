@@ -101,8 +101,16 @@ class SimilaritySearchHandler:
         )
 
         query_embedding = embedding_response.embedding
+        self.logger.info(
+            f"Generated query embedding: {len(query_embedding)} dimensions, "
+            f"cached: {embedding_response.cached}"
+        )
 
         # Search ChromaDB
+        self.logger.info(
+            f"Searching ChromaDB for user_id={user_id}, project_id={project_id}, "
+            f"limit={limit}, where_filter={where_filter}"
+        )
         search_results = await self.vector_repository.search(
             query_embedding=query_embedding,
             user_id=user_id,
@@ -110,6 +118,7 @@ class SimilaritySearchHandler:
             limit=limit,
             where_filter=where_filter
         )
+        self.logger.info(f"ChromaDB returned {len(search_results)} results before filtering")
 
         # Filter by minimum similarity
         filtered_results = self.similarity_filter.filter_by_minimum_similarity(

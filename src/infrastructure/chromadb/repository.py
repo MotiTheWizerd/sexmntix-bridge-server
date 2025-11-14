@@ -131,9 +131,14 @@ class VectorRepository:
             "date": memory_log.get("date", ""),
         }
 
-        # Handle tags (list -> comma-separated string)
+        # Handle tags (list -> comma-separated string + individual fields)
         if "tags" in memory_log and isinstance(memory_log["tags"], list):
-            metadata["tags"] = ",".join(memory_log["tags"])
+            tags_list = memory_log["tags"]
+            metadata["tags"] = ",".join(tags_list)  # Keep combined for display
+
+            # Store first 5 tags individually for filtering
+            for i, tag in enumerate(tags_list[:5]):
+                metadata[f"tag_{i}"] = tag
 
         # Handle temporal context
         if "temporal_context" in memory_log:
@@ -180,8 +185,21 @@ class VectorRepository:
         # Prepare metadata for filtering
         metadata = self._prepare_metadata(memory_data)
 
+        # Extract essential fields for document storage including gotchas
+        document_summary = {
+            "task": memory_data.get("task", ""),
+            "summary": memory_data.get("summary", ""),
+            "component": memory_data.get("component", ""),
+            "tags": memory_data.get("tags", [])[:10],  # Limit tags
+            "gotchas": memory_data.get("gotchas", []),  # Important: issue/solution pairs
+            "lesson": memory_data.get("lesson", ""),
+            "root_cause": memory_data.get("root_cause", ""),
+            "solution": memory_data.get("solution", {}),  # Full solution object
+            "files_touched": memory_data.get("files_touched", []),  # Files modified
+        }
+
         # Convert document to JSON string
-        document = json.dumps(memory_data, default=str)
+        document = json.dumps(document_summary, default=str)
 
         # Add to ChromaDB
         collection.add(
@@ -196,6 +214,30 @@ class VectorRepository:
         collection.count()
 
         return memory_id
+
+    def _build_tag_filter(self, tag: str) -> Dict[str, Any]:
+        """
+        Build a filter to match any of the individual tag fields.
+
+        Args:
+            tag: Tag value to search for
+
+        Returns:
+            ChromaDB $or filter matching tag_0 through tag_4
+
+        Example:
+            Input: "chromadb"
+            Output: {"$or": [{"tag_0": "chromadb"}, {"tag_1": "chromadb"}, ...]}
+        """
+        return {
+            "$or": [
+                {"tag_0": tag},
+                {"tag_1": tag},
+                {"tag_2": tag},
+                {"tag_3": tag},
+                {"tag_4": tag}
+            ]
+        }
 
     def _sanitize_filter(self, where_filter: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """
@@ -261,18 +303,22 @@ class VectorRepository:
             }
         """
         collection = self.client.get_collection(user_id, project_id)
+        print(f"[DEBUG] Collection name: {collection.name}, count: {collection.count()}")
 
         # Sanitize filter: remove empty nested objects and convert to None if fully empty
         # ChromaDB rejects empty dicts {} as operator expressions
         where_filter = self._sanitize_filter(where_filter)
+        print(f"[DEBUG] Sanitized where_filter: {where_filter}")
 
         # Query ChromaDB
+        print(f"[DEBUG] Querying with limit={limit}, embedding dims={len(query_embedding)}")
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=limit,
             where=where_filter,
             include=["documents", "metadatas", "distances"]
         )
+        print(f"[DEBUG] Raw ChromaDB results - ids: {len(results.get('ids', [[]])[0]) if results.get('ids') else 0}")
 
         # Convert to SearchResult objects
         search_results = []

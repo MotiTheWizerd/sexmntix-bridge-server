@@ -48,6 +48,7 @@ class MemoryLogSearchRequest(BaseModel):
     limit: Optional[int] = 10
     min_similarity: Optional[float] = 0.0
     filters: Optional[Dict[str, Any]] = None
+    tag: Optional[str] = None  # Filter by individual tag (e.g., "chromadb")
 
 
 class MemoryLogSearchResult(BaseModel):
