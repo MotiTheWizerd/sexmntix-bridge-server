@@ -19,6 +19,8 @@ from src.infrastructure.chromadb.repository import VectorRepository
 from src.modules.vector_storage.text_extraction import MemoryTextExtractor
 from src.modules.vector_storage.storage import MemoryStorageHandler
 from src.modules.vector_storage.search import SimilaritySearchHandler, SimilarityFilter
+from src.modules.vector_storage.config import VectorStorageConfig, DEFAULT_CONFIG
+from src.modules.vector_storage.models import MemorySearchRequest, MemorySearchResult
 
 
 class VectorStorageService(BaseService):

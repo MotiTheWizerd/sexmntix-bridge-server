@@ -24,7 +24,6 @@ class MemoryTextExtractor:
     - root_cause: Root cause description
     - gotchas: Issue/solution pairs (up to 5)
     - lesson: Key lesson learned
-    - files_touched: File paths (up to 10)
     """
 
     def __init__(self, logger: Logger):
@@ -49,7 +48,6 @@ class MemoryTextExtractor:
         - root_cause: Root cause description
         - gotchas: Issue/solution pairs for important edge cases
         - lesson: Key lesson learned
-        - files_touched: File paths (up to 10)
 
         Args:
             memory_data: Memory log data dictionary
@@ -102,10 +100,6 @@ class MemoryTextExtractor:
         # Lesson - key takeaway that summarizes learning
         if "lesson" in memory_data:
             parts.append(memory_data["lesson"])
-
-        # Files touched - useful for finding changes by filename
-        if "files_touched" in memory_data and isinstance(memory_data["files_touched"], list):
-            parts.extend(memory_data["files_touched"][:10])  # First 10 files
 
         # Combine with spaces
         searchable_text = " ".join(parts)

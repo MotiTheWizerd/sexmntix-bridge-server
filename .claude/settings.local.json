@@ -8,7 +8,15 @@
       "mcp__semantic-bridge__semantic_search",
       "Bash(python -m src.modules.xcp_server:*)",
       "Bash(cat:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(dir:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(python examples/test_chromadb_integration.py:*)",
+      "Bash(for f in src/infrastructure/chromadb/repository.py src/infrastructure/chromadb/models/search_result.py src/infrastructure/chromadb/utils/id_generator.py src/infrastructure/chromadb/utils/timestamp_converter.py src/infrastructure/chromadb/utils/metadata_builder.py src/infrastructure/chromadb/utils/filter_sanitizer.py src/infrastructure/chromadb/operations/memory_operations.py src/infrastructure/chromadb/operations/search_operations.py)",
+      "Bash(do python -m py_compile \"$f\")",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(tree:*)"
     ],
     "deny": [],
     "ask": []

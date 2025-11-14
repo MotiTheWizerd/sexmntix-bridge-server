@@ -13,7 +13,8 @@ import time
 from typing import Dict, Any, Optional, List
 from src.modules.core import EventBus, Logger
 from src.modules.embeddings import EmbeddingService
-from src.infrastructure.chromadb.repository import VectorRepository, SearchResult
+from src.infrastructure.chromadb.repository import VectorRepository
+from src.infrastructure.chromadb.models import SearchResult
 from src.modules.vector_storage.search.similarity_filter import SimilarityFilter
 
 

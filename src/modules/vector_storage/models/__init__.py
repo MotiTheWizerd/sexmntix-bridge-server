@@ -1,10 +1,15 @@
 """
-Models Module
+Vector Storage Models
 
-Data transfer objects and result models for vector storage operations.
+Domain-specific data transfer objects and models for vector storage operations.
 """
 
-# Currently using models from infrastructure layer (SearchResult)
-# Can add additional DTOs here as needed
+from .memory_search_request import MemorySearchRequest
+from .memory_search_result import MemorySearchResult
+from .storage_metrics import StorageMetrics
 
-__all__ = []
+__all__ = [
+    "MemorySearchRequest",
+    "MemorySearchResult",
+    "StorageMetrics",
+]

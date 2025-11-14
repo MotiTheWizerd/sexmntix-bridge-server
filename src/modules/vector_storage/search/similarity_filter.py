@@ -1,20 +1,27 @@
 """
-Similarity Filter
+Similarity Filter (Backward Compatibility Wrapper)
 
-Single Responsibility: Filter search results based on similarity thresholds.
+Single Responsibility: Maintain backward compatibility with existing code.
 
-This component applies similarity-based filtering to search results,
-ensuring only results meeting minimum similarity requirements are returned.
+This module acts as a compatibility facade, delegating all calls to the new
+FilterOrchestrator. Existing code using SimilarityFilter continues to work
+without any changes.
+
+Note: New code should use FilterOrchestrator or individual filter functions
+from the filters/ module for clearer semantics and better composability.
 """
 
 from typing import List
-from datetime import datetime
-from src.infrastructure.chromadb.repository import SearchResult
+from src.infrastructure.chromadb.models import SearchResult
+from .filters import FilterOrchestrator
 
 
 class SimilarityFilter:
     """
     Filters search results based on similarity thresholds.
+
+    DEPRECATED: Use FilterOrchestrator or individual filter functions instead.
+    This class is maintained for backward compatibility.
 
     Provides reusable filtering strategies for semantic search results.
     """
@@ -34,10 +41,9 @@ class SimilarityFilter:
         Returns:
             Filtered list of search results
         """
-        return [
-            result for result in results
-            if result.similarity >= min_similarity
-        ]
+        return FilterOrchestrator.filter_by_minimum_similarity(
+            results, min_similarity
+        )
 
     @staticmethod
     def filter_by_similarity_range(
@@ -56,10 +62,9 @@ class SimilarityFilter:
         Returns:
             Filtered list of search results
         """
-        return [
-            result for result in results
-            if min_similarity <= result.similarity <= max_similarity
-        ]
+        return FilterOrchestrator.filter_by_similarity_range(
+            results, min_similarity, max_similarity
+        )
 
     @staticmethod
     def get_top_results(
@@ -78,7 +83,7 @@ class SimilarityFilter:
         Returns:
             Top N search results
         """
-        return results[:limit]
+        return FilterOrchestrator.get_top_results(results, limit)
 
     @staticmethod
     def filter_and_limit(
@@ -99,10 +104,9 @@ class SimilarityFilter:
         Returns:
             Filtered and limited search results
         """
-        filtered = SimilarityFilter.filter_by_minimum_similarity(
-            results, min_similarity
+        return FilterOrchestrator.filter_and_limit(
+            results, min_similarity, limit
         )
-        return SimilarityFilter.get_top_results(filtered, limit)
 
     @staticmethod
     def apply_temporal_decay(
@@ -132,52 +136,6 @@ class SimilarityFilter:
         Returns:
             Reranked list of search results sorted by decayed similarity
         """
-        # If temporal decay is disabled, return results unchanged
-        if not enable_temporal_decay:
-            return results
-
-        # If no results or invalid half-life, return unchanged
-        if not results or half_life_days <= 0:
-            return results
-
-        # Get current timestamp for age calculation
-        current_timestamp = datetime.utcnow().timestamp()
-
-        # Apply temporal decay to each result
-        for result in results:
-            # Get memory timestamp from metadata
-            memory_timestamp = result.metadata.get("date")
-
-            # Skip if no date metadata available
-            if memory_timestamp is None:
-                continue
-
-            # Calculate age in days
-            age_seconds = current_timestamp - memory_timestamp
-            age_days = age_seconds / 86400  # Convert seconds to days
-
-            # Ensure age is non-negative (handle future dates gracefully)
-            if age_days < 0:
-                age_days = 0
-
-            # Calculate exponential decay factor: 0.5 ^ (age_in_days / half_life_days)
-            decay_factor = 0.5 ** (age_days / half_life_days)
-
-            # Apply decay to similarity score
-            original_similarity = result.similarity
-            result.similarity = original_similarity * decay_factor
-
-            # Store original similarity in metadata for debugging/transparency
-            if not hasattr(result, 'original_similarity'):
-                result.original_similarity = original_similarity
-            result.decay_factor = decay_factor
-            result.age_days = age_days
-
-        # Re-sort results by decayed similarity (descending)
-        sorted_results = sorted(
-            results,
-            key=lambda r: r.similarity,
-            reverse=True
+        return FilterOrchestrator.apply_temporal_decay(
+            results, enable_temporal_decay, half_life_days
         )
-
-        return sorted_results

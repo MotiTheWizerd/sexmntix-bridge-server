@@ -2,34 +2,48 @@
 ChromaDB Client Wrapper
 
 Provides a persistent ChromaDB client with configuration and collection management.
+Orchestrates core modules: naming strategy, storage management, and collection operations.
+
 Based on TypeScript architecture from 03-chromadb-storage.md.
 
 Storage Path: ./data/chromadb/{user_id}/{project_id}
-Collection Naming: semantix_memories_{user_id}_{project_id}
+Collection Naming: {prefix}_{hash16} where hash16 is SHA256(user_id:project_id)[:16]
 """
 
-import os
-import hashlib
-from pathlib import Path
 from typing import Optional
 import chromadb
 from chromadb.config import Settings
 from chromadb import Collection
 from src.modules.core.telemetry.logger import get_logger
+from .core.config import ChromaDBConfig, DEFAULT_CONFIG
+from .core.storage_manager import StoragePathManager
+from .core.collection_manager import CollectionManager
 
 
 class ChromaDBClient:
     """
-    Wrapper for ChromaDB PersistentClient with collection caching.
+    Wrapper for ChromaDB PersistentClient with collection caching and multi-tenant support.
+
+    This class acts as a facade that orchestrates:
+    - StoragePathManager: Manages storage paths and directories
+    - CollectionManager: Handles collection CRUD operations
+    - ChromaDBConfig: Configuration management
 
     Features:
     - Persistent local storage with nested user_id/project_id directories
     - Multi-user/project isolation via collection naming and storage paths
     - Collection caching for performance
     - Automatic collection creation
+    - Health monitoring via heartbeat
     """
 
-    def __init__(self, storage_path: str = "./data/chromadb", user_id: Optional[str] = None, project_id: Optional[str] = None):
+    def __init__(
+        self,
+        storage_path: str = "./data/chromadb",
+        user_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+        config: Optional[ChromaDBConfig] = None
+    ):
         """
         Initialize ChromaDB persistent client.
 
@@ -37,78 +51,37 @@ class ChromaDBClient:
             storage_path: Base path to ChromaDB storage directory
             user_id: Optional user ID for nested directory structure
             project_id: Optional project ID for nested directory structure
+            config: Optional ChromaDB configuration (default: DEFAULT_CONFIG)
         """
         self.base_storage_path = storage_path
         self.default_user_id = user_id
         self.default_project_id = project_id
+        self.config = config or DEFAULT_CONFIG
         self.logger = get_logger(__name__)
 
-        # Build storage path with nesting if user_id/project_id provided
-        if user_id and project_id:
-            self.storage_path = str(Path(storage_path) / user_id / project_id)
-        else:
-            self.storage_path = storage_path
+        # Initialize storage path manager
+        self.storage_manager = StoragePathManager(storage_path)
 
-        self._ensure_storage_path()
+        # Get or create the storage path
+        self.storage_path = self.storage_manager.ensure_path_exists(user_id, project_id)
 
         # Initialize persistent client
         self.client = chromadb.PersistentClient(
             path=self.storage_path,
             settings=Settings(
-                anonymized_telemetry=False,
-                allow_reset=True
+                anonymized_telemetry=self.config.anonymized_telemetry,
+                allow_reset=self.config.allow_reset
             )
         )
 
-        # Collection cache for performance
-        self._collections: dict[str, Collection] = {}
-
-        # Client cache for different user/project combinations
-        self._clients: dict[str, chromadb.PersistentClient] = {}
-
-    def _ensure_storage_path(self):
-        """Create storage directory if it doesn't exist."""
-        os.makedirs(self.storage_path, exist_ok=True)
-
-    @staticmethod
-    def _create_collection_name(user_id: str, project_id: str, prefix: str = "semantix") -> str:
-        """
-        Create a collection name that meets ChromaDB requirements.
-
-        ChromaDB requires collection names to be 3-63 characters.
-        Since UUIDs are long, we use a hash-based approach:
-        - prefix_hash16
-        - hash16 is first 16 chars of SHA256(user_id:project_id)
-
-        Example:
-        - Input: user_id=9b1cdb78-df73-4ae4-8f80-41be3c0fdc1e, project_id=1c712e4d-13bf-43da-a01c-91001b9014f1
-        - Output: semantix_a1b2c3d4e5f6g7h8
-
-        Args:
-            user_id: User identifier
-            project_id: Project identifier
-            prefix: Collection prefix (default: "semantix")
-
-        Returns:
-            Collection name (3-63 characters)
-        """
-        # Create a unique hash from user_id and project_id
-        combined = f"{user_id}:{project_id}"
-        hash_digest = hashlib.sha256(combined.encode()).hexdigest()
-
-        # Take first 16 characters of hash for uniqueness
-        hash_short = hash_digest[:16]
-
-        # Create collection name: prefix_hash
-        collection_name = f"{prefix}_{hash_short}"
-
-        return collection_name
+        # Initialize collection manager
+        self.collection_manager = CollectionManager(self.client, self.config)
 
     def get_collection(
         self,
         user_id: str,
         project_id: str,
-        collection_prefix: str = "semantix"
+        collection_prefix: Optional[str] = None
     ) -> Collection:
         """
         Get or create a collection with user/project isolation.
@@ -122,35 +95,12 @@ class ChromaDBClient:
         Args:
             user_id: User identifier for isolation
             project_id: Project identifier for isolation
-            collection_prefix: Prefix for collection name (default: "semantix")
+            collection_prefix: Prefix for collection name (default: config.default_collection_prefix)
 
         Returns:
             ChromaDB Collection instance
         """
-        # Create collection name using hash
-        collection_name = self._create_collection_name(user_id, project_id, collection_prefix)
-
-        self.logger.info(
-            f"[CHROMADB_CLIENT] Getting collection: {collection_name} for user_id={user_id}, project_id={project_id}"
-        )
-
-        # Return cached collection if available
-        if collection_name in self._collections:
-            self.logger.debug(f"[CHROMADB_CLIENT] Returning cached collection: {collection_name}")
-            return self._collections[collection_name]
-
-        # Create or get collection
-        collection = self.client.get_or_create_collection(
-            name=collection_name,
-            metadata={"user_id": user_id, "project_id": project_id}
-        )
-
-        # Cache for future use
-        self._collections[collection_name] = collection
-
-        self.logger.info(f"[CHROMADB_CLIENT] Collection created/retrieved: {collection_name}, item count: {collection.count()}")
-
-        return collection
+        return self.collection_manager.get_collection(user_id, project_id, collection_prefix)
 
     def list_collections(self) -> list[str]:
         """
@@ -159,51 +109,34 @@ class ChromaDBClient:
         Returns:
             List of collection names
         """
-        collections = self.client.list_collections()
-
-        # Handle empty collections list
-        if not collections:
-            return []
-
-        # ChromaDB v0.6.0+ returns collection names (strings) directly
-        # Earlier versions returned collection objects with .name attribute
-        if isinstance(collections[0], str):
-            return collections
-        else:
-            # Fallback for older versions
-            return [col.name for col in collections]
+        return self.collection_manager.list_collections()
 
     def delete_collection(
         self,
         user_id: str,
         project_id: str,
-        collection_prefix: str = "semantix"
-    ):
+        collection_prefix: Optional[str] = None
+    ) -> None:
         """
         Delete a specific collection.
 
         Args:
             user_id: User identifier
             project_id: Project identifier
-            collection_prefix: Prefix for collection name (default: "semantix")
+            collection_prefix: Prefix for collection name (default: config.default_collection_prefix)
         """
-        # Create collection name using hash
-        collection_name = self._create_collection_name(user_id, project_id, collection_prefix)
+        self.collection_manager.delete_collection(user_id, project_id, collection_prefix)
 
-        # Remove from cache
-        if collection_name in self._collections:
-            del self._collections[collection_name]
-
-        # Delete from ChromaDB
-        self.client.delete_collection(collection_name)
-
-    def reset(self):
+    def reset(self) -> None:
         """
         Reset the entire ChromaDB instance.
         WARNING: This deletes all collections and data!
         """
+        self.logger.warning(
+            "[CHROMADB_CLIENT] Resetting entire ChromaDB instance - all data will be deleted!"
+        )
         self.client.reset()
-        self._collections.clear()
+        self.collection_manager.clear_cache()
 
     def heartbeat(self) -> int:
         """
