@@ -136,7 +136,9 @@ class VectorStorageService(BaseService):
         project_id: str,
         limit: int = 10,
         where_filter: Optional[Dict[str, Any]] = None,
-        min_similarity: float = 0.0
+        min_similarity: float = 0.0,
+        enable_temporal_decay: bool = False,
+        half_life_days: float = 30.0
     ) -> List[Dict[str, Any]]:
         """
         Semantic search for similar memories.
@@ -150,6 +152,8 @@ class VectorStorageService(BaseService):
             limit: Maximum number of results
             where_filter: Optional metadata filter (ChromaDB where syntax)
             min_similarity: Minimum similarity threshold (0.0 to 1.0)
+            enable_temporal_decay: Apply exponential decay based on memory age (default: False)
+            half_life_days: Half-life in days for exponential decay (default: 30)
 
         Returns:
             List of search results with similarity scores
@@ -160,7 +164,9 @@ class VectorStorageService(BaseService):
                 user_id="user123",
                 project_id="project456",
                 limit=5,
-                min_similarity=0.5
+                min_similarity=0.5,
+                enable_temporal_decay=True,
+                half_life_days=30
             )
         """
         return await self.search_handler.search_similar_memories(
@@ -169,7 +175,9 @@ class VectorStorageService(BaseService):
             project_id=project_id,
             limit=limit,
             where_filter=where_filter,
-            min_similarity=min_similarity
+            min_similarity=min_similarity,
+            enable_temporal_decay=enable_temporal_decay,
+            half_life_days=half_life_days
         )
 
     async def get_memory(

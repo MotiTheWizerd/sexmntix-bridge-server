@@ -6,7 +6,9 @@
       "Bash(python -m alembic:*)",
       "Bash(pip install:*)",
       "mcp__semantic-bridge__semantic_search",
-      "Bash(python -m src.modules.xcp_server:*)"
+      "Bash(python -m src.modules.xcp_server:*)",
+      "Bash(cat:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

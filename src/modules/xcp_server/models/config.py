@@ -73,6 +73,17 @@ class XCPConfig(BaseModel):
         description="Log level for XCP server"
     )
 
+    # Temporal reranking configuration
+    enable_temporal_decay: bool = Field(
+        default_factory=lambda: os.getenv("XCP_TEMPORAL_DECAY_ENABLED", "false").lower() == "true",
+        description="Enable temporal decay reranking by default"
+    )
+
+    temporal_half_life_days: float = Field(
+        default_factory=lambda: float(os.getenv("XCP_TEMPORAL_HALF_LIFE_DAYS", "30")),
+        description="Default half-life in days for exponential decay"
+    )
+
     class Config:
         """Pydantic configuration"""
         use_enum_values = True

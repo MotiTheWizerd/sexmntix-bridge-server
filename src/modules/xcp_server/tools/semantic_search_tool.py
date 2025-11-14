@@ -82,6 +82,20 @@ class SemanticSearchTool(BaseTool):
                     type="string",
                     description="Override the default project ID for this search (optional)",
                     required=False
+                ),
+                ToolParameter(
+                    name="enable_temporal_decay",
+                    type="boolean",
+                    description="Apply exponential decay based on memory age to boost recent memories (default: false)",
+                    required=False,
+                    default=False
+                ),
+                ToolParameter(
+                    name="half_life_days",
+                    type="number",
+                    description="Half-life in days for exponential decay. Memories lose 50% weight after this many days (default: 30)",
+                    required=False,
+                    default=30
                 )
             ]
         )
@@ -107,6 +121,8 @@ class SemanticSearchTool(BaseTool):
             min_similarity = float(arguments.get("min_similarity", 0.0))
             user_id = str(arguments.get("user_id", context.user_id))
             project_id = arguments.get("project_id", context.project_id)
+            enable_temporal_decay = bool(arguments.get("enable_temporal_decay", False))
+            half_life_days = float(arguments.get("half_life_days", 30.0))
 
             # Validate min_similarity range
             if not 0.0 <= min_similarity <= 1.0:
@@ -116,6 +132,14 @@ class SemanticSearchTool(BaseTool):
                     error_code="INVALID_SIMILARITY_RANGE"
                 )
 
+            # Validate half_life_days
+            if half_life_days <= 0:
+                return ToolResult(
+                    success=False,
+                    error="half_life_days must be greater than 0",
+                    error_code="INVALID_HALF_LIFE"
+                )
+
             self.logger.info(
                 f"Executing semantic search",
                 extra={
@@ -123,7 +147,9 @@ class SemanticSearchTool(BaseTool):
                     "user_id": user_id,
                     "project_id": project_id,
                     "limit": limit,
-                    "min_similarity": min_similarity
+                    "min_similarity": min_similarity,
+                    "enable_temporal_decay": enable_temporal_decay,
+                    "half_life_days": half_life_days
                 }
             )
 
@@ -142,7 +168,9 @@ class SemanticSearchTool(BaseTool):
                 user_id=user_id,
                 project_id=project_id,
                 limit=limit,
-                min_similarity=min_similarity
+                min_similarity=min_similarity,
+                enable_temporal_decay=enable_temporal_decay,
+                half_life_days=half_life_days
             )
 
             # Format results for better readability

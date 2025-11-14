@@ -1,12 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
 from contextlib import asynccontextmanager
 from src.modules.core import EventBus, Logger
 from src.database import DatabaseManager
 from src.api.middleware.logging import LoggingMiddleware
-from src.api.routes import health, memory_logs, mental_notes, users, socket_test, memory_logs_example, embeddings
+from src.api.routes import health, memory_logs, mental_notes, users, socket_test, memory_logs_example, embeddings, monitoring
 from src.services.socket_service import SocketService
+from src.services.chromadb_metrics_service import ChromaDBMetricsCollector
 from src.events.emitters import EventEmitter
+from src.infrastructure.chromadb.client import ChromaDBClient
 from src.modules.embeddings import (
     EmbeddingService,
     GoogleEmbeddingProvider,
@@ -24,6 +27,49 @@ event_bus = EventBus()
 logger = Logger("semantic-bridge-server")
 socket_service = SocketService(event_bus, logger)
 event_emitter = EventEmitter(socket_service)
+
+
+async def stream_metrics_to_clients(
+    socket_service: SocketService,
+    metrics_collector: ChromaDBMetricsCollector,
+    db_manager: DatabaseManager,
+    logger: Logger,
+    interval_seconds: int = 5
+):
+    """
+    Background task to stream metrics to connected clients via Socket.IO.
+
+    Args:
+        socket_service: SocketService instance
+        metrics_collector: ChromaDBMetricsCollector instance
+        db_manager: DatabaseManager instance
+        logger: Logger instance
+        interval_seconds: Update interval in seconds
+    """
+    logger.info(f"Starting metrics streaming task (interval: {interval_seconds}s)")
+
+    try:
+        while True:
+            try:
+                # Get database session
+                async with db_manager.session_factory() as session:
+                    # Get metrics snapshot
+                    snapshot = await metrics_collector.get_snapshot(session)
+
+                    # Emit to all connected clients
+                    await socket_service.emit_to_all("metrics_update", snapshot)
+
+                    logger.debug("Metrics snapshot sent to clients")
+
+            except Exception as e:
+                logger.error(f"Error streaming metrics: {e}", exc_info=True)
+
+            # Wait before next update
+            await asyncio.sleep(interval_seconds)
+
+    except asyncio.CancelledError:
+        logger.info("Metrics streaming task cancelled")
+        raise
 
 # Initialize embedding service
 google_api_key = os.getenv("GOOGLE_API_KEY")
@@ -68,6 +114,33 @@ async def lifespan(app: FastAPI):
     app.state.logger.info("Database connection initialized")
     app.state.logger.info("Socket.IO service initialized")
 
+    # Initialize ChromaDB client for metrics (base path, no user/project isolation)
+    chromadb_base_path = os.getenv("CHROMADB_PATH", "./data/chromadb")
+    chromadb_client = ChromaDBClient(storage_path=chromadb_base_path)
+    app.state.logger.info(f"ChromaDB client initialized at {chromadb_base_path}")
+
+    # Initialize ChromaDB metrics collector
+    chromadb_metrics_collector = ChromaDBMetricsCollector(
+        event_bus=event_bus,
+        logger=logger,
+        chromadb_client=chromadb_client
+    )
+    app.state.chromadb_metrics_collector = chromadb_metrics_collector
+    app.state.logger.info("ChromaDB metrics collector initialized")
+
+    # Start background task for streaming metrics to UI
+    metrics_streaming_task = asyncio.create_task(
+        stream_metrics_to_clients(
+            socket_service=socket_service,
+            metrics_collector=chromadb_metrics_collector,
+            db_manager=app.state.db_manager,
+            logger=logger,
+            interval_seconds=5  # Update every 5 seconds
+        )
+    )
+    app.state.metrics_streaming_task = metrics_streaming_task
+    app.state.logger.info("Metrics streaming task started (5s interval)")
+
     # Initialize event handlers for memory log storage
     if embedding_service:
         from src.api.dependencies.event_handlers import initialize_event_handlers
@@ -97,6 +170,15 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     app.state.logger.info("Application shutting down...")
+
+    # Cancel metrics streaming task
+    if hasattr(app.state, 'metrics_streaming_task'):
+        app.state.metrics_streaming_task.cancel()
+        try:
+            await app.state.metrics_streaming_task
+        except asyncio.CancelledError:
+            app.state.logger.info("Metrics streaming task cancelled")
+
     await app.state.db_manager.close()
 
     # Close embedding service if available
@@ -135,6 +217,7 @@ def create_app() -> FastAPI:
     app.include_router(users.router)
     app.include_router(socket_test.router)
     app.include_router(memory_logs_example.router)
+    app.include_router(monitoring.router)
 
     # Register embeddings router if service is available
     if embedding_service:
