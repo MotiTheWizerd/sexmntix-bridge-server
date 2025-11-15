@@ -15,7 +15,7 @@ from typing import List, Optional, Dict, Any
 
 from .client import ChromaDBClient
 from .models import SearchResult
-from .operations import memory_operations, search_operations
+from .operations import memory, search_operations
 from src.modules.core.telemetry.logger import get_logger
 
 
@@ -68,7 +68,7 @@ class VectorRepository:
         Returns:
             Memory ID string
         """
-        return await memory_operations.add_memory(
+        return await memory.add_memory(
             self.client,
             memory_log_id,
             embedding,
@@ -130,7 +130,7 @@ class VectorRepository:
         Returns:
             Memory document dict or None if not found
         """
-        return await memory_operations.get_by_id(
+        return await memory.get_by_id(
             self.client,
             memory_id,
             user_id,
@@ -154,7 +154,7 @@ class VectorRepository:
         Returns:
             True if deleted, False if not found
         """
-        return await memory_operations.delete(
+        return await memory.delete(
             self.client,
             memory_id,
             user_id,
@@ -172,7 +172,7 @@ class VectorRepository:
         Returns:
             Number of memories in collection
         """
-        return await memory_operations.count(
+        return await memory.count(
             self.client,
             user_id,
             project_id

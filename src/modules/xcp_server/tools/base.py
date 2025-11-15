@@ -15,13 +15,13 @@ The new structure provides better separation of concerns:
 - base/base_tool.py: Abstract base class
 """
 
-# Re-export public API from new modules for backward compatibility
-from src.modules.xcp_server.tools.base import (
+# Re-export public API from base/ package for backward compatibility
+from src.modules.xcp_server.tools.base.models import (
     ToolParameter,
     ToolDefinition,
-    ToolResult,
-    BaseTool
+    ToolResult
 )
+from src.modules.xcp_server.tools.base.base_tool import BaseTool
 
 __all__ = [
     "ToolParameter",
