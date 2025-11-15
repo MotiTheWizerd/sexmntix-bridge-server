@@ -3,22 +3,24 @@ MCP Server Implementation
 
 Implements the Model Context Protocol (MCP) server that exposes semantic memory
 capabilities to AI assistants through standardized tools.
+
+This module has been refactored to use smaller, focused components:
+- handlers/: MCP protocol request handlers
+- session/: Session management
+- transport/: Transport layer (stdio, etc)
+- utils/: Helper utilities for formatting and context building
 """
 
-import asyncio
-from typing import Dict, List, Any, Optional
+from typing import Dict, List
 from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
 
 from src.modules.core import EventBus, Logger
-from src.modules.xcp_server.models.config import XCPConfig, ToolContext
+from src.modules.xcp_server.models.config import XCPConfig
 from src.modules.xcp_server.tools import BaseTool
-from src.modules.xcp_server.exceptions import (
-    XCPProtocolError,
-    XCPToolExecutionError,
-    XCPServerNotEnabledError
-)
+from src.modules.xcp_server.protocol.handlers import ToolListHandler, ToolCallHandler
+from src.modules.xcp_server.protocol.session import SessionManager
+from src.modules.xcp_server.protocol.transport import StdioRunner
+from src.modules.xcp_server.protocol.utils import ContextBuilder
 from src.events.schemas import EventType
 
 
@@ -31,6 +33,13 @@ class XCPMCPServer:
     - Store new memories with automatic embedding
     - Generate text embeddings
     - Store and query mental notes
+
+    The server is composed of focused components:
+    - ToolListHandler: Handles tool discovery
+    - ToolCallHandler: Handles tool execution
+    - SessionManager: Tracks active sessions
+    - StdioRunner: Manages stdio transport
+    - ContextBuilder: Creates execution contexts
     """
 
     def __init__(
@@ -59,8 +68,22 @@ class XCPMCPServer:
         # Tool registry
         self.tool_registry: Dict[str, BaseTool] = {}
 
-        # Session tracking
-        self.active_sessions: Dict[str, Any] = {}
+        # Initialize components
+        self.session_manager = SessionManager(logger)
+        self.context_builder = ContextBuilder(config)
+        self.tool_list_handler = ToolListHandler(tools, logger)
+        self.tool_call_handler = ToolCallHandler(
+            self.tool_registry,
+            self.context_builder,
+            logger
+        )
+        self.stdio_runner = StdioRunner(
+            self.server,
+            config,
+            event_bus,
+            logger,
+            tools
+        )
 
         # Register all tools
         self._register_tools()
@@ -89,144 +112,40 @@ class XCPMCPServer:
             )
 
     def _setup_handlers(self):
-        """Setup MCP protocol handlers"""
+        """Setup MCP protocol handlers
+
+        Delegates to handler components for actual implementation.
+        """
 
         @self.server.list_tools()
-        async def list_tools() -> List[Tool]:
-            """List all available tools"""
-            self.logger.debug("MCP client requested tool list")
+        async def list_tools():
+            """List all available tools - delegates to ToolListHandler"""
+            return await self.tool_list_handler.handle_list_tools()
 
-            tools = []
-            for tool in self.tools:
-                definition = tool.definition
-                mcp_schema = definition.to_mcp_schema()
-
-                # Convert to MCP Tool type
-                tools.append(
-                    Tool(
-                        name=mcp_schema["name"],
-                        description=mcp_schema["description"],
-                        inputSchema=mcp_schema["inputSchema"]
-                    )
-                )
-
-            self.logger.info(f"Returned {len(tools)} tools to MCP client")
-            return tools
-
+        # Note: This handler is marked as "probably dead code" in the original
+        # implementation. Preserving for backward compatibility but documenting
+        # the concern for future investigation.
         @self.server.call_tool()
-        async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
-            """Execute a tool
-
-            Args:
-                name: Tool name
-                arguments: Tool arguments
-
-            Returns:
-                List of TextContent with tool results
-            """
-            self.logger.info(
-                f"MCP tool call received",
-                extra={"tool_name": name, "arguments": arguments}
-            )
-
-            # Get tool from registry
-            tool = self.tool_registry.get(name)
-            if not tool:
-                error_msg = f"Tool '{name}' not found"
-                self.logger.error(error_msg)
-                return [TextContent(
-                    type="text",
-                    text=f"Error: {error_msg}"
-                )]
-
-            try:
-                # Create execution context
-                context = ToolContext(
-                    user_id=self.config.default_user_id,
-                    project_id=self.config.default_project_id,
-                    session_id=None  # Could be enhanced to track MCP session
-                )
-
-                # Execute tool
-                result = await tool.run(context, arguments)
-
-                # Format response
-                if result.success:
-                    import json
-                    response_text = json.dumps(result.data, indent=2, default=str)
-                    return [TextContent(type="text", text=response_text)]
-                else:
-                    error_text = f"Tool execution failed: {result.error}"
-                    if result.error_code:
-                        error_text = f"[{result.error_code}] {error_text}"
-                    return [TextContent(type="text", text=error_text)]
-
-            except XCPToolExecutionError as e:
-                error_msg = f"Tool execution error: {e.message}"
-                self.logger.error(error_msg, extra={"error_code": e.code})
-                return [TextContent(type="text", text=error_msg)]
-
-            except Exception as e:
-                error_msg = f"Unexpected error executing tool '{name}': {str(e)}"
-                self.logger.exception(error_msg)
-                return [TextContent(type="text", text=error_msg)]
+        async def call_tool(name: str, arguments: dict):
+            """Execute a tool - delegates to ToolCallHandler"""
+            return await self.tool_call_handler.handle_call_tool(name, arguments)
 
     async def run_stdio(self):
         """Run MCP server with stdio transport
 
+        Delegates to StdioRunner for transport management.
+
         This is the standard way to run MCP servers for local AI assistants
         like Claude Desktop.
         """
-        if not self.config.enabled:
-            raise XCPServerNotEnabledError()
-
-        self.logger.info(
-            "Starting XCP MCP Server with stdio transport",
-            extra={
-                "server_name": self.config.server_name,
-                "version": self.config.server_version
-            }
-        )
-
-        # Publish server started event
-        self.event_bus.publish(
-            EventType.XCP_SERVER_STARTED.value,
-            {
-                "server_name": self.config.server_name,
-                "version": self.config.server_version,
-                "transport": "stdio",
-                "tools": [tool.definition.name for tool in self.tools]
-            }
-        )
-
-        try:
-            # Run stdio server (blocks until client disconnects)
-            async with stdio_server() as (read_stream, write_stream):
-                await self.server.run(
-                    read_stream,
-                    write_stream,
-                    self.server.create_initialization_options()
-                )
-
-        except Exception as e:
-            self.logger.exception(f"MCP server error: {str(e)}")
-            raise XCPProtocolError(f"Server failed: {str(e)}")
-
-        finally:
-            self.logger.info("XCP MCP Server stopped")
-
-            # Publish server stopped event
-            self.event_bus.publish(
-                EventType.XCP_SERVER_STOPPED.value,
-                {"server_name": self.config.server_name}
-            )
+        await self.stdio_runner.run()
 
     async def shutdown(self):
         """Gracefully shutdown the MCP server"""
         self.logger.info("Shutting down XCP MCP Server")
 
-        # Cleanup any active sessions
-        self.active_sessions.clear()
+        # Cleanup any active sessions using SessionManager
+        self.session_manager.clear_all_sessions()
 
         # Publish shutdown event
         self.event_bus.publish(
