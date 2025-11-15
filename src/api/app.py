@@ -7,7 +7,7 @@ from src.database import DatabaseManager
 from src.api.middleware.logging import LoggingMiddleware
 from src.api.routes import health, memory_logs, mental_notes, users, socket_test, memory_logs_example, embeddings, monitoring
 from src.services.socket_service import SocketService
-from src.services.chromadb_metrics_service import ChromaDBMetricsCollector
+from src.services.chromadb_metrics import ChromaDBMetricsCollector
 from src.events.emitters import EventEmitter
 from src.infrastructure.chromadb.client import ChromaDBClient
 from src.modules.embeddings import (

@@ -3,7 +3,7 @@ Dependency injection for application services.
 """
 
 from fastapi import Request
-from src.services.chromadb_metrics_service import ChromaDBMetricsCollector
+from src.services.chromadb_metrics import ChromaDBMetricsCollector
 
 
 def get_chromadb_metrics_collector(request: Request) -> ChromaDBMetricsCollector:

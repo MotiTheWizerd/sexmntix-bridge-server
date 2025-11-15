@@ -16,7 +16,10 @@
       "Bash(do python -m py_compile \"$f\")",
       "Bash(echo:*)",
       "Bash(done)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(nul)",
+      "Bash(findstr:*)",
+      "Bash(for f in src/services/chromadb_metrics/**/*.py src/services/chromadb_metrics/*.py)"
     ],
     "deny": [],
     "ask": []

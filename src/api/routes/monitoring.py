@@ -13,7 +13,7 @@ from typing import Dict, Any
 
 from src.api.dependencies.database import get_db_session
 from src.api.dependencies.services import get_chromadb_metrics_collector
-from src.services.chromadb_metrics_service import ChromaDBMetricsCollector
+from src.services.chromadb_metrics import ChromaDBMetricsCollector
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
