@@ -1,16 +1,18 @@
 """
-Collection Management
+Collection Manager
 
-Handles ChromaDB collection operations: create, retrieve, list, and delete.
-Includes collection caching for performance.
+Facade that coordinates collection cache and operations.
+Provides the main public API for collection management.
 """
 
 from typing import Optional
 import chromadb
 from chromadb import Collection
 from src.modules.core.telemetry.logger import get_logger
-from .naming_strategy import create_collection_name
-from .config import ChromaDBConfig, DEFAULT_CONFIG
+from ..core.config import ChromaDBConfig, DEFAULT_CONFIG
+from ..core.naming_strategy import create_collection_name
+from .cache import CollectionCache
+from .operations import CollectionOperations
 
 logger = get_logger(__name__)
 
@@ -18,6 +20,11 @@ logger = get_logger(__name__)
 class CollectionManager:
     """
     Manages ChromaDB collections with caching and isolation support.
+
+    This is a facade that coordinates:
+    - CollectionCache: In-memory caching for performance
+    - CollectionOperations: CRUD operations on ChromaDB
+    - Naming strategy: User/project isolation via hashed names
 
     Features:
     - Get or create collections with user/project isolation
@@ -43,8 +50,9 @@ class CollectionManager:
         self.config = config
         self.logger = logger
 
-        # Collection cache for performance
-        self._collections: dict[str, Collection] = {}
+        # Initialize cache and operations components
+        self._cache = CollectionCache()
+        self._operations = CollectionOperations(chromadb_client, config)
 
     def get_collection(
         self,
@@ -84,21 +92,22 @@ class CollectionManager:
             f"[COLLECTION_MANAGER] Getting collection: {collection_name} for user_id={user_id}, project_id={project_id}"
         )
 
-        # Return cached collection if available
-        if collection_name in self._collections:
+        # Check cache first
+        cached_collection = self._cache.get(collection_name)
+        if cached_collection:
             self.logger.debug(
                 f"[COLLECTION_MANAGER] Returning cached collection: {collection_name}"
             )
-            return self._collections[collection_name]
+            return cached_collection
 
-        # Create or get collection
-        collection = self.client.get_or_create_collection(
-            name=collection_name,
+        # Get or create collection from ChromaDB
+        collection = self._operations.get_or_create(
+            collection_name,
             metadata={"user_id": user_id, "project_id": project_id}
         )
 
         # Cache for future use
-        self._collections[collection_name] = collection
+        self._cache.set(collection_name, collection)
 
         self.logger.info(
             f"[COLLECTION_MANAGER] Collection created/retrieved: {collection_name}, item count: {collection.count()}"
@@ -118,19 +127,7 @@ class CollectionManager:
             v0.6.0+ returns collection names (strings) directly.
             Earlier versions return collection objects with .name attribute.
         """
-        collections = self.client.list_collections()
-
-        # Handle empty collections list
-        if not collections:
-            return []
-
-        # ChromaDB v0.6.0+ returns collection names (strings) directly
-        # Earlier versions returned collection objects with .name attribute
-        if isinstance(collections[0], str):
-            return collections
-        else:
-            # Fallback for older versions
-            return [col.name for col in collections]
+        return self._operations.list()
 
     def delete_collection(
         self,
@@ -161,16 +158,15 @@ class CollectionManager:
             f"[COLLECTION_MANAGER] Deleting collection: {collection_name}"
         )
 
-        # Remove from cache
-        if collection_name in self._collections:
-            del self._collections[collection_name]
+        # Remove from cache first
+        self._cache.delete(collection_name)
 
         # Delete from ChromaDB
-        self.client.delete_collection(collection_name)
+        self._operations.delete(collection_name)
 
         self.logger.info(f"[COLLECTION_MANAGER] Collection deleted: {collection_name}")
 
     def clear_cache(self) -> None:
         """Clear all cached collections."""
         self.logger.debug("[COLLECTION_MANAGER] Clearing collection cache")
-        self._collections.clear()
+        self._cache.clear()

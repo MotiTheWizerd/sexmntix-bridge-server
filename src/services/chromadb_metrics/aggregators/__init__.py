@@ -1,5 +1,13 @@
-"""Metric aggregators."""
+"""
+Aggregators package
 
-from .snapshot_aggregator import SnapshotAggregator
+Statistical aggregation and time-series functions.
+"""
 
-__all__ = ["SnapshotAggregator"]
+from .statistics import StatisticsAggregator
+from .time_series import TimeSeriesAggregator
+
+__all__ = [
+    "StatisticsAggregator",
+    "TimeSeriesAggregator"
+]

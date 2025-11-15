@@ -1,21 +1,19 @@
 """
-Collection Metrics Collector
+Collection metrics collector
 
-Collects metrics about ChromaDB collections.
+Gathers metrics about ChromaDB collections, vector counts, and metadata.
 """
 
-from typing import Dict, Any
-
-from src.infrastructure.chromadb.client import ChromaDBClient
+from typing import Dict, Any, List
 from src.modules.core import Logger
+from src.infrastructure.chromadb.client import ChromaDBClient
 
 
 class CollectionMetricsCollector:
-    """Collects metrics about ChromaDB collections."""
+    """Collects metrics about ChromaDB collections"""
 
     def __init__(self, chromadb_client: ChromaDBClient, logger: Logger):
-        """
-        Initialize collector.
+        """Initialize collection metrics collector
 
         Args:
             chromadb_client: ChromaDB client instance
@@ -24,12 +22,11 @@ class CollectionMetricsCollector:
         self.chromadb_client = chromadb_client
         self.logger = logger
 
-    async def collect(self) -> Dict[str, Any]:
-        """
-        Get metrics about ChromaDB collections.
+    async def get_collection_metrics(self) -> Dict[str, Any]:
+        """Get metrics about ChromaDB collections
 
         Returns:
-            Dictionary with collection metrics
+            Dictionary with collection counts, vector counts, and details
         """
         try:
             collections = self.chromadb_client.list_collections()
@@ -38,12 +35,8 @@ class CollectionMetricsCollector:
             total_vectors = 0
 
             for col_name in collections:
-                # Parse collection name to get user/project info
-                # Format: semantix_{hash16}
                 try:
                     # Get collection to access count and metadata
-                    # We need to iterate through possible user/project combinations
-                    # For now, we'll just get basic info from the client
                     collection = self.chromadb_client.client.get_collection(col_name)
                     vector_count = collection.count()
                     total_vectors += vector_count
@@ -58,7 +51,7 @@ class CollectionMetricsCollector:
                 except Exception as e:
                     self.logger.warning(f"Error getting collection {col_name}: {e}")
 
-            # Sort by vector count
+            # Sort by vector count (largest first)
             collection_details.sort(key=lambda x: x["vector_count"], reverse=True)
 
             return {

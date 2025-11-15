@@ -17,7 +17,7 @@ from chromadb import Collection
 from src.modules.core.telemetry.logger import get_logger
 from .core.config import ChromaDBConfig, DEFAULT_CONFIG
 from .core.storage_manager import StoragePathManager
-from .core.collection_manager import CollectionManager
+from .collection import CollectionManager
 
 
 class ChromaDBClient:

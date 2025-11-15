@@ -1,12 +1,11 @@
 """
-Ingestion Metrics Collector
+Ingestion metrics collector
 
-Collects vector ingestion metrics from the database.
+Gathers metrics about vector ingestion rates and patterns from the database.
 """
 
-from typing import Dict, Any, List
 from datetime import datetime, timedelta
-
+from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, extract
 
@@ -15,26 +14,24 @@ from src.database.models.memory_log import MemoryLog
 
 
 class IngestionMetricsCollector:
-    """Collects vector ingestion metrics from database."""
+    """Collects vector ingestion metrics from database"""
 
     def __init__(self, logger: Logger):
-        """
-        Initialize collector.
+        """Initialize ingestion metrics collector
 
         Args:
             logger: Logger instance
         """
         self.logger = logger
 
-    async def collect(self, db_session: AsyncSession) -> Dict[str, Any]:
-        """
-        Get vector ingestion metrics from database.
+    async def get_ingestion_metrics(self, db_session: AsyncSession) -> Dict[str, Any]:
+        """Get vector ingestion metrics from database
 
         Args:
             db_session: Database session
 
         Returns:
-            Dictionary with ingestion metrics
+            Dictionary with ingestion counts and breakdowns
         """
         try:
             now = datetime.utcnow()

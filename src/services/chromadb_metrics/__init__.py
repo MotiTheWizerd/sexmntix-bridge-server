@@ -1,37 +1,30 @@
 """
-ChromaDB Metrics Service
+ChromaDB Metrics Package
 
 Provides comprehensive metrics collection for ChromaDB operations.
+
+This package is organized into the following components:
+- service: Main service orchestrator (ChromaDBMetricsCollector)
+- models: Data models for metrics
+- config: Configuration and constants
+- collectors: Specialized metric collectors (collection, ingestion, search, storage)
+- aggregators: Statistical aggregation functions
+- handlers: EventBus event handlers
+
+Usage:
+    from src.services.chromadb_metrics import ChromaDBMetricsCollector
+
+    metrics_service = ChromaDBMetricsCollector(
+        event_bus, logger, chromadb_client
+    )
 """
 
 from .service import ChromaDBMetricsCollector
 from .models import MetricEvent
-from .collectors import (
-    CollectionMetricsCollector,
-    IngestionMetricsCollector,
-    SearchPerformanceCollector,
-    SearchQualityCollector,
-    StorageMetricsCollector,
-)
-from .calculators import PercentileCalculator, RateCalculator
-from .aggregators import SnapshotAggregator
+from .config import MetricsConfig
 
 __all__ = [
-    # Main service (for backward compatibility and standard usage)
     "ChromaDBMetricsCollector",
-
-    # Models
     "MetricEvent",
-
-    # Collectors (for advanced/specialized usage)
-    "CollectionMetricsCollector",
-    "IngestionMetricsCollector",
-    "SearchPerformanceCollector",
-    "SearchQualityCollector",
-    "StorageMetricsCollector",
-
-    # Utilities (for custom implementations)
-    "PercentileCalculator",
-    "RateCalculator",
-    "SnapshotAggregator",
+    "MetricsConfig"
 ]

@@ -2,10 +2,10 @@
 
 from .base import BaseTool, ToolDefinition, ToolParameter, ToolResult
 from .semantic_search import SemanticSearchTool
-from .store_memory_tool import StoreMemoryTool
+from .store_memory import StoreMemoryTool
 from .embedding import EmbeddingTool
 from .store_mental_note_tool import StoreMentalNoteTool
-from .query_mental_notes_tool import QueryMentalNotesTool
+from .query_mental_notes import QueryMentalNotesTool
 
 __all__ = [
     "BaseTool",

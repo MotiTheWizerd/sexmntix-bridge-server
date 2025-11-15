@@ -1,15 +1,19 @@
-"""Metric collectors."""
+"""
+Collectors package
 
+Specialized collectors for different metric categories.
+"""
+
+from .event_collector import EventCollector
 from .collection_collector import CollectionMetricsCollector
 from .ingestion_collector import IngestionMetricsCollector
-from .search_performance_collector import SearchPerformanceCollector
-from .search_quality_collector import SearchQualityCollector
+from .search_collector import SearchMetricsCollector
 from .storage_collector import StorageMetricsCollector
 
 __all__ = [
+    "EventCollector",
     "CollectionMetricsCollector",
     "IngestionMetricsCollector",
-    "SearchPerformanceCollector",
-    "SearchQualityCollector",
-    "StorageMetricsCollector",
+    "SearchMetricsCollector",
+    "StorageMetricsCollector"
 ]
