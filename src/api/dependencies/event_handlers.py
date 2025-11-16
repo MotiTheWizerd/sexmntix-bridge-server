@@ -11,7 +11,8 @@ from src.modules.core import EventBus, Logger
 from src.modules.embeddings import EmbeddingService
 from src.events.internal_handlers import (
     MemoryLogStorageHandlers,
-    MentalNoteStorageHandlers
+    MentalNoteStorageHandlers,
+    ConversationStorageHandlers
 )
 
 
@@ -59,6 +60,14 @@ def initialize_event_handlers(
         logger=logger
     )
 
+    # Create conversation handler instance
+    conversation_handlers = ConversationStorageHandlers(
+        db_session_factory=db_session_factory,
+        embedding_service=embedding_service,
+        event_bus=event_bus,
+        logger=logger
+    )
+
     # Register handler for memory_log.stored event (ChromaDB vector storage)
     # This executes as background task after PostgreSQL storage completes
     event_bus.subscribe(
@@ -73,5 +82,12 @@ def initialize_event_handlers(
         mental_note_handlers.handle_mental_note_stored
     )
 
+    # Register handler for conversation.analyzed event (ChromaDB vector storage)
+    # This executes AFTER SXThalamus has processed conversation with Gemini
+    event_bus.subscribe(
+        "conversation.analyzed",
+        conversation_handlers.handle_conversation_analyzed
+    )
+
     _handlers_initialized = True
-    logger.info("Internal event handlers registered successfully (memory_log, mental_note)")
+    logger.info("Internal event handlers registered successfully (memory_log, mental_note, conversation)")

@@ -1,8 +1,8 @@
 """
 Conversation storage event handler.
 
-Handles conversation.stored events by storing vectors in separate ChromaDB collection
-and updating PostgreSQL with embeddings.
+Handles conversation.analyzed events by storing vectors in separate ChromaDB collection.
+This fires AFTER SXThalamus has processed conversations with Gemini.
 """
 
 from typing import Dict, Any, Optional, Tuple, List
@@ -126,17 +126,26 @@ class ConversationStorageHandler(BaseStorageHandler):
             "(embeddings stored only in ChromaDB)"
         )
 
-    async def handle_conversation_stored(self, event_data: Dict[str, Any]):
+    async def handle_conversation_analyzed(self, event_data: Dict[str, Any]):
         """
-        Handle conversation.stored event for vector storage.
+        Handle conversation.analyzed event for vector storage.
+
+        This fires AFTER SXThalamus has processed the conversation with Gemini.
 
         Workflow:
         1. Extract and validate event data
         2. Create VectorStorageService for user/project
         3. Generate embedding and store in conversations_{hash} collection
-        4. Update PostgreSQL with embedding
+        4. Skip PostgreSQL embedding update (embeddings only in ChromaDB)
 
         Args:
-            event_data: Event payload containing conversation data
+            event_data: Event payload containing:
+                - conversation_db_id: PostgreSQL ID
+                - conversation_id: UUID
+                - model: AI model name
+                - raw_data: Original conversation data
+                - user_id, project_id: Identifiers
+                - gemini_analysis: Processed output from Gemini
+                - original_combined_text: Original combined message text
         """
         await self.handle_stored_event(event_data)

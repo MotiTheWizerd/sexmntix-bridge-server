@@ -3,6 +3,7 @@
 from typing import Dict, Any, Callable, Awaitable
 
 from src.modules.core.telemetry.logger import Logger
+from src.modules.core.event_bus import EventBus
 from ..utils.message_utils import combine_conversation_messages
 
 
@@ -17,7 +18,8 @@ class ConversationHandler:
     def __init__(
         self,
         logger: Logger,
-        process_message_func: Callable[[str], Awaitable[str]]
+        process_message_func: Callable[[str], Awaitable[str]],
+        event_bus: EventBus
     ):
         """
         Initialize conversation handler.
@@ -25,9 +27,11 @@ class ConversationHandler:
         Args:
             logger: Logger instance for telemetry
             process_message_func: Async function to process combined message text
+            event_bus: Event bus for emitting conversation.analyzed events
         """
         self.logger = logger
         self.process_message = process_message_func
+        self.event_bus = event_bus
 
     async def handle_conversation_stored(self, event_data: Dict[str, Any]):
         """
@@ -90,14 +94,26 @@ class ConversationHandler:
                 }
             )
 
-            # TODO: Integration with storage will be added later
-            # For now, log the full result
+            # Emit conversation.analyzed event for vector storage
+            analyzed_event_data = {
+                "conversation_db_id": event_data.get("conversation_db_id"),
+                "conversation_id": conversation_id,
+                "model": event_data.get("model"),
+                "raw_data": raw_data,
+                "user_id": event_data.get("user_id"),
+                "project_id": event_data.get("project_id"),
+                "gemini_analysis": processed_result,
+                "original_combined_text": combined_text
+            }
+
+            self.event_bus.publish("conversation.analyzed", analyzed_event_data)
+
             self.logger.info(
-                f"✅ CONVERSATION PROCESSED - ID: {conversation_id}",
+                f"✅ CONVERSATION ANALYZED - ID: {conversation_id}",
                 extra={
                     "conversation_id": conversation_id,
                     "result_length": len(processed_result),
-                    "result_full": processed_result  # Full result in extra
+                    "gemini_analysis": processed_result
                 }
             )
 

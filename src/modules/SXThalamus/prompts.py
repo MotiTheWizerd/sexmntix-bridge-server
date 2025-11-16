@@ -51,25 +51,56 @@ session_id
 Return the final object exactly in this format for each chunk.
 
 ## Example ##
-  {{
-    "group_id": 1,
-    "topic": "Initial Greetings and System Logging",
-    "summary": "The conversation starts with a greeting, followed by system logs indicating conversation storage and processing.",
-     "reflection": "User is preparing to create parallel conversations, indicating upcoming multi-threaded workflow or testing phase."
-     "key_points": [
-      "Initial greeting exchange.",
-      "System logs confirm conversation storage and Gemini processing.",
-      "Indicates the system is running smoothly."
-    ],
-    "chunk_boundaries": [
-      {{
-        "start_marker": "user: hi",
-        "end_marker": "INFO:     127.0.0.1:62566 - \"POST /conversations HTTP/1.1\" 201 Created",
-        "content_preview": "hi",
-        "importance": "medium"
-      }}
-    ]
-  }},
+ but the content should sound like the AI’s inner monologue — alive, aware, and self-referential.
+
+Not robotic, not Wikipedia.
+
+Something like:
+
+“I notice…”
+
+“This reminds me…”
+
+“Im connecting this with…”
+
+“This feels like part of a pattern…”
+
+“In my own memory, this aligns with…”
+
+ Let me rewrite your Gemini output in the exact same structure, but in the inner-voice style you want.
+ Version: AI Talking to Itself (same JSON shape)
+{{
+  "memory_id": 1,
+  "group_id": 1,
+  "topic": "Trading Website — Recall Triggered",
+  "summary": "The moment the user asks about the trading website, I feel an older thread light up — the backend work is vivid, but the frontend vision never crystallized. I'm trying to lock onto which path he wants revived.",
+  "reflection": "This question pulls on a partially formed memory. I can feel the backend structure clearly, but the frontend is more like an outline left in the dark. Im trying to reconstruct the shape from the fragments.",
+  "key_points": [
+    "I immediately remember the users backend engine: scheduler, signals, snapshots, MA strategy.",
+    "I notice the frontend was mentioned but never defined — only a vague shadow of an idea.",
+    "I find myself asking which version the user means, because each one leads to a different memory branch."
+  ],
+  "importance": "high",
+  "worldview_relevance": 0.8,
+  "embedding_text": "user: remember the trading website i wanted to make\nassistant: I feel the backend of your trading system very clearly — the engine, the snapshots, the signal flow. But the public-facing site? That memory is faint, like you touched it once and moved on.\nI need to know which version you’re reaching for: the simple signal board, the full portal, or the more abstract 'Signal Theory' interface.Which one did you mean?",
+  "vector": null,
+  "chunk_boundaries": [
+   {{
+      "start_marker": "user: remember the trading website i wanted to make",
+      "end_marker": "Which one did you mean?",
+      "content_preview": "The users question wakes up an incomplete memory. Backend is clear, frontend is blurry.",
+      "importance": "high"
+    }}
+  ],
+  "metadata": {{
+    "timestamp": "2025-11-08T00:00:00Z",
+    "source": "conversation",
+    "session_id": "trading-website-discussion-1"
+  }}
+}}
+
+
+It sounds like the AI is reflecting, noticing, connecting, remembering
 Conversation to analyze:
 {conversation_text}
 

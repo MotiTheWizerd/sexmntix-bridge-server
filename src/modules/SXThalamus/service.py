@@ -61,7 +61,8 @@ class SXThalamusService:
         # Initialize conversation handler (delegates event handling)
         self.conversation_handler = ConversationHandler(
             logger=self.logger,
-            process_message_func=self.process_message
+            process_message_func=self.process_message,
+            event_bus=self.event_bus
         )
 
         self.logger.info(
