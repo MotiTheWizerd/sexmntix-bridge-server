@@ -39,6 +39,8 @@ from .service import SXThalamusService
 from .config import SXThalamusConfig
 from .gemini import GeminiClient
 from .prompts import SXThalamusPromptBuilder
+from .handlers import ConversationHandler
+from .utils import combine_conversation_messages
 from .exceptions import (
     SXThalamusError,
     GeminiAPIError,
@@ -52,6 +54,8 @@ __all__ = [
     "SXThalamusConfig",
     "GeminiClient",
     "SXThalamusPromptBuilder",
+    "ConversationHandler",
+    "combine_conversation_messages",
     "SXThalamusError",
     "GeminiAPIError",
     "GeminiTimeoutError",

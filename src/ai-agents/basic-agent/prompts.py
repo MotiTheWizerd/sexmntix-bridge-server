@@ -87,8 +87,43 @@ Text:
             Formatted prompt for data extraction
 
         Example:
-            >>> fields = {"name": "person's name", "age": "person's age"}
-            >>> prompt = builder.build_extraction_prompt(text, fields)
+           {
+                    "memory_id": "uuid",
+                    "group_id": 3,
+                    "topic": "Detailed Log Analysis and System Architecture",
+
+                    "summary": "Assistant provides deep architectural interpretation of the system logs: DB persistence, vectorization pipeline, event flow, and background LLM processing.",
+
+                    "key_points": [
+                        "PostgreSQL write completed instantly",
+                        "Async vectorization scheduled",
+                        "Event bus firing SXThalamus",
+                        "Gemini processing in ~30ms",
+                        "Architecture validated end-to-end",
+                        "Close to first SYNÆON memory loop"
+                    ],
+
+                    "importance": "high",
+                    "worldview_relevance": 0.95,
+
+                    "chunk": {
+                        "start_marker": "assistant: Everything looks **exactly right** in that log.",
+                        "end_marker": "Keep going.",
+                        "content_preview": "Everything looks exactly right in that log...",
+                        "raw_text": null
+                    },
+
+                    "metadata": {
+                        "timestamp": "2025-11-16T16:30:40Z",
+                        "source": "conversation",
+                        "user_id": 1,
+                        "session_id": 101,
+                        "message_index_start": 12,
+                        "message_index_end": 15
+                    },
+
+                    "vector": null
+                    }
         """
         fields_description = "\n".join([
             f'- "{field}": {description}'

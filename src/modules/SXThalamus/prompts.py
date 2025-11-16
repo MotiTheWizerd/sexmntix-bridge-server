@@ -27,23 +27,48 @@ class SXThalamusPromptBuilder:
         """
         return f"""Analyze this AI conversation and semantically group the content for intelligent chunking.
 
-Your task:
-1. Identify distinct topics and themes in the conversation
-2. Group related content together based on semantic meaning
-3. Suggest chunk boundaries that preserve context
-4. Provide metadata for each semantic group
 
-Return your response as a JSON array where each element represents a semantic group with:
-- "group_id": sequential number
-- "topic": brief topic/theme description
-- "summary": one-sentence summary of the group
-- "key_points": array of main points discussed
-- "chunk_boundaries": array of objects with:
-  - "start_marker": indicator of where chunk starts
-  - "end_marker": indicator of where chunk ends
-  - "content_preview": first 100 characters
-  - "importance": "high", "medium", or "low"
 
+## Instructions ##
+Memory Unit Instructions (Real-Time Vectorization)
+Assign a unique memory_id for each unit.
+Set group_id based on semantic grouping of messages.
+Fill topic, summary, and key_points with short, factual descriptions of what the chunk represents.
+Set importance to low, medium, or high based on how essential the information is.
+Set worldview_relevance to a numeric score (0–1) that reflects long-term value.
+Create embedding_text by concatenating the raw conversation lines covered by the chunk (exact text between start and end markers).
+Set vector to null.
+Background workers will embed and update this field.
+Fill chunk_boundaries with:
+start_marker
+end_marker
+content_preview
+importance (local importance for the chunk)
+Add metadata with:
+timestamp
+source (e.g., "conversation")
+session_id
+Return the final object exactly in this format for each chunk.
+
+## Example ##
+  {{
+    "group_id": 1,
+    "topic": "Initial Greetings and System Logging",
+    "summary": "The conversation starts with a greeting, followed by system logs indicating conversation storage and processing.",
+    "key_points": [
+      "Initial greeting exchange.",
+      "System logs confirm conversation storage and Gemini processing.",
+      "Indicates the system is running smoothly."
+    ],
+    "chunk_boundaries": [
+      {{
+        "start_marker": "user: hi",
+        "end_marker": "INFO:     127.0.0.1:62566 - \"POST /conversations HTTP/1.1\" 201 Created",
+        "content_preview": "hi",
+        "importance": "medium"
+      }}
+    ]
+  }},
 Conversation to analyze:
 {conversation_text}
 
@@ -62,7 +87,7 @@ Return ONLY the JSON array, no additional text or explanation."""
         """
         return f"""Analyze and semantically group the following AI message to prepare it for better chunking. Identify logical sections and group related content:
 
-{message}"""
+{message} """
 
     @staticmethod
     def build_custom_prompt(template: str, **kwargs: Any) -> str:

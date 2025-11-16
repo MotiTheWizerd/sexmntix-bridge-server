@@ -106,8 +106,14 @@ class BasicAgentService:
 
             self.logger.info(
                 "Gemini processing completed successfully",
-                extra={"result_length": len(result)}
+                extra={
+                    "result_length": len(result),
+                    "result_preview": result[:500]  # First 500 chars
+                }
             )
+
+            # Log full result for debugging
+            self.logger.info(f"📝 GEMINI RESPONSE:\n{result}\n{'='*80}")
 
             return result
 
@@ -164,13 +170,16 @@ class BasicAgentService:
             # Combine all messages into a single text
             combined_text = self._combine_conversation_messages(conversation_messages)
 
-            self.logger.debug(
-                "Combined conversation text",
+            self.logger.info(
+                f"📤 SENDING TO GEMINI (BasicAgent) - Conversation ID: {conversation_id}",
                 extra={
                     "conversation_id": conversation_id,
-                    "combined_length": len(combined_text)
+                    "combined_length": len(combined_text),
+                    "combined_text": combined_text  # Full text
                 }
             )
+
+            self.logger.info(f"📤 INPUT TEXT:\n{combined_text}\n{'='*80}")
 
             # Process through Gemini
             processed_result = await self.process_conversation(combined_text)
@@ -184,12 +193,13 @@ class BasicAgentService:
             )
 
             # TODO: Integration with storage will be added later
-            # For now, just log the result
-            self.logger.debug(
-                "Gemini processing result",
+            # For now, log the full result
+            self.logger.info(
+                f"✅ CONVERSATION PROCESSED (BasicAgent) - ID: {conversation_id}",
                 extra={
                     "conversation_id": conversation_id,
-                    "processed_snippet": processed_result[:200]
+                    "result_length": len(processed_result),
+                    "result_full": processed_result  # Full result in extra
                 }
             )
 
