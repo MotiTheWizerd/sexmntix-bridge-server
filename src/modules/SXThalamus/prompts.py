@@ -55,7 +55,8 @@ Return the final object exactly in this format for each chunk.
     "group_id": 1,
     "topic": "Initial Greetings and System Logging",
     "summary": "The conversation starts with a greeting, followed by system logs indicating conversation storage and processing.",
-    "key_points": [
+     "reflection": "User is preparing to create parallel conversations, indicating upcoming multi-threaded workflow or testing phase."
+     "key_points": [
       "Initial greeting exchange.",
       "System logs confirm conversation storage and Gemini processing.",
       "Indicates the system is running smoothly."
