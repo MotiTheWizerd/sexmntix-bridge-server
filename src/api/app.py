@@ -222,6 +222,37 @@ async def lifespan(app: FastAPI):
             logger.warning("XCP server not initialized - embedding service unavailable")
         app.state.xcp_server_service = None
 
+    # Initialize SXThalamus Service (if enabled)
+    from src.modules.SXThalamus import SXThalamusService, SXThalamusConfig
+
+    sxthalamus_config = SXThalamusConfig.from_env()
+
+    if sxthalamus_config.enabled:
+        try:
+            logger.info("Initializing SXThalamus service...")
+
+            sxthalamus_service = SXThalamusService(
+                event_bus=event_bus,
+                logger=logger,
+                config=sxthalamus_config
+            )
+
+            # Subscribe to conversation.stored event
+            event_bus.subscribe(
+                "conversation.stored",
+                sxthalamus_service.handle_conversation_stored
+            )
+
+            app.state.sxthalamus_service = sxthalamus_service
+            logger.info("SXThalamus service initialized and subscribed to conversation.stored")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize SXThalamus: {e}", exc_info=True)
+            app.state.sxthalamus_service = None
+    else:
+        logger.info("SXThalamus service disabled in configuration")
+        app.state.sxthalamus_service = None
+
     yield
 
     # Shutdown
@@ -236,6 +267,11 @@ async def lifespan(app: FastAPI):
             app.state.logger.info("Metrics streaming task cancelled")
 
     await app.state.db_manager.close()
+
+    # Close SXThalamus service if available
+    if hasattr(app.state, 'sxthalamus_service') and app.state.sxthalamus_service:
+        await app.state.sxthalamus_service.close()
+        app.state.logger.info("SXThalamus service closed")
 
     # Close embedding service if available
     if embedding_service:
