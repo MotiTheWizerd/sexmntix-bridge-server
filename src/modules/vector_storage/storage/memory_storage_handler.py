@@ -201,3 +201,94 @@ class MemoryStorageHandler:
             Number of memories
         """
         return await self.vector_repository.count(user_id, project_id)
+
+    async def store_mental_note_vector(
+        self,
+        mental_note_id: int,
+        mental_note_data: Dict[str, Any],
+        user_id: str,
+        project_id: str
+    ) -> tuple[str, List[float]]:
+        """
+        Generate embedding and store mental note in ChromaDB.
+
+        Workflow:
+        1. Extract content from mental note data
+        2. Generate embedding via EmbeddingService
+        3. Store vector in ChromaDB using mental note operations
+        4. Publish storage event
+
+        Args:
+            mental_note_id: Database ID of mental note
+            mental_note_data: Complete mental note data (raw_data dict)
+            user_id: User identifier for collection isolation
+            project_id: Project identifier for collection isolation
+
+        Returns:
+            Tuple of (note_id, embedding_vector)
+
+        Raises:
+            ValueError: If content is missing or empty
+            ProviderError: If embedding generation fails
+        """
+        # Extract content from mental note data
+        content = mental_note_data.get("content", "")
+        if not content or not content.strip():
+            raise ValueError(f"Mental note {mental_note_id} has no content to embed")
+
+        content_preview = content[:100] if content else "EMPTY"
+        self.logger.info(
+            f"[STORAGE_HANDLER] Generating embedding for mental_note {mental_note_id} "
+            f"(user: {user_id}, project: {project_id})"
+        )
+        self.logger.info(
+            f"[STORAGE_HANDLER] Content - length: {len(content)}, preview: {content_preview}"
+        )
+
+        # Generate embedding
+        try:
+            embedding_response = await self.embedding_service.generate_embedding(
+                text=content
+            )
+            self.logger.info(
+                f"[STORAGE_HANDLER] Embedding generated successfully - "
+                f"dimensions: {len(embedding_response.embedding)}, cached: {embedding_response.cached}"
+            )
+        except Exception as e:
+            self.logger.error(
+                f"[STORAGE_HANDLER] Embedding generation failed for mental_note {mental_note_id}: {e}"
+            )
+            raise
+
+        embedding = embedding_response.embedding
+
+        # Store in ChromaDB using mental note operations
+        from src.infrastructure.chromadb.operations.mental_note.crud import create_mental_note
+
+        self.logger.info(f"[STORAGE_HANDLER] Storing mental note vector in ChromaDB...")
+        note_id = await create_mental_note(
+            client=self.vector_repository.client,
+            mental_note_id=mental_note_id,
+            embedding=embedding,
+            mental_note_data=mental_note_data,
+            user_id=user_id,
+            project_id=project_id
+        )
+        self.logger.info(f"[STORAGE_HANDLER] Mental note vector stored successfully with note_id: {note_id}")
+
+        # Publish event
+        self.event_bus.publish("mental_note.vector_stored", {
+            "note_id": note_id,
+            "mental_note_id": mental_note_id,
+            "user_id": user_id,
+            "project_id": project_id,
+            "embedding_dim": len(embedding),
+            "cached": embedding_response.cached
+        })
+
+        self.logger.info(
+            f"[STORAGE_HANDLER] Complete - Mental note vector stored: {note_id} "
+            f"(dim: {len(embedding)}, cached: {embedding_response.cached})"
+        )
+
+        return note_id, embedding

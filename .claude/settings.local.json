@@ -21,7 +21,8 @@
       "Bash(findstr:*)",
       "Bash(for f in src/services/chromadb_metrics/**/*.py src/services/chromadb_metrics/*.py)",
       "Bash(\"src/services/chromadb_metrics/collectors/collection_collector.py\")",
-      "Bash(python -m py_compile:*)"
+      "Bash(python -m py_compile:*)",
+      "Bash(poetry run python:*)"
     ],
     "deny": [],
     "ask": []

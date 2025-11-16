@@ -86,9 +86,10 @@ class MentalNoteFormatter:
             "note_type": note_type,
             "start_time": start_time,
             "created_at": created_at,
-            "message": "Mental note stored successfully",
+            "message": "Mental note stored successfully. Vector indexing scheduled as background task.",
             "metadata": {
                 "user_id": user_id,
-                "project_id": project_id
+                "project_id": project_id,
+                "vector_storage": "scheduled"
             }
         }

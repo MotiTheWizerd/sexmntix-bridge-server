@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.modules.core import EventBus, Logger
 from src.modules.embeddings import EmbeddingService
-from src.events.internal_handlers import MemoryLogStorageHandlers
+from src.events.internal_handlers import MemoryLogStorageHandlers, MentalNoteStorageHandlers
 
 
 _handlers_initialized = False
@@ -40,8 +40,16 @@ def initialize_event_handlers(
 
     logger.info("Initializing internal event handlers...")
 
-    # Create handler instance with services needed to create VectorStorageService dynamically
-    handlers = MemoryLogStorageHandlers(
+    # Create memory log handler instance with services needed to create VectorStorageService dynamically
+    memory_handlers = MemoryLogStorageHandlers(
+        db_session_factory=db_session_factory,
+        embedding_service=embedding_service,
+        event_bus=event_bus,
+        logger=logger
+    )
+
+    # Create mental note handler instance
+    mental_note_handlers = MentalNoteStorageHandlers(
         db_session_factory=db_session_factory,
         embedding_service=embedding_service,
         event_bus=event_bus,
@@ -52,8 +60,15 @@ def initialize_event_handlers(
     # This executes as background task after PostgreSQL storage completes
     event_bus.subscribe(
         "memory_log.stored",
-        handlers.handle_memory_log_stored
+        memory_handlers.handle_memory_log_stored
+    )
+
+    # Register handler for mental_note.stored event (ChromaDB vector storage)
+    # This executes as background task after PostgreSQL storage completes
+    event_bus.subscribe(
+        "mental_note.stored",
+        mental_note_handlers.handle_mental_note_stored
     )
 
     _handlers_initialized = True
-    logger.info("Internal event handlers registered successfully")
+    logger.info("Internal event handlers registered successfully (memory_log, mental_note)")

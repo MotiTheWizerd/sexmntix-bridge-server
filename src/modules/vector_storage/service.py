@@ -139,8 +139,9 @@ class VectorStorageService:
         half_life_days: float = 30.0
     ) -> List[Dict[str, Any]]:
         """
-        Semantic search for similar memories.
+        Semantic search for similar memories (memory logs only).
 
+        Filters by document_type='memory_log' to exclude mental notes.
         Delegates to SimilaritySearchHandler.
 
         Args:
@@ -167,12 +168,16 @@ class VectorStorageService:
                 half_life_days=30
             )
         """
+        # Ensure we only search memory logs, not mental notes
+        combined_filter = where_filter.copy() if where_filter else {}
+        combined_filter["document_type"] = "memory_log"
+
         return await self.search_handler.search_similar_memories(
             query=query,
             user_id=user_id,
             project_id=project_id,
             limit=limit,
-            where_filter=where_filter,
+            where_filter=combined_filter,
             min_similarity=min_similarity,
             enable_temporal_decay=enable_temporal_decay,
             half_life_days=half_life_days
@@ -248,4 +253,95 @@ class VectorStorageService:
         return await self.storage_handler.count_memories(
             user_id=user_id,
             project_id=project_id
+        )
+
+    async def store_mental_note_vector(
+        self,
+        mental_note_id: int,
+        mental_note_data: Dict[str, Any],
+        user_id: str,
+        project_id: str
+    ) -> tuple[str, List[float]]:
+        """
+        Generate embedding and store mental note in ChromaDB.
+
+        Delegates to MemoryStorageHandler for mental note vector storage.
+
+        Args:
+            mental_note_id: Database ID of mental note
+            mental_note_data: Complete mental note data (raw_data dict)
+            user_id: User identifier for collection isolation
+            project_id: Project identifier for collection isolation
+
+        Returns:
+            Tuple of (note_id, embedding_vector)
+
+        Raises:
+            ValueError: If content is missing or empty
+            ProviderError: If embedding generation fails
+        """
+        return await self.storage_handler.store_mental_note_vector(
+            mental_note_id=mental_note_id,
+            mental_note_data=mental_note_data,
+            user_id=user_id,
+            project_id=project_id
+        )
+
+    async def search_mental_notes(
+        self,
+        query: str,
+        user_id: str,
+        project_id: str,
+        limit: int = 10,
+        session_id: Optional[str] = None,
+        note_type: Optional[str] = None,
+        min_similarity: float = 0.0
+    ) -> List[Dict[str, Any]]:
+        """
+        Semantic search for mental notes.
+
+        Filters by document_type='mental_note' and optionally by session_id or note_type.
+
+        Args:
+            query: Search query text
+            user_id: User identifier for collection isolation
+            project_id: Project identifier for collection isolation
+            limit: Maximum number of results
+            session_id: Optional filter by session ID
+            note_type: Optional filter by note type (observation, decision, etc.)
+            min_similarity: Minimum similarity threshold (0.0 to 1.0)
+
+        Returns:
+            List of search results with similarity scores
+
+        Example:
+            results = await service.search_mental_notes(
+                query="bug fix discussion",
+                user_id="1",
+                project_id="default",
+                session_id="session_123",
+                note_type="decision",
+                limit=10,
+                min_similarity=0.5
+            )
+        """
+        # Build where filter for mental notes
+        where_filter = {"document_type": "mental_note"}
+
+        if session_id:
+            where_filter["session_id"] = session_id
+
+        if note_type:
+            where_filter["note_type"] = note_type
+
+        # Use the same search handler as memory logs
+        return await self.search_handler.search_similar_memories(
+            query=query,
+            user_id=user_id,
+            project_id=project_id,
+            limit=limit,
+            where_filter=where_filter,
+            min_similarity=min_similarity,
+            enable_temporal_decay=False,  # Mental notes don't use temporal decay
+            half_life_days=30.0
         )
