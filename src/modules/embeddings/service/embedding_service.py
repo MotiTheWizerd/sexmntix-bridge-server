@@ -6,7 +6,6 @@ from typing import List, Optional
 import time
 from datetime import datetime
 
-from src.services.base_service import BaseService
 from src.modules.core import EventBus, Logger
 
 from ..providers import BaseEmbeddingProvider
@@ -19,7 +18,7 @@ from ..models import (
 from ..exceptions import InvalidTextError
 
 
-class EmbeddingService(BaseService):
+class EmbeddingService:
     """
     Service for generating text embeddings with caching and event publishing.
     """
@@ -42,7 +41,8 @@ class EmbeddingService(BaseService):
             cache: Optional cache instance (creates default if None)
             cache_enabled: Whether to use caching
         """
-        super().__init__(event_bus, logger)
+        self.event_bus = event_bus
+        self.logger = logger
         self.provider = provider
         self.cache_enabled = cache_enabled
         self.cache = cache if cache else EmbeddingCache()
@@ -51,11 +51,6 @@ class EmbeddingService(BaseService):
             f"EmbeddingService initialized with provider: {provider.provider_name}, "
             f"cache_enabled: {cache_enabled}"
         )
-
-    def _register_handlers(self):
-        """Register event handlers if needed."""
-        # Could subscribe to events here if needed
-        pass
 
     async def generate_embedding(
         self,

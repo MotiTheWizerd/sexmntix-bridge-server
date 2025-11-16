@@ -2,11 +2,10 @@
 
 Modules:
 - memory: Memory CRUD operations (refactored into sub-components)
-- memory_operations: Deprecated - kept for backward compatibility
 - search_operations: Search operations
 """
 
-from . import memory, memory_operations, search_operations
+from . import memory, search_operations
 from .memory import (
     create_memory,
     read_memory,
@@ -29,7 +28,6 @@ from .memory import (
 __all__ = [
     # Modules
     "memory",
-    "memory_operations",  # Deprecated
     "search_operations",
     # CRUD operations (primary names)
     "create_memory",

@@ -6,7 +6,8 @@ Provides ChromaDB client wrapper and vector repository for semantic storage.
 
 from .client import ChromaDBClient
 from .repository import VectorRepository
-from .core import ChromaDBConfig, create_collection_name, StoragePathManager, CollectionManager
+from .core import ChromaDBConfig, create_collection_name, StoragePathManager
+from .collection import CollectionManager
 from .models import SearchResult
 from .utils import (
     generate_memory_id,
@@ -15,7 +16,7 @@ from .utils import (
     build_tag_filter,
     sanitize_filter,
 )
-from .operations import memory_operations, search_operations
+from .operations import memory, search_operations
 
 __all__ = [
     # Main classes
@@ -34,6 +35,6 @@ __all__ = [
     "build_tag_filter",
     "sanitize_filter",
     # Operations modules for advanced usage
-    "memory_operations",
+    "memory",
     "search_operations",
 ]

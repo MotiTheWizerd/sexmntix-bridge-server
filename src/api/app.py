@@ -166,6 +166,62 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("Event handlers not initialized - embedding service unavailable")
 
+    # Initialize XCP Server Service (if enabled)
+    from src.modules.xcp_server import XCPServerService
+    from src.modules.xcp_server.models.config import load_xcp_config
+    from src.events.schemas import EventType
+    from datetime import datetime
+
+    xcp_config = load_xcp_config()
+
+    if xcp_config.enabled and embedding_service:
+        try:
+            from src.api.dependencies.vector_storage import create_vector_storage_service
+            from src.api.dependencies.database import get_db_session
+
+            logger.info("Initializing XCP MCP Server...")
+
+            # Create vector storage service for default user/project
+            vector_storage_service = create_vector_storage_service(
+                user_id=str(xcp_config.default_user_id),
+                project_id=xcp_config.default_project_id,
+                embedding_service=embedding_service,
+                event_bus=event_bus,
+                logger=logger
+            )
+
+            # Initialize XCP Server Service
+            xcp_service = XCPServerService(
+                event_bus=event_bus,
+                logger=logger,
+                embedding_service=embedding_service,
+                vector_storage_service=vector_storage_service,
+                db_session_factory=get_db_session,
+                config=xcp_config
+            )
+
+            # Initialize XCP server
+            xcp_service.initialize()
+            app.state.xcp_server_service = xcp_service
+
+            # Emit initialization event with simple timestamp payload
+            event_bus.publish(
+                EventType.MCP_SERVERS_INITIALIZED.value,
+                {"ts": datetime.utcnow().isoformat()}
+            )
+
+            logger.info("initialize_mcp_servers event emitted")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize XCP server: {e}", exc_info=True)
+            app.state.xcp_server_service = None
+    else:
+        if not xcp_config.enabled:
+            logger.info("XCP server disabled in configuration")
+        elif not embedding_service:
+            logger.warning("XCP server not initialized - embedding service unavailable")
+        app.state.xcp_server_service = None
+
     yield
 
     # Shutdown

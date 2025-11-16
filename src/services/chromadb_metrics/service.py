@@ -8,7 +8,6 @@ from datetime import datetime
 from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.services.base_service import BaseService
 from src.modules.core import EventBus, Logger
 from src.infrastructure.chromadb.client import ChromaDBClient
 
@@ -21,7 +20,7 @@ from .collectors.storage_collector import StorageMetricsCollector
 from .handlers.event_handlers import MetricsEventHandlers
 
 
-class ChromaDBMetricsCollector(BaseService):
+class ChromaDBMetricsCollector:
     """
     Collects and aggregates ChromaDB metrics using specialized collectors.
 
@@ -48,7 +47,8 @@ class ChromaDBMetricsCollector(BaseService):
             chromadb_client: ChromaDB client for accessing collections
             max_events: Maximum number of events to store
         """
-        super().__init__(event_bus, logger)
+        self.event_bus = event_bus
+        self.logger = logger
         self.chromadb_client = chromadb_client
 
         # Initialize event collector (in-memory storage)

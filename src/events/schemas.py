@@ -34,6 +34,7 @@ class EventType(str, Enum):
     USER_STATUS_CHANGED = "user_status_changed"
 
     # XCP (MCP) Server events
+    MCP_SERVERS_INITIALIZED = "initialize_mcp_servers"
     XCP_SERVER_STARTED = "xcp_server_started"
     XCP_SERVER_STOPPED = "xcp_server_stopped"
     XCP_SESSION_STARTED = "xcp_session_started"

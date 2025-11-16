@@ -11,7 +11,6 @@ This service acts as a facade/coordinator, composing:
 """
 
 from typing import List, Dict, Any, Optional
-from src.services.base_service import BaseService
 from src.modules.core import EventBus, Logger
 from src.modules.embeddings import EmbeddingService
 from src.infrastructure.chromadb.repository import VectorRepository
@@ -23,7 +22,7 @@ from src.modules.vector_storage.config import VectorStorageConfig, DEFAULT_CONFI
 from src.modules.vector_storage.models import MemorySearchRequest, MemorySearchResult
 
 
-class VectorStorageService(BaseService):
+class VectorStorageService:
     """
     Service for managing vector embeddings and semantic search.
 
@@ -56,7 +55,8 @@ class VectorStorageService(BaseService):
             embedding_service: Service for generating embeddings
             vector_repository: Repository for ChromaDB operations
         """
-        super().__init__(event_bus, logger)
+        self.event_bus = event_bus
+        self.logger = logger
 
         # Initialize specialized components
         self.text_extractor = MemoryTextExtractor(logger)
@@ -79,10 +79,6 @@ class VectorStorageService(BaseService):
         )
 
         self.logger.info("VectorStorageService initialized with modular components")
-
-    def _register_handlers(self):
-        """Register event handlers if needed."""
-        pass
 
     async def store_memory_vector(
         self,

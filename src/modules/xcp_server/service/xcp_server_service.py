@@ -10,7 +10,6 @@ This service coordinates all XCP components using specialized sub-components:
 """
 
 from typing import List, Optional
-from src.services.base_service import BaseService
 from src.modules.core import EventBus, Logger
 from src.modules.embeddings import EmbeddingService
 from src.modules.vector_storage.service import VectorStorageService
@@ -26,7 +25,7 @@ from src.modules.xcp_server.service.lifecycle import (
 from src.modules.xcp_server.service.info import ServerInfoProvider
 
 
-class XCPServerService(BaseService):
+class XCPServerService:
     """Service for managing XCP/MCP server
 
     This is a facade that orchestrates:
@@ -60,8 +59,8 @@ class XCPServerService(BaseService):
             db_session_factory: Factory for creating database sessions
             config: Optional XCP configuration (loads from env if not provided)
         """
-        super().__init__(event_bus, logger)
-
+        self.event_bus = event_bus
+        self.logger = logger
         self.config = config or load_xcp_config()
         self.embedding_service = embedding_service
         self.vector_storage_service = vector_storage_service
@@ -87,11 +86,6 @@ class XCPServerService(BaseService):
                 "transport": self.config.transport.value
             }
         )
-
-    def _register_handlers(self):
-        """Register event handlers"""
-        # Could subscribe to application events if needed
-        pass
 
     def initialize(self):
         """Initialize the XCP server and tools

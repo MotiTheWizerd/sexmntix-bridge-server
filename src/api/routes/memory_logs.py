@@ -27,6 +27,19 @@ async def create_memory_log(
     """
     Create a new memory log with automatic embedding generation via event-driven architecture.
 
+    New Unified Format (same as MCP tool):
+    {
+        "user_id": 1,
+        "project_id": "default",
+        "memory_log": {
+            "content": "Memory content",
+            "task": "bug_fix",
+            "agent": "user",
+            "tags": ["api", "rest"],
+            "metadata": {"source": "web"}
+        }
+    }
+
     Hybrid Event-Driven Workflow:
     1. Store memory log in PostgreSQL (synchronous for immediate persistence)
     2. Emit memory_log.stored event with memory_log_id
@@ -36,20 +49,53 @@ async def create_memory_log(
     for better performance and non-blocking failures.
 
     User and project IDs enable multi-tenant isolation in vector storage.
+    The system automatically adds a datetime field.
     """
-    logger.info(f"Creating memory log for task: {data.task}")
+    # All fields in memory_log are now optional
+    task = data.memory_log.task or ""
+    agent = data.memory_log.agent or "mcp_client"
+    content = data.memory_log.content or ""
 
-    # Convert the entire payload to dict with JSON-serializable values
-    raw_data = data.model_dump(mode="json")
+    logger.info(f"Creating memory log for task: {task}")
+
+    # Add datetime field (system-generated)
+    from datetime import datetime
+    current_datetime = datetime.utcnow()
+    current_datetime_iso = current_datetime.isoformat()
+
+    # Build raw_data with new nested structure (same as MCP tool)
+    # Format tags as tag_0, tag_1, etc.
+    memory_log_data = {
+        "task": task,
+        "agent": agent,
+        "content": content
+    }
+
+    # Add formatted tags if provided
+    if data.memory_log.tags:
+        for i, tag in enumerate(data.memory_log.tags[:5]):  # Max 5 tags
+            memory_log_data[f"tag_{i}"] = str(tag)
+
+    # Merge additional metadata if provided
+    if data.memory_log.metadata:
+        memory_log_data.update(data.memory_log.metadata)
+
+    # Build top-level structure
+    raw_data = {
+        "user_id": str(data.user_id),
+        "project_id": data.project_id,
+        "datetime": current_datetime_iso,
+        "memory_log": memory_log_data
+    }
 
     # Create memory log in PostgreSQL (synchronous for immediate response with ID)
     repo = MemoryLogRepository(db)
     memory_log = await repo.create(
-        task=data.task,
-        agent=data.agent,
-        date=data.date,
+        task=task,
+        agent=agent,
+        date=current_datetime,
         raw_data=raw_data,
-        user_id=data.user_id,
+        user_id=str(data.user_id),
         project_id=data.project_id,
     )
 
@@ -58,11 +104,11 @@ async def create_memory_log(
     # Emit event for async vector storage (background task via event handler)
     event_data = {
         "memory_log_id": memory_log.id,
-        "task": data.task,
-        "agent": data.agent,
-        "date": data.date,
+        "task": task,
+        "agent": agent,
+        "date": current_datetime,
         "raw_data": raw_data,
-        "user_id": data.user_id,
+        "user_id": str(data.user_id),
         "project_id": data.project_id,
     }
 

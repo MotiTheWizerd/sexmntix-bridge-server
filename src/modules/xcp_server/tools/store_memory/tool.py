@@ -150,6 +150,7 @@ class StoreMemoryTool(BaseTool):
             content=validated_args["content"],
             user_id=validated_args["user_id"],
             project_id=validated_args["project_id"],
+            datetime_iso=validated_args["datetime"],
             tags=validated_args["tags"],
             metadata=validated_args["metadata"]
         )

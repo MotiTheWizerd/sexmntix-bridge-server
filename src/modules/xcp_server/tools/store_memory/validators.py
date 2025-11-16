@@ -5,6 +5,7 @@ Argument validation and extraction logic for the store_memory tool.
 """
 
 from typing import Dict, Any, Tuple, Optional, List
+from datetime import datetime
 from src.modules.xcp_server.models.config import ToolContext
 from src.modules.xcp_server.tools.store_memory.config import StoreMemoryConfig
 
@@ -105,32 +106,57 @@ class MemoryArgumentValidator:
         """Extract and validate all arguments
 
         Args:
-            arguments: Raw arguments from tool call
-            context: Execution context with defaults
+            arguments: Raw arguments from tool call with new structure:
+                {
+                    "user_id": 1,
+                    "project_id": "default",
+                    "memory_log": {
+                        "content": "...",
+                        "task": "...",
+                        "agent": "...",
+                        "tags": [...],
+                        "metadata": {...}
+                    }
+                }
+            context: Execution context (not used for user_id/project_id anymore)
 
         Returns:
-            Dict[str, Any]: Validated arguments
+            Dict[str, Any]: Validated arguments with datetime added
 
         Raises:
             ValueError: If validation fails
         """
-        # Extract required arguments
-        content = arguments.get("content")
-        task = arguments.get("task")
+        # Extract top-level required fields
+        user_id = arguments.get("user_id")
+        project_id = arguments.get("project_id")
+        memory_log = arguments.get("memory_log")
 
-        # Validate required fields
-        is_valid, error = cls.validate_content(content)
-        if not is_valid:
-            raise ValueError(error)
+        # Validate top-level fields
+        if user_id is None:
+            raise ValueError("user_id is required at top level")
+        if not project_id:
+            raise ValueError("project_id is required at top level")
+        if not memory_log or not isinstance(memory_log, dict):
+            raise ValueError("memory_log is required and must be an object")
 
-        is_valid, error = cls.validate_task(task)
-        if not is_valid:
-            raise ValueError(error)
+        # Extract fields from nested memory_log object (all optional now)
+        content = memory_log.get("content", "")
+        task = memory_log.get("task", "")
+        agent = memory_log.get("agent", cls.DEFAULT_AGENT)
+        tags = memory_log.get("tags", [])
+        metadata = memory_log.get("metadata", {})
 
-        # Extract optional arguments
-        agent = arguments.get("agent", cls.DEFAULT_AGENT)
-        tags = arguments.get("tags", [])
-        metadata = arguments.get("metadata", {})
+        # Validate content if provided (only validate non-empty values)
+        if content:
+            is_valid, error = cls.validate_content(content)
+            if not is_valid:
+                raise ValueError(error)
+
+        # Validate task if provided (only validate non-empty values)
+        if task:
+            is_valid, error = cls.validate_task(task)
+            if not is_valid:
+                raise ValueError(error)
 
         # Validate optional fields
         is_valid, error = cls.validate_tags(tags)
@@ -141,9 +167,8 @@ class MemoryArgumentValidator:
         if not is_valid:
             raise ValueError(error)
 
-        # Extract user_id and project_id with context fallback
-        user_id = str(arguments.get("user_id", context.user_id))
-        project_id = arguments.get("project_id", context.project_id)
+        # Add datetime field (system-generated)
+        current_datetime = datetime.utcnow().isoformat()
 
         return {
             "content": content,
@@ -151,6 +176,7 @@ class MemoryArgumentValidator:
             "agent": agent,
             "tags": tags if tags else [],
             "metadata": metadata if metadata else {},
-            "user_id": user_id,
-            "project_id": project_id
+            "user_id": str(user_id),
+            "project_id": project_id,
+            "datetime": current_datetime
         }

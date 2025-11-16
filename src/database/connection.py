@@ -4,7 +4,7 @@ from typing import AsyncGenerator
 
 class DatabaseManager:
     def __init__(self, database_url: str):
-        self.engine = create_async_engine(database_url, echo=True)
+        self.engine = create_async_engine(database_url, echo=False)
         self.session_factory = async_sessionmaker(
             self.engine,
             class_=AsyncSession,

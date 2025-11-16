@@ -41,13 +41,29 @@ class MemoryDataBuilder:
         content: str,
         user_id: str,
         project_id: str,
+        datetime_iso: str,
         tags: List[str] = None,
         metadata: Dict[str, Any] = None
     ) -> Dict[str, Any]:
-        """Build the complete raw_data structure
+        """Build the complete raw_data structure with new top-level format
 
-        The raw_data structure contains all memory information in a JSONB format
-        that will be stored in the database and used for vector embeddings.
+        The raw_data structure now has user_id, project_id, and datetime at top level,
+        with memory-specific data nested inside memory_log object.
+
+        New structure:
+        {
+            "user_id": "1",
+            "project_id": "default",
+            "datetime": "2025-11-15T23:45:00",
+            "memory_log": {
+                "task": "bug_fix",
+                "agent": "claude",
+                "content": "...",
+                "tag_0": "...",
+                "tag_1": "...",
+                ...metadata
+            }
+        }
 
         Args:
             task: Task or category (e.g., 'bug_fix', 'learning')
@@ -55,29 +71,35 @@ class MemoryDataBuilder:
             content: Main memory content
             user_id: User identifier
             project_id: Project identifier
+            datetime_iso: ISO format datetime string
             tags: Optional list of tags (max 5)
             metadata: Optional additional metadata
 
         Returns:
             Dict[str, Any]: Complete raw_data structure ready for storage
         """
-        # Build base structure
-        raw_data = {
+        # Build memory_log nested object
+        memory_log_data = {
             "task": task,
             "agent": agent,
-            "date": datetime.utcnow().isoformat(),
-            "content": content,
-            "user_id": user_id,
-            "project_id": project_id
+            "content": content
         }
 
         # Add formatted tags if provided
         if tags and isinstance(tags, list) and len(tags) > 0:
             tag_data = cls.format_tags(tags)
-            raw_data.update(tag_data)
+            memory_log_data.update(tag_data)
 
         # Merge additional metadata if provided
         if metadata and isinstance(metadata, dict):
-            raw_data.update(metadata)
+            memory_log_data.update(metadata)
+
+        # Build top-level structure
+        raw_data = {
+            "user_id": user_id,
+            "project_id": project_id,
+            "datetime": datetime_iso,
+            "memory_log": memory_log_data
+        }
 
         return raw_data

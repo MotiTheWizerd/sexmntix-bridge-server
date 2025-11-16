@@ -16,7 +16,22 @@ class StoreMemoryConfig:
     TOOL_DESCRIPTION = (
         "Store a new memory log in the system. The memory will be automatically "
         "indexed for semantic search. Useful for saving important information, "
-        "learnings, solutions, or context for future reference."
+        "learnings, solutions, or context for future reference.\n\n"
+        "Required format:\n"
+        "{\n"
+        "  \"user_id\": <number> (required),\n"
+        "  \"project_id\": <string> (required),\n"
+        "  \"memory_log\": {\n"
+        "    \"content\": <string> (optional),\n"
+        "    \"task\": <string> (optional),\n"
+        "    \"agent\": <string> (optional, default: 'mcp_client'),\n"
+        "    \"tags\": [<string>] (optional, max 5),\n"
+        "    \"metadata\": {<key>: <value>} (optional),\n"
+        "    ...any additional fields (optional)\n"
+        "  }\n"
+        "}\n\n"
+        "The system will automatically add a datetime field.\n"
+        "All fields in memory_log are optional and you can add custom fields."
     )
 
     MAX_TAGS = 5
@@ -44,46 +59,21 @@ class StoreMemoryConfig:
         """
         return [
             ToolParameter(
-                name="content",
-                type="string",
-                description="The main content/text of the memory to store",
-                required=True
-            ),
-            ToolParameter(
-                name="task",
-                type="string",
-                description="Task or category for this memory (e.g., 'bug_fix', 'learning', 'solution')",
-                required=True
-            ),
-            ToolParameter(
-                name="agent",
-                type="string",
-                description="Agent or source of this memory (e.g., 'claude', 'user', 'system')",
-                required=False,
-                default=cls.DEFAULT_AGENT
-            ),
-            ToolParameter(
-                name="tags",
-                type="array",
-                description=f"Optional tags for categorizing the memory (max {cls.MAX_TAGS} tags)",
-                required=False
-            ),
-            ToolParameter(
-                name="metadata",
-                type="object",
-                description="Optional additional metadata as key-value pairs",
-                required=False
-            ),
-            ToolParameter(
                 name="user_id",
                 type="number",
-                description="Override the default user ID for this memory (optional)",
-                required=False
+                description="User ID for memory isolation",
+                required=True
             ),
             ToolParameter(
                 name="project_id",
                 type="string",
-                description="Override the default project ID for this memory (optional)",
-                required=False
+                description="Project ID for memory isolation",
+                required=True
+            ),
+            ToolParameter(
+                name="memory_log",
+                type="object",
+                description="Memory log data containing content, task, agent, tags, and metadata",
+                required=True
             )
         ]

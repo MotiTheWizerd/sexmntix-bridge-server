@@ -3,27 +3,38 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 
 
-class MemoryLogCreate(BaseModel):
-    # Accept any JSON structure
+class MemoryLogData(BaseModel):
+    """Nested memory log data structure - all fields are optional"""
+    content: Optional[str] = None
+    task: Optional[str] = None
+    agent: Optional[str] = "mcp_client"
+    tags: Optional[List[str]] = []
+    metadata: Optional[Dict[str, Any]] = {}
+
     model_config = {"extra": "allow"}
 
-    task: str
-    agent: str
-    date: str | datetime
 
-    # User and project isolation for ChromaDB collections
-    user_id: Optional[str] = None
-    project_id: Optional[str] = None
+class MemoryLogCreate(BaseModel):
+    """New unified format for memory log creation
 
-    @field_validator("date", mode="before")
-    @classmethod
-    def parse_date(cls, v):
-        if isinstance(v, str):
-            # Handle date strings without time
-            if "T" not in v:
-                v = f"{v}T00:00:00"
-            return datetime.fromisoformat(v)
-        return v
+    Format:
+    {
+        "user_id": 1,
+        "project_id": "default",
+        "memory_log": {
+            "content": "...",
+            "task": "...",
+            "agent": "...",
+            "tags": [...],
+            "metadata": {...}
+        }
+    }
+
+    The system will automatically add a datetime field.
+    """
+    user_id: int
+    project_id: str
+    memory_log: MemoryLogData
 
 
 class MemoryLogResponse(BaseModel):

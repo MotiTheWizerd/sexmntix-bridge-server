@@ -1,10 +1,21 @@
-"""MCP Tools - Exposed capabilities for AI assistants"""
+"""MCP Tools - Exposed capabilities for AI assistants
+
+This module provides the public API for all available XCP server tools.
+
+Tools are organized as modular packages:
+- base: Base tool interfaces and utilities
+- embedding: Text embedding generation
+- semantic_search: Semantic search capabilities
+- store_memory: Memory storage and retrieval
+- store_mental_note: Mental note storage
+- query_mental_notes: Mental note querying
+"""
 
 from .base import BaseTool, ToolDefinition, ToolParameter, ToolResult
 from .semantic_search import SemanticSearchTool
 from .store_memory import StoreMemoryTool
 from .embedding import EmbeddingTool
-from .store_mental_note_tool import StoreMentalNoteTool
+from .store_mental_note import StoreMentalNoteTool
 from .query_mental_notes import QueryMentalNotesTool
 
 __all__ = [
