@@ -9,6 +9,7 @@ from typing import List, Callable
 from src.modules.core import Logger
 from src.database.repositories.memory_log_repository import MemoryLogRepository
 from src.database.repositories.mental_note_repository import MentalNoteRepository
+from src.database.repositories.conversation_repository import ConversationRepository
 
 
 class DatabaseEmbeddingUpdater:
@@ -96,6 +97,38 @@ class DatabaseEmbeddingUpdater:
             # Non-blocking: ChromaDB storage succeeded, PostgreSQL update failed
             self.logger.warning(
                 f"PostgreSQL update failed for mental_note {mental_note_id}: {e}. "
+                f"Vector storage in ChromaDB succeeded."
+            )
+            return False
+
+    async def update_conversation(
+        self,
+        conversation_db_id: int,
+        embedding: List[float]
+    ) -> bool:
+        """
+        Update conversation with embedding (non-blocking).
+
+        Args:
+            conversation_db_id: Conversation database ID
+            embedding: Embedding vector
+
+        Returns:
+            True if successful, False if failed
+        """
+        try:
+            async with self.db_session_factory() as db:
+                repo = ConversationRepository(db)
+                await repo.update(
+                    id=conversation_db_id,
+                    embedding=embedding
+                )
+                await db.commit()
+                return True
+        except Exception as e:
+            # Non-blocking: ChromaDB storage succeeded, PostgreSQL update failed
+            self.logger.warning(
+                f"PostgreSQL update failed for conversation {conversation_db_id}: {e}. "
                 f"Vector storage in ChromaDB succeeded."
             )
             return False

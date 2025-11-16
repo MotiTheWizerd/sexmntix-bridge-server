@@ -110,3 +110,34 @@ class VectorStorageOrchestrator:
         )
 
         return note_id, embedding
+
+    async def store_conversation_vector(
+        self,
+        conversation_db_id: int,
+        raw_data: Dict[str, Any],
+        user_id: str
+    ) -> Tuple[str, List[float]]:
+        """
+        Store conversation vector in separate ChromaDB collection.
+
+        Storage structure: user_id/conversations/{conversation_id}/
+        Note: project_id is NOT used for conversations (user-scoped only)
+
+        Args:
+            conversation_db_id: Conversation ID from PostgreSQL
+            raw_data: Raw conversation data with messages array
+            user_id: User identifier
+
+        Returns:
+            Tuple of (conversation_id from ChromaDB, embedding vector)
+        """
+        # Create vector service with empty project_id (conversations are user-scoped)
+        vector_service = self.create_vector_service(user_id, "")
+
+        conversation_id, embedding = await vector_service.store_conversation_vector(
+            conversation_db_id=conversation_db_id,
+            conversation_data=raw_data,
+            user_id=user_id
+        )
+
+        return conversation_id, embedding

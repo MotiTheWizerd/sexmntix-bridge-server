@@ -102,6 +102,36 @@ class ChromaDBClient:
         """
         return self.collection_manager.get_collection(user_id, project_id, collection_prefix)
 
+    def get_conversation_collection(
+        self,
+        user_id: str
+    ) -> Collection:
+        """
+        Get or create a separate collection for conversations.
+
+        Uses "conversations_" prefix instead of default "semantix_" prefix.
+        This keeps conversations isolated from memory_logs and mental_notes.
+
+        Physical folder structure: data/chromadb/user_{user_id}/conversations/
+        Collection naming: conversations_{hash16}
+        Hash is based on SHA256(user_{user_id}:conversations)
+
+        Example: data/chromadb/user_1/conversations/
+
+        Args:
+            user_id: User identifier for isolation
+
+        Returns:
+            ChromaDB Collection instance for conversations
+        """
+        # Use "user_{user_id}" and "conversations" to create nested folder structure
+        # This creates: data/chromadb/user_1/conversations/
+        return self.collection_manager.get_collection(
+            f"user_{user_id}",  # Prefix with "user_" for folder structure
+            "conversations",    # Fixed project_id for all conversations
+            collection_prefix="conversations_"
+        )
+
     def list_collections(self) -> list[str]:
         """
         List all collection names in the database.

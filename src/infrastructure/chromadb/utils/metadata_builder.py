@@ -55,3 +55,50 @@ def prepare_metadata(memory_log: Dict[str, Any], document_type: str = "memory_lo
             metadata["year"] = str(temporal.get("year", ""))
 
     return metadata
+
+
+def prepare_conversation_metadata(conversation_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Prepare flat metadata dictionary for conversation ChromaDB storage.
+
+    ChromaDB requires flat key-value pairs (no nested objects).
+    Filters out None values to prevent ChromaDB errors.
+
+    Storage structure: user_id/conversations/{conversation_id}/
+    Note: project_id is NOT stored in metadata (conversations are user-scoped only)
+
+    Args:
+        conversation_data: Conversation data dictionary
+
+    Returns:
+        Flat metadata dictionary with only non-None values
+    """
+    metadata = {}
+
+    # Add core fields if they exist and are not None
+    if "user_id" in conversation_data and conversation_data["user_id"] is not None:
+        metadata["user_id"] = str(conversation_data["user_id"])
+
+    # Note: project_id is NOT included - conversations are user-scoped only
+
+    if "conversation_id" in conversation_data and conversation_data["conversation_id"]:
+        metadata["conversation_id"] = str(conversation_data["conversation_id"])
+
+    if "model" in conversation_data and conversation_data["model"]:
+        metadata["model"] = str(conversation_data["model"])
+
+    # Add message count
+    if "conversation" in conversation_data:
+        messages = conversation_data["conversation"]
+        if isinstance(messages, list):
+            metadata["message_count"] = len(messages)
+
+    # Add timestamp if present
+    if "created_at" in conversation_data and conversation_data["created_at"]:
+        created_at = conversation_data["created_at"]
+        # Convert to timestamp if it's a datetime string
+        timestamp = convert_to_timestamp(created_at)
+        if timestamp is not None:
+            metadata["created_at"] = timestamp
+
+    return metadata

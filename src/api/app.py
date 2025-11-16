@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from src.modules.core import EventBus, Logger
 from src.database import DatabaseManager
 from src.api.middleware.logging import LoggingMiddleware
-from src.api.routes import health, memory_logs, mental_notes, users, socket_test, memory_logs_example, embeddings, monitoring
+from src.api.routes import health, memory_logs, mental_notes, users, socket_test, memory_logs_example, embeddings, monitoring, conversations
 from src.services.socket_service import SocketService
 from src.services.chromadb_metrics import ChromaDBMetricsCollector
 from src.events.emitters import EventEmitter
@@ -270,6 +270,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(memory_logs.router)
     app.include_router(mental_notes.router)
+    app.include_router(conversations.router)
     app.include_router(users.router)
     app.include_router(socket_test.router)
     app.include_router(memory_logs_example.router)

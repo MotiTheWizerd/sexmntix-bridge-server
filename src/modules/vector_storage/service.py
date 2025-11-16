@@ -345,3 +345,142 @@ class VectorStorageService:
             enable_temporal_decay=False,  # Mental notes don't use temporal decay
             half_life_days=30.0
         )
+
+    async def store_conversation_vector(
+        self,
+        conversation_db_id: int,
+        conversation_data: Dict[str, Any],
+        user_id: str
+    ) -> tuple[str, List[float]]:
+        """
+        Generate embedding and store conversation in separate ChromaDB collection.
+
+        Uses conversations_{hash(user_id)} collection instead of semantix_{hash}.
+        Extracts text from all messages in conversation array.
+        Storage structure: user_id/conversations/{conversation_id}/
+
+        Args:
+            conversation_db_id: Database ID of conversation
+            conversation_data: Complete conversation data
+            user_id: User identifier for collection isolation
+
+        Returns:
+            Tuple of (conversation_id, embedding_vector)
+
+        Raises:
+            ValueError: If conversation messages are empty
+            ProviderError: If embedding generation fails
+        """
+        from src.infrastructure.chromadb.operations.conversation import create_conversation
+
+        # Extract text from all messages in conversation
+        messages = conversation_data.get("conversation", [])
+        if not messages:
+            raise ValueError("Conversation has no messages")
+
+        # Combine all message texts for embedding
+        # Format: "role: text" for each message
+        combined_text = " ".join([
+            f"{msg.get('role', 'unknown')}: {msg.get('text', '')}"
+            for msg in messages
+        ])
+
+        if not combined_text.strip():
+            raise ValueError("Conversation messages contain no text")
+
+        self.logger.info(
+            f"[CONVERSATION_STORAGE] Generating embedding for conversation "
+            f"{conversation_db_id} ({len(messages)} messages, {len(combined_text)} chars)"
+        )
+
+        # Generate embedding
+        embedding_result = await self.storage_handler.embedding_service.generate_embedding(
+            combined_text
+        )
+        embedding = embedding_result.embedding
+
+        self.logger.info(
+            f"[CONVERSATION_STORAGE] Embedding generated "
+            f"(dimensions: {len(embedding)}, cached: {embedding_result.cached})"
+        )
+
+        # Get ChromaDB client from vector repository
+        chromadb_client = self.storage_handler.vector_repository.client
+
+        # Store in separate conversation collection (user-scoped only)
+        conversation_id = await create_conversation(
+            client=chromadb_client,
+            conversation_db_id=conversation_db_id,
+            embedding=embedding,
+            conversation_data=conversation_data,
+            user_id=user_id
+        )
+
+        self.logger.info(
+            f"[CONVERSATION_STORAGE] Stored in ChromaDB collection conversations_{{hash}} "
+            f"with id: {conversation_id}"
+        )
+
+        return conversation_id, embedding
+
+    async def search_similar_conversations(
+        self,
+        query: str,
+        user_id: str,
+        limit: int = 10,
+        where_filter: Optional[Dict[str, Any]] = None,
+        min_similarity: float = 0.0
+    ) -> List[Dict[str, Any]]:
+        """
+        Semantic search for conversations in separate ChromaDB collection.
+
+        Searches conversations_{hash(user_id)} collection (not semantix_{hash}).
+        Storage structure: user_id/conversations/{conversation_id}/
+
+        Args:
+            query: Search query text
+            user_id: User identifier for collection isolation
+            limit: Maximum number of results
+            where_filter: Optional metadata filter (ChromaDB where syntax)
+            min_similarity: Minimum similarity threshold (0.0 to 1.0)
+
+        Returns:
+            List of search results with similarity scores
+
+        Example:
+            results = await service.search_similar_conversations(
+                query="authentication discussion",
+                user_id="1",
+                limit=5,
+                where_filter={"model": "gpt-5-1-instant"},
+                min_similarity=0.5
+            )
+        """
+        from src.infrastructure.chromadb.operations.conversation.crud import search_conversations
+
+        self.logger.info(
+            f"[CONVERSATION_SEARCH] Searching conversations for query: '{query[:100]}'"
+        )
+
+        # Generate embedding for query
+        embedding_result = await self.storage_handler.embedding_service.generate_embedding(query)
+        query_embedding = embedding_result.embedding
+
+        # Get ChromaDB client
+        chromadb_client = self.storage_handler.vector_repository.client
+
+        # Perform semantic search using conversation-specific search function
+        results = await search_conversations(
+            client=chromadb_client,
+            query_embedding=query_embedding,
+            user_id=user_id,
+            limit=limit,
+            where_filter=where_filter,
+            min_similarity=min_similarity
+        )
+
+        self.logger.info(
+            f"[CONVERSATION_SEARCH] Found {len(results)} matching conversations"
+        )
+
+        return results
