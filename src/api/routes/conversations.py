@@ -108,7 +108,7 @@ async def create_conversation(
 
 @router.get("/{id}", response_model=ConversationResponse)
 async def get_conversation(
-    id: int,
+    id: str,
     db: AsyncSession = Depends(get_db_session),
     logger: Logger = Depends(get_logger),
 ):
@@ -116,7 +116,7 @@ async def get_conversation(
     Retrieve a conversation by database ID.
 
     Args:
-        id: PostgreSQL conversation ID
+        id: PostgreSQL conversation UUID
 
     Returns:
         Conversation with all fields including embedding

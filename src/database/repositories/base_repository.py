@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import Generic, TypeVar, Type, Optional, List
+from typing import Generic, TypeVar, Type, Optional, List, Union
 
 T = TypeVar("T")
 
@@ -17,7 +17,7 @@ class BaseRepository(Generic[T]):
         await self.session.refresh(instance)
         return instance
 
-    async def get_by_id(self, id: int) -> Optional[T]:
+    async def get_by_id(self, id: Union[int, str]) -> Optional[T]:
         result = await self.session.execute(
             select(self.model).where(self.model.id == id)
         )
@@ -29,7 +29,7 @@ class BaseRepository(Generic[T]):
         )
         return list(result.scalars().all())
 
-    async def update(self, id: int, **kwargs) -> Optional[T]:
+    async def update(self, id: Union[int, str], **kwargs) -> Optional[T]:
         instance = await self.get_by_id(id)
         if instance:
             for key, value in kwargs.items():
@@ -38,7 +38,7 @@ class BaseRepository(Generic[T]):
             await self.session.refresh(instance)
         return instance
 
-    async def delete(self, id: int) -> bool:
+    async def delete(self, id: Union[int, str]) -> bool:
         instance = await self.get_by_id(id)
         if instance:
             await self.session.delete(instance)

@@ -71,16 +71,16 @@ class SubscriptionEvent(BaseModel):
 
 
 class MemoryLogEvent(BaseModel):
-    id: int
-    user_id: int
+    id: str
+    user_id: str
     content: str
     created_at: datetime
     updated_at: Optional[datetime] = None
 
 
 class MentalNoteEvent(BaseModel):
-    id: int
-    user_id: int
+    id: str
+    user_id: str
     title: str
     content: Optional[str] = None
     created_at: datetime
@@ -88,7 +88,7 @@ class MentalNoteEvent(BaseModel):
 
 
 class UserStatusEvent(BaseModel):
-    user_id: int
+    user_id: str
     status: str
     timestamp: datetime
 
@@ -102,7 +102,7 @@ class ErrorEvent(BaseModel):
 class XCPToolEvent(BaseModel):
     """Event for XCP tool calls"""
     tool_name: str
-    user_id: int
+    user_id: str
     project_id: str
     arguments: Dict[str, Any]
     session_id: Optional[str] = None
@@ -111,7 +111,7 @@ class XCPToolEvent(BaseModel):
 class XCPToolCompletedEvent(BaseModel):
     """Event for successful XCP tool completion"""
     tool_name: str
-    user_id: int
+    user_id: str
     project_id: str
     result: Any
     duration_ms: float
@@ -121,7 +121,7 @@ class XCPToolCompletedEvent(BaseModel):
 class XCPToolFailedEvent(BaseModel):
     """Event for failed XCP tool execution"""
     tool_name: str
-    user_id: int
+    user_id: str
     project_id: str
     error_message: str
     error_code: Optional[str] = None
@@ -137,6 +137,6 @@ class XCPSessionEvent(BaseModel):
 class XCPResourceEvent(BaseModel):
     """Event for XCP resource access"""
     resource_uri: str
-    user_id: int
+    user_id: str
     project_id: str
     session_id: Optional[str] = None

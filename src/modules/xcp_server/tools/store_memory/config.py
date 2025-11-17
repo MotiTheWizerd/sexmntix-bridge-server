@@ -60,8 +60,8 @@ class StoreMemoryConfig:
         return [
             ToolParameter(
                 name="user_id",
-                type="number",
-                description="User ID for memory isolation",
+                type="string",
+                description="User ID (UUID format) for memory isolation",
                 required=True
             ),
             ToolParameter(

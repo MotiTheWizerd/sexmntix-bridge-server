@@ -1,13 +1,14 @@
 """
 Memory log storage event handler.
 
-Handles memory_log.stored events by storing vectors in ChromaDB
-and updating PostgreSQL with embeddings.
+Handles memory_log.stored events by storing vectors in ChromaDB,
+updating PostgreSQL with embeddings, and saving to JSON files.
 """
 
 from typing import Dict, Any, Optional, Tuple, List
 from .base_handler import BaseStorageHandler
 from ..config import InternalHandlerConfig
+from src.infrastructure.file_storage import MemoryLogFileStorage
 
 
 class MemoryLogStorageHandler(BaseStorageHandler):
@@ -20,6 +21,12 @@ class MemoryLogStorageHandler(BaseStorageHandler):
     With per-project isolation, creates VectorStorageService dynamically
     for each event based on user_id and project_id.
     """
+
+    def __init__(self, *args, **kwargs):
+        """Initialize handler with file storage support"""
+        super().__init__(*args, **kwargs)
+        # Initialize file storage for saving memory logs as JSON
+        self.file_storage = MemoryLogFileStorage()
 
     def _get_log_prefix(self) -> str:
         """Get log prefix for memory log handler"""
@@ -120,11 +127,106 @@ class MemoryLogStorageHandler(BaseStorageHandler):
             )
             self.logger.info(message)
 
+    async def handle_stored_event(self, event_data: Dict[str, Any]):
+        """
+        Override template method to add file storage step.
+
+        This extends the base handler workflow with JSON file storage.
+        """
+        try:
+            # Step 1: Log event reception
+            self._log_event_received(event_data)
+
+            # Step 2: Extract and validate
+            validated = self._extract_and_validate(event_data)
+            if not validated:
+                return
+
+            # Step 3: Log processing details
+            self._log_processing_details(validated)
+
+            # Step 4: Store vector in ChromaDB
+            vector_id, embedding = await self._store_vector(validated)
+
+            # Step 5: Log vector storage success
+            self._log_vector_stored(vector_id, validated, embedding)
+
+            # Step 6: Update PostgreSQL with embedding
+            await self._update_database(validated, embedding)
+
+            # Step 7: Save to JSON file (NEW STEP)
+            self._save_to_file(validated)
+
+        except Exception as e:
+            self._handle_error(e, event_data)
+
+    def _save_to_file(self, validated: Dict[str, Any]) -> None:
+        """
+        Save memory log to JSON file in users folder.
+
+        Args:
+            validated: Validated event data
+        """
+        print("=" * 80)
+        print("[DEBUG] _save_to_file called!")
+        print(f"[DEBUG] validated keys: {list(validated.keys())}")
+
+        try:
+            memory_log_id = validated["memory_log_id"]
+            user_id = validated["user_id"]
+            project_id = validated["project_id"]
+            raw_data = validated["raw_data"]
+
+            print(f"[DEBUG] memory_log_id: {memory_log_id}, user_id: {user_id}, project_id: {project_id}")
+
+            # Prepare memory log data for JSON file
+            memory_log_data = {
+                "memory_log_id": memory_log_id,
+                "user_id": user_id,
+                "project_id": project_id,
+                **raw_data  # Include all fields from raw_data
+            }
+
+            print(f"[DEBUG] About to save file with file_storage: {self.file_storage}")
+
+            # Save to JSON file
+            success = self.file_storage.save_memory_log(
+                user_id=str(user_id),
+                memory_log_id=memory_log_id,
+                memory_log_data=memory_log_data
+            )
+
+            print(f"[DEBUG] Save result: {success}")
+
+            if success:
+                self.logger.info(
+                    f"[MEMORY_LOG_HANDLER] Successfully saved memory log {memory_log_id} "
+                    f"to JSON file for user {user_id}"
+                )
+            else:
+                self.logger.warning(
+                    f"[MEMORY_LOG_HANDLER] Failed to save memory log {memory_log_id} "
+                    f"to JSON file for user {user_id}"
+                )
+
+        except Exception as e:
+            # Log error but don't fail the entire operation
+            print(f"[DEBUG] Exception in _save_to_file: {e}")
+            import traceback
+            traceback.print_exc()
+            self.logger.error(
+                f"[MEMORY_LOG_HANDLER] Error saving memory log to file: {e}",
+                exc_info=True
+            )
+
+        print("=" * 80)
+
     async def handle_memory_log_stored(self, event_data: Dict[str, Any]):
         """
         Handle memory_log.stored event for vector storage.
 
-        Generates embeddings and stores in ChromaDB after PostgreSQL storage completes.
+        Generates embeddings, stores in ChromaDB, updates PostgreSQL,
+        and saves to JSON file after PostgreSQL storage completes.
 
         Args:
             event_data: Event payload containing memory log data and ID

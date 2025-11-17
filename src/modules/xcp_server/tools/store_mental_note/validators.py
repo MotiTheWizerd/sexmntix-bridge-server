@@ -33,6 +33,17 @@ class ArgumentValidator:
         Raises:
             ValueError: If validation fails
         """
+        # Extract and validate required user_id and project_id
+        user_id = arguments.get("user_id")
+        project_id = arguments.get("project_id")
+
+        if user_id is None:
+            raise ValueError("user_id is required")
+        if not project_id:
+            raise ValueError("project_id is required")
+
+        user_id = str(user_id)
+
         # Validate required content parameter
         content = cls._validate_content(arguments.get("content"))
 
@@ -51,6 +62,8 @@ class ArgumentValidator:
         metadata = cls._validate_metadata(arguments.get("metadata"))
 
         return {
+            "user_id": user_id,
+            "project_id": project_id,
             "content": content,
             "session_id": session_id,
             "note_type": note_type,

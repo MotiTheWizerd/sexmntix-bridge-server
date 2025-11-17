@@ -1,0 +1,10 @@
+{
+  "memory_log_id": 101,
+  "user_id": "1",
+  "project_id": "test",
+  "task": "Python test",
+  "content": "Testing file storage directly from Python",
+  "tags": [
+    "test"
+  ]
+}

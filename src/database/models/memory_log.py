@@ -1,8 +1,9 @@
 from sqlalchemy import String, Integer, DateTime, Float
-from sqlalchemy.dialects.postgresql import JSONB, ARRAY
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
 from typing import Optional
+import uuid
 from pgvector.sqlalchemy import Vector
 from .base import Base
 
@@ -10,7 +11,7 @@ from .base import Base
 class MemoryLog(Base):
     __tablename__ = "memory_logs"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     task: Mapped[str] = mapped_column(String(255), index=True)
     agent: Mapped[str] = mapped_column(String(100), index=True)
     date: Mapped[datetime] = mapped_column(DateTime, index=True)

@@ -3,8 +3,10 @@
 Handles custom file-based storage for conversations and other data.
 """
 
-from .conversation_storage import ConversationFileStorage
+from .conversation import ConversationFileStorage
+from .memory_log import MemoryLogFileStorage
 
 __all__ = [
     "ConversationFileStorage",
+    "MemoryLogFileStorage",
 ]

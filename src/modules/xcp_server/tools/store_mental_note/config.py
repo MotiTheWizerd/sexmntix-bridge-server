@@ -47,6 +47,18 @@ class StoreMentalNoteConfig:
         """
         return [
             ToolParameter(
+                name="user_id",
+                type="string",
+                description="User ID (UUID format) for memory isolation (required)",
+                required=True
+            ),
+            ToolParameter(
+                name="project_id",
+                type="string",
+                description="Project ID for memory isolation (required)",
+                required=True
+            ),
+            ToolParameter(
                 name="content",
                 type="string",
                 description="The content of the mental note",

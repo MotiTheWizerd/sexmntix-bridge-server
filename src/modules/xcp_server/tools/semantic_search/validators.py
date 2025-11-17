@@ -68,8 +68,8 @@ class SearchArgumentValidator:
 
         Args:
             arguments: Raw arguments from tool invocation
-            context_user_id: Default user ID from context
-            context_project_id: Default project ID from context
+            context_user_id: Default user ID from context (unused, kept for backward compatibility)
+            context_project_id: Default project ID from context (unused, kept for backward compatibility)
 
         Returns:
             Dictionary of validated arguments
@@ -91,9 +91,16 @@ class SearchArgumentValidator:
         if not is_valid:
             raise ValueError(error)
 
-        # Extract user and project IDs with context fallback
-        user_id = str(arguments.get("user_id", context_user_id))
-        project_id = arguments.get("project_id", context_project_id)
+        # Extract user and project IDs (now required, no fallback)
+        user_id = arguments.get("user_id")
+        project_id = arguments.get("project_id")
+
+        if user_id is None:
+            raise ValueError("user_id is required")
+        if not project_id:
+            raise ValueError("project_id is required")
+
+        user_id = str(user_id)
 
         # Extract temporal decay settings
         enable_temporal_decay = bool(arguments.get("enable_temporal_decay", cls.DEFAULT_ENABLE_TEMPORAL_DECAY))

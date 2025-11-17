@@ -74,15 +74,15 @@ class SemanticSearchConfig:
             ),
             ToolParameter(
                 name="user_id",
-                type="number",
-                description="Override the default user ID for this search (optional)",
-                required=False
+                type="string",
+                description="User ID (UUID format) for memory isolation (required)",
+                required=True
             ),
             ToolParameter(
                 name="project_id",
                 type="string",
-                description="Override the default project ID for this search (optional)",
-                required=False
+                description="Project ID for memory isolation (required)",
+                required=True
             ),
             ToolParameter(
                 name="enable_temporal_decay",

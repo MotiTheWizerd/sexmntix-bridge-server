@@ -317,7 +317,7 @@ class VectorStorageService:
         Example:
             results = await service.search_mental_notes(
                 query="bug fix discussion",
-                user_id="1",
+                user_id="00000000-0000-0000-0000-000000000001",
                 project_id="default",
                 session_id="session_123",
                 note_type="decision",
@@ -450,7 +450,7 @@ class VectorStorageService:
         Example:
             results = await service.search_similar_conversations(
                 query="authentication discussion",
-                user_id="1",
+                user_id="00000000-0000-0000-0000-000000000001",
                 limit=5,
                 where_filter={"model": "gpt-5-1-instant"},
                 min_similarity=0.5

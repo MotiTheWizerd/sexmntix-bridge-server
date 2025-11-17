@@ -126,7 +126,7 @@ async def create_memory_log(
 
 @router.get("/{id}", response_model=MemoryLogResponse)
 async def get_memory_log(
-    id: int,
+    id: str,
     db: AsyncSession = Depends(get_db_session),
     logger: Logger = Depends(get_logger),
 ):

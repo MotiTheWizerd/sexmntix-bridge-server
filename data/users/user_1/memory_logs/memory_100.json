@@ -1,0 +1,13 @@
+{
+  "memory_log_id": 100,
+  "user_id": "1",
+  "project_id": "test-project",
+  "task": "Test memory log",
+  "content": "This is a test memory log saved to the users folder!",
+  "agent": "claude-code",
+  "tags": ["test", "manual"],
+  "metadata": {
+    "created_manually": true
+  },
+  "datetime": "2025-11-17T20:24:00.000000"
+}

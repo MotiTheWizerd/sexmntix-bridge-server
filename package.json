@@ -1,0 +1,8 @@
+{
+  "name": "semantic-bridge-server",
+  "version": "0.1.0",
+  "description": "Semantic Bridge Server",
+  "scripts": {
+    "resetdb": "powershell -ExecutionPolicy Bypass -File scripts\\reset_test_db.ps1"
+  }
+}

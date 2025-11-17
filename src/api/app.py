@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 import asyncio
 from contextlib import asynccontextmanager
 from src.modules.core import EventBus, Logger
@@ -116,8 +118,12 @@ async def lifespan(app: FastAPI):
 
     # Initialize ChromaDB client for metrics (base path, no user/project isolation)
     chromadb_base_path = os.getenv("CHROMADB_PATH", "./data/chromadb")
-    chromadb_client = ChromaDBClient(storage_path=chromadb_base_path)
-    app.state.logger.info(f"ChromaDB client initialized at {chromadb_base_path}")
+    chromadb_client = ChromaDBClient(
+        storage_path=chromadb_base_path,
+        user_id=None,
+        project_id=None
+    )
+    app.state.logger.info(f"ChromaDB client initialized at {chromadb_base_path} (no user/project nesting)")
 
     # Initialize ChromaDB metrics collector
     chromadb_metrics_collector = ChromaDBMetricsCollector(
@@ -176,15 +182,14 @@ async def lifespan(app: FastAPI):
 
     if xcp_config.enabled and embedding_service:
         try:
-            from src.api.dependencies.vector_storage import create_vector_storage_service
+            from src.api.dependencies.vector_storage import create_base_vector_storage_service
             from src.api.dependencies.database import get_db_session
 
             logger.info("Initializing XCP MCP Server...")
 
-            # Create vector storage service for default user/project
-            vector_storage_service = create_vector_storage_service(
-                user_id=str(xcp_config.default_user_id),
-                project_id=xcp_config.default_project_id,
+            # Create base vector storage service (no user/project nesting)
+            # XCP server uses base ChromaDB path: data/chromadb/
+            vector_storage_service = create_base_vector_storage_service(
                 embedding_service=embedding_service,
                 event_bus=event_bus,
                 logger=logger
@@ -282,14 +287,36 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     # Create Socket.IO ASGI app first
     socket_app = socketio.ASGIApp(socket_service.sio, other_asgi_app=None)
-    
+
     app = FastAPI(
         title="Semantic Bridge Server",
         description="Event-driven API server",
         version="0.1.0",
         lifespan=lifespan
     )
-    
+
+    # Custom exception handler for validation errors
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        # Log detailed validation errors
+        logger.error(f"Validation error on {request.method} {request.url.path}")
+        logger.error(f"Validation errors: {exc.errors()}")
+
+        # Try to get request body for debugging
+        try:
+            body = await request.body()
+            logger.error(f"Request body: {body.decode('utf-8')}")
+        except Exception as e:
+            logger.error(f"Could not read request body: {e}")
+
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={
+                "detail": exc.errors(),
+                "body": str(exc.body) if hasattr(exc, 'body') else None
+            }
+        )
+
     # Add CORS middleware
     app.add_middleware(
         CORSMiddleware,
@@ -298,10 +325,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    
+
     # Add middleware
     app.add_middleware(LoggingMiddleware)
-    
+
     # Register routes
     app.include_router(health.router)
     app.include_router(memory_logs.router)
@@ -315,8 +342,8 @@ def create_app() -> FastAPI:
     # Register embeddings router if service is available
     if embedding_service:
         app.include_router(embeddings.router)
-    
+
     # Mount Socket.IO
     app.mount("/socket.io", socket_app)
-    
+
     return app

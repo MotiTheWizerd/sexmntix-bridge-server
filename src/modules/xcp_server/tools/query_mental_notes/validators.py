@@ -30,6 +30,17 @@ class ArgumentValidator:
         Raises:
             ValueError: If validation fails
         """
+        # Extract and validate required user_id and project_id
+        user_id = arguments.get("user_id")
+        project_id = arguments.get("project_id")
+
+        if user_id is None:
+            raise ValueError("user_id is required")
+        if not project_id:
+            raise ValueError("project_id is required")
+
+        user_id = str(user_id)
+
         # Extract optional parameters
         session_id = arguments.get("session_id")
         mental_note_id = arguments.get("mental_note_id")
@@ -45,6 +56,8 @@ class ArgumentValidator:
         validated_session_id = cls._validate_session_id(session_id)
 
         return {
+            "user_id": user_id,
+            "project_id": project_id,
             "session_id": validated_session_id,
             "mental_note_id": validated_note_id,
             "limit": validated_limit

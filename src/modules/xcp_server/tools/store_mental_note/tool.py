@@ -170,8 +170,8 @@ class StoreMentalNoteTool(BaseTool):
             extra={
                 "session_id": validated["session_id"],
                 "note_type": validated["note_type"],
-                "user_id": context.user_id,
-                "project_id": context.project_id
+                "user_id": validated["user_id"],
+                "project_id": validated["project_id"]
             }
         )
 
@@ -193,8 +193,8 @@ class StoreMentalNoteTool(BaseTool):
             content=validated["content"],
             session_id=validated["session_id"],
             note_type=validated["note_type"],
-            user_id=context.user_id,
-            project_id=context.project_id,
+            user_id=validated["user_id"],
+            project_id=validated["project_id"],
             metadata=validated["metadata"]
         )
 
@@ -228,8 +228,8 @@ class StoreMentalNoteTool(BaseTool):
                 session_id=validated["session_id"],
                 start_time=raw_data["startTime"],
                 raw_data=raw_data,
-                user_id=str(context.user_id),
-                project_id=str(context.project_id),
+                user_id=validated["user_id"],
+                project_id=validated["project_id"],
                 embedding=embedding_vector
             )
 
@@ -256,8 +256,8 @@ class StoreMentalNoteTool(BaseTool):
             "session_id": validated["session_id"],
             "start_time": raw_data["startTime"],
             "raw_data": raw_data,
-            "user_id": str(context.user_id),
-            "project_id": str(context.project_id),
+            "user_id": validated["user_id"],
+            "project_id": validated["project_id"],
         }
 
         # Publish mental_note.stored event (not mental_note.created)
@@ -290,8 +290,8 @@ class StoreMentalNoteTool(BaseTool):
             note_type=validated["note_type"],
             start_time=raw_data["startTime"],
             created_at=mental_note.created_at.isoformat(),
-            user_id=context.user_id,
-            project_id=context.project_id
+            user_id=validated["user_id"],
+            project_id=validated["project_id"]
         )
 
         return ToolResult(success=True, data=response_data)

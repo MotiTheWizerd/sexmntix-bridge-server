@@ -48,7 +48,7 @@ async def create_user(
 
 @router.get("/{id}", response_model=UserResponse)
 async def get_user(
-    id: int,
+    id: str,
     db: AsyncSession = Depends(get_db_session),
     logger: Logger = Depends(get_logger),
 ):

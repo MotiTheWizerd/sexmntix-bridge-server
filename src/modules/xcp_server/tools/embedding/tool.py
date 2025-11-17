@@ -136,8 +136,8 @@ class EmbeddingTool(BaseTool):
             "Generating embedding",
             extra={
                 "text_length": len(validated_args["text"]),
-                "user_id": context.user_id,
-                "project_id": context.project_id
+                "user_id": validated_args["user_id"],
+                "project_id": validated_args["project_id"]
             }
         )
 
@@ -194,8 +194,8 @@ class EmbeddingTool(BaseTool):
 
         # Create response metadata
         response_metadata = self.formatter.create_response_metadata(
-            user_id=context.user_id,
-            project_id=context.project_id
+            user_id=validated_args["user_id"],
+            project_id=validated_args["project_id"]
         )
 
         return ToolResult(

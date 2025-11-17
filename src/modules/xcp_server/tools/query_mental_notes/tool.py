@@ -134,8 +134,8 @@ class QueryMentalNotesTool(BaseTool):
                 "session_id": validated["session_id"],
                 "mental_note_id": validated["mental_note_id"],
                 "limit": validated["limit"],
-                "user_id": context.user_id,
-                "project_id": context.project_id
+                "user_id": validated["user_id"],
+                "project_id": validated["project_id"]
             }
         )
 
@@ -194,8 +194,8 @@ class QueryMentalNotesTool(BaseTool):
             session_id=validated["session_id"],
             mental_note_id=validated["mental_note_id"],
             limit=validated["limit"],
-            user_id=context.user_id,
-            project_id=context.project_id
+            user_id=validated["user_id"],
+            project_id=validated["project_id"]
         )
 
         return ToolResult(success=True, data=response_data)

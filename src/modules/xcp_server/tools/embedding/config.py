@@ -44,6 +44,18 @@ class EmbeddingToolConfig:
         """
         return [
             ToolParameter(
+                name="user_id",
+                type="string",
+                description="User ID (UUID format) for memory isolation (required)",
+                required=True
+            ),
+            ToolParameter(
+                name="project_id",
+                type="string",
+                description="Project ID for memory isolation (required)",
+                required=True
+            ),
+            ToolParameter(
                 name="text",
                 type="string",
                 description="The text to generate an embedding for. Should be non-empty and meaningful.",

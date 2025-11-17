@@ -69,8 +69,11 @@ class ConversationHandler:
                 )
                 return
 
-            # Combine all messages into a single text
-            combined_text = combine_conversation_messages(conversation_messages)
+            # Combine only assistant messages (filter out user messages)
+            combined_text = combine_conversation_messages(
+                conversation_messages,
+                role_filter="assistant"
+            )
 
             self.logger.info(
                 f"📤 SENDING TO GEMINI - Conversation ID: {conversation_id}",

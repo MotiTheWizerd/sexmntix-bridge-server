@@ -9,12 +9,12 @@ class MentalNoteCreate(BaseModel):
 
     sessionId: str
     startTime: int
-    user_id: Optional[str] = "1"  # Default user_id for backward compatibility
+    user_id: str  # Required: UUID from users table
     project_id: Optional[str] = "default"  # Default project_id
 
 
 class MentalNoteResponse(BaseModel):
-    id: int
+    id: str
     session_id: str
     start_time: int
     raw_data: Dict[str, Any]
@@ -31,7 +31,7 @@ class MentalNoteSearchRequest(BaseModel):
     """Schema for semantic search of mental notes"""
     query: str
     session_id: Optional[str] = None  # Filter by specific session
-    user_id: Optional[str] = "1"  # Default user_id if not provided
+    user_id: str  # Required: UUID from users table
     project_id: Optional[str] = "default"  # Default project_id if not provided
     limit: Optional[int] = 10
     min_similarity: Optional[float] = 0.0
@@ -41,7 +41,7 @@ class MentalNoteSearchRequest(BaseModel):
 class MentalNoteSearchResult(BaseModel):
     """Result from semantic search with similarity scores"""
     id: str
-    mental_note_id: Optional[int] = None
+    mental_note_id: Optional[str] = None
     document: Dict[str, Any]
     metadata: Dict[str, Any]
     distance: float

@@ -1,32 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c:*)",
-      "Bash(python test_event_flow.py:*)",
-      "Bash(python -m alembic:*)",
-      "Bash(pip install:*)",
-      "mcp__semantic-bridge__semantic_search",
-      "Bash(python -m src.modules.xcp_server:*)",
       "Bash(cat:*)",
-      "Bash(find:*)",
-      "Bash(dir:*)",
-      "Bash(python -m pytest:*)",
-      "Bash(python examples/test_chromadb_integration.py:*)",
-      "Bash(for f in src/infrastructure/chromadb/repository.py src/infrastructure/chromadb/models/search_result.py src/infrastructure/chromadb/utils/id_generator.py src/infrastructure/chromadb/utils/timestamp_converter.py src/infrastructure/chromadb/utils/metadata_builder.py src/infrastructure/chromadb/utils/filter_sanitizer.py src/infrastructure/chromadb/operations/memory_operations.py src/infrastructure/chromadb/operations/search_operations.py)",
-      "Bash(do python -m py_compile \"$f\")",
-      "Bash(echo:*)",
-      "Bash(done)",
-      "Bash(tree:*)",
-      "Bash(nul)",
-      "Bash(findstr:*)",
-      "Bash(for f in src/services/chromadb_metrics/**/*.py src/services/chromadb_metrics/*.py)",
-      "Bash(\"src/services/chromadb_metrics/collectors/collection_collector.py\")",
-      "Bash(python -m py_compile:*)",
-      "Bash(poetry run python:*)",
-      "Bash(poetry run alembic:*)"
-    ],
-    "deny": [],
-    "ask": []
+      "Bash(python:*)",
+      "Bash(dir \"C:\\project\\semantix-bridge\\sexmntix-bridge-server\\test_*.py\" /b)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)"
+    ]
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [

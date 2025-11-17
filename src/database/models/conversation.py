@@ -5,10 +5,11 @@ Stores AI conversation data with vector embeddings for semantic search.
 """
 
 from sqlalchemy import String, Integer, DateTime
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
 from typing import Optional
+import uuid
 from .base import Base
 
 
@@ -21,7 +22,7 @@ class Conversation(Base):
     semantic search capabilities.
 
     Attributes:
-        id: Primary key
+        id: Primary key (UUID)
         conversation_id: Unique conversation identifier (UUID from client)
         model: AI model used (e.g., "gpt-5-1-instant")
         raw_data: Complete conversation data (JSONB)
@@ -32,7 +33,7 @@ class Conversation(Base):
 
     __tablename__ = "conversations"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
 
     # Conversation identifier from client (allows duplicates for versioning)
     conversation_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)

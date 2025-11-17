@@ -27,10 +27,10 @@ def upgrade() -> None:
     op.create_index(op.f('ix_mental_notes_user_id'), 'mental_notes', ['user_id'], unique=False)
     # ### end Alembic commands ###
 
-    # Backfill existing records with default values
+    # Backfill existing records with default values (using test UUID)
     op.execute("""
         UPDATE mental_notes
-        SET user_id = '1', project_id = 'default'
+        SET user_id = '00000000-0000-0000-0000-000000000001', project_id = 'default'
         WHERE user_id IS NULL OR project_id IS NULL
     """)
 

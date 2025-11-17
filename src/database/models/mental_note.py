@@ -1,8 +1,9 @@
 from sqlalchemy import String, Integer, DateTime, BigInteger, Float
-from sqlalchemy.dialects.postgresql import JSONB, ARRAY
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
 from typing import Optional
+import uuid
 from pgvector.sqlalchemy import Vector
 from .base import Base
 
@@ -10,7 +11,7 @@ from .base import Base
 class MentalNote(Base):
     __tablename__ = "mental_notes"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id: Mapped[str] = mapped_column(String(255), index=True)
     start_time: Mapped[int] = mapped_column(BigInteger, index=True)
     raw_data: Mapped[dict] = mapped_column(JSONB, nullable=False)

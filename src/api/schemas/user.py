@@ -11,7 +11,7 @@ class UserCreate(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: int
+    id: str  # UUID format
     email: str
     first_name: str
     last_name: str

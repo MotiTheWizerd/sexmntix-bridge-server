@@ -43,6 +43,17 @@ class EmbeddingArgumentValidator:
         Raises:
             ValueError: If validation fails
         """
+        # Extract and validate required user_id and project_id
+        user_id = arguments.get("user_id")
+        project_id = arguments.get("project_id")
+
+        if user_id is None:
+            raise ValueError("user_id is required")
+        if not project_id:
+            raise ValueError("project_id is required")
+
+        user_id = str(user_id)
+
         # Extract text (required)
         text = arguments.get("text")
         if not text:
@@ -57,6 +68,8 @@ class EmbeddingArgumentValidator:
         return_full_vector = bool(arguments.get("return_full_vector", cls.DEFAULT_RETURN_FULL_VECTOR))
 
         return {
+            "user_id": user_id,
+            "project_id": project_id,
             "text": text,
             "return_full_vector": return_full_vector
         }

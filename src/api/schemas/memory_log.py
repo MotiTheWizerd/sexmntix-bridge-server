@@ -19,7 +19,7 @@ class MemoryLogCreate(BaseModel):
 
     Format:
     {
-        "user_id": 1,
+        "user_id": "uuid-string",
         "project_id": "default",
         "memory_log": {
             "content": "...",
@@ -32,13 +32,13 @@ class MemoryLogCreate(BaseModel):
 
     The system will automatically add a datetime field.
     """
-    user_id: int
+    user_id: str
     project_id: str
     memory_log: MemoryLogData
 
 
 class MemoryLogResponse(BaseModel):
-    id: int
+    id: str
     task: str
     agent: str
     date: datetime
@@ -54,7 +54,7 @@ class MemoryLogResponse(BaseModel):
 
 class MemoryLogSearchRequest(BaseModel):
     query: str
-    user_id: Optional[str] = "1"  # Default user_id if not provided
+    user_id: str  # Required: UUID from users table
     project_id: Optional[str] = "default"  # Default project_id if not provided
     limit: Optional[int] = 10
     min_similarity: Optional[float] = 0.0
@@ -64,7 +64,7 @@ class MemoryLogSearchRequest(BaseModel):
 
 class MemoryLogSearchResult(BaseModel):
     id: str
-    memory_log_id: Optional[int] = None
+    memory_log_id: Optional[str] = None
     document: Dict[str, Any]
     metadata: Dict[str, Any]
     distance: float

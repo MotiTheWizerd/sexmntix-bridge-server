@@ -18,8 +18,37 @@ CHROMADB_BASE_PATH = os.getenv("CHROMADB_PATH", "./data/chromadb")
 # Cache for ChromaDB clients per user/project (for performance)
 _chromadb_clients: Dict[str, ChromaDBClient] = {}
 
+# Cache for base ChromaDB client (no user/project isolation)
+_base_chromadb_client: ChromaDBClient | None = None
+
 # Initialize vector storage service (singleton for embedding service)
 _vector_storage_service: VectorStorageService | None = None
+
+
+def get_base_chromadb_client() -> ChromaDBClient:
+    """
+    Get or create a base ChromaDB client without user/project isolation.
+
+    This is used for server-side operations (like XCP server) that don't need
+    per-user/per-project isolation. Uses the base ChromaDB path directly.
+
+    Returns:
+        ChromaDBClient instance for base path (no nesting)
+    """
+    global _base_chromadb_client
+
+    # Return cached client if exists
+    if _base_chromadb_client is not None:
+        return _base_chromadb_client
+
+    # Create new client at base path (no user_id/project_id)
+    _base_chromadb_client = ChromaDBClient(
+        storage_path=CHROMADB_BASE_PATH,
+        user_id=None,
+        project_id=None
+    )
+
+    return _base_chromadb_client
 
 
 def get_chromadb_client(user_id: str, project_id: str) -> ChromaDBClient:
@@ -109,6 +138,40 @@ def create_vector_storage_service(
     chromadb_client = get_chromadb_client(user_id, project_id)
 
     # Create vector repository with the isolated client
+    vector_repository = VectorRepository(chromadb_client)
+
+    # Create vector storage service
+    return _create_vector_storage_service(
+        embedding_service=embedding_service,
+        event_bus=event_bus,
+        logger=logger,
+        vector_repository=vector_repository
+    )
+
+
+def create_base_vector_storage_service(
+    embedding_service: EmbeddingService,
+    event_bus: EventBus,
+    logger: Logger
+) -> VectorStorageService:
+    """
+    Create VectorStorageService using base ChromaDB path (no user/project isolation).
+
+    This is used for server-side operations (like XCP server) that don't need
+    per-user/per-project isolation. Uses data/chromadb/ directly.
+
+    Args:
+        embedding_service: EmbeddingService instance
+        event_bus: EventBus instance
+        logger: Logger instance
+
+    Returns:
+        VectorStorageService instance for base path
+    """
+    # Get or create base ChromaDB client (no nesting)
+    chromadb_client = get_base_chromadb_client()
+
+    # Create vector repository with the base client
     vector_repository = VectorRepository(chromadb_client)
 
     # Create vector storage service

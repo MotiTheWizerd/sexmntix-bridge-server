@@ -82,7 +82,7 @@ async def create_mental_note(
 
 @router.get("/{id}", response_model=MentalNoteResponse)
 async def get_mental_note(
-    id: int,
+    id: str,
     db: AsyncSession = Depends(get_db_session),
     logger: Logger = Depends(get_logger),
 ):

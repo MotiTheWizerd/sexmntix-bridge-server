@@ -4,9 +4,10 @@ Pydantic schemas for conversation API endpoints.
 Defines request/response models for conversation operations.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 from typing import Dict, Any, Optional, List
+import uuid
 
 
 class ConversationMessage(BaseModel):
@@ -15,12 +16,20 @@ class ConversationMessage(BaseModel):
 
     Attributes:
         role: Speaker role (e.g., "user", "assistant", "system")
-        message_id: Unique identifier for the message
+        message_id: Unique identifier for the message (auto-generated if not provided)
         text: Message content
     """
     role: str
-    message_id: str
+    message_id: Optional[str] = None
     text: str
+
+    @field_validator('message_id', mode='before')
+    @classmethod
+    def generate_message_id(cls, v):
+        """Auto-generate message_id if not provided"""
+        if v is None or v == '':
+            return str(uuid.uuid4())
+        return v
 
 
 class ConversationCreate(BaseModel):
@@ -49,7 +58,7 @@ class ConversationCreate(BaseModel):
         ]
     }
     """
-    user_id: Optional[str] = "1"  # Default for backward compatibility
+    user_id: str  # Required: UUID from users table
     project_id: Optional[str] = None  # Deprecated: ignored, kept for backward compatibility
     conversation_id: str
     model: str
@@ -62,7 +71,7 @@ class ConversationResponse(BaseModel):
 
     Note: Embeddings are stored only in ChromaDB, not returned in API responses.
     """
-    id: int
+    id: str
     conversation_id: str
     model: str
     raw_data: Dict[str, Any]
@@ -82,7 +91,7 @@ class ConversationSearchRequest(BaseModel):
     Note: project_id is deprecated and ignored (kept for backward compatibility only)
     """
     query: str
-    user_id: Optional[str] = "1"
+    user_id: str  # Required: UUID from users table
     project_id: Optional[str] = None  # Deprecated: ignored, kept for backward compatibility
     limit: Optional[int] = 10
     min_similarity: Optional[float] = 0.0
