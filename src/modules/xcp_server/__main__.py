@@ -10,10 +10,16 @@ This is the recommended way to run the XCP server for use with Claude Code or Cl
 import asyncio
 import sys
 import os
+from pathlib import Path
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from the project root (where this code lives)
+# This ensures .env is found even when MCP server is called from other projects
+# Path: __main__.py -> xcp_server/ -> modules/ -> src/ -> project_root/
+project_root = Path(__file__).parent.parent.parent.parent
+dotenv_path = project_root / ".env"
+load_dotenv(dotenv_path=dotenv_path)
 
 # Import after loading env
 from src.modules.core import EventBus, Logger
@@ -105,7 +111,10 @@ async def main():
 
     # Initialize ChromaDB
     try:
-        chromadb_path = os.getenv("CHROMADB_PATH", "./data/chromadb")
+        # Use absolute path for ChromaDB to work from any project
+        chromadb_path = os.getenv("CHROMADB_PATH")
+        if not chromadb_path:
+            chromadb_path = str(project_root / "data" / "chromadb")
         chromadb_client = ChromaDBClient(storage_path=chromadb_path)
         vector_repository = VectorRepository(chromadb_client)
         logger.info("ChromaDB client initialized")
@@ -161,7 +170,7 @@ async def main():
 
     try:
         # Start the XCP server (blocking call for stdio)
-        logger.info("Starting XCP server (stdio transport)")
+        logger.info(f"Starting XCP server ({config.transport} transport)")
         logger.info("Waiting for MCP client connection...")
         await xcp_service.start()
 
@@ -184,7 +193,8 @@ async def main():
         logger.info("XCP server stopped")
 
 
-if __name__ == "__main__":
+def cli_main():
+    """Entry point for the semantic-bridge-mcp command"""
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
@@ -193,3 +203,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\nFatal error: {e}", file=sys.stderr)
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    cli_main()

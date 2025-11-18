@@ -8,6 +8,7 @@ This fires AFTER SXThalamus has processed conversations with Gemini.
 from typing import Dict, Any, Optional, Tuple, List
 from .base_handler import BaseStorageHandler
 from ..config import InternalHandlerConfig
+from src.infrastructure.file_storage import ConversationFileStorage
 
 
 class ConversationStorageHandler(BaseStorageHandler):
@@ -20,6 +21,12 @@ class ConversationStorageHandler(BaseStorageHandler):
     Decouples vector storage from main request flow,
     allowing async background processing and non-blocking failures.
     """
+
+    def __init__(self, *args, **kwargs):
+        """Initialize handler with file storage support"""
+        super().__init__(*args, **kwargs)
+        # Initialize file storage for saving conversations as JSON
+        self.file_storage = ConversationFileStorage()
 
     def _get_log_prefix(self) -> str:
         """Get log prefix for conversation handler"""
@@ -125,6 +132,93 @@ class ConversationStorageHandler(BaseStorageHandler):
             f"{self._get_log_prefix()} Skipping PostgreSQL embedding update for conversation {conversation_db_id} "
             "(embeddings stored only in ChromaDB)"
         )
+
+    async def handle_stored_event(self, event_data: Dict[str, Any]):
+        """
+        Override template method to add file storage step.
+
+        This extends the base handler workflow with JSON file storage.
+        """
+        try:
+            # Step 1: Log event reception
+            self._log_event_received(event_data)
+
+            # Step 2: Extract and validate
+            validated = self._extract_and_validate(event_data)
+            if not validated:
+                return
+
+            # Step 3: Log processing details
+            self._log_processing_details(validated)
+
+            # Step 4: Store vector in ChromaDB
+            vector_id, embedding = await self._store_vector(validated)
+
+            # Step 5: Log vector storage success
+            self._log_vector_stored(vector_id, validated, embedding)
+
+            # Step 6: Update PostgreSQL with embedding (skipped for conversations)
+            await self._update_database(validated, embedding)
+
+            # Step 7: Save to JSON file (NEW STEP)
+            self._save_to_file(validated)
+
+        except Exception as e:
+            self._handle_error(e, event_data)
+
+    def _save_to_file(self, validated: Dict[str, Any]) -> None:
+        """
+        Save conversation to JSON file in users folder.
+
+        Args:
+            validated: Validated event data
+        """
+        try:
+            conversation_db_id = validated["conversation_db_id"]
+            user_id = validated["user_id"]
+            project_id = validated["project_id"]
+            raw_data = validated["raw_data"]
+
+            # Extract conversation_id from raw_data
+            conversation_id = raw_data.get("conversation_id")
+            if not conversation_id:
+                self.logger.warning(
+                    f"{self._get_log_prefix()} No conversation_id in raw_data, "
+                    f"cannot save to file for conversation DB ID {conversation_db_id}"
+                )
+                return
+
+            # Prepare conversation data for JSON file
+            conversation_data = {
+                "user_id": user_id,
+                "project_id": project_id,
+                **raw_data  # Include all fields from raw_data
+            }
+
+            # Save to JSON file
+            success = self.file_storage.save_conversation(
+                user_id=str(user_id),
+                conversation_id=conversation_id,
+                conversation_data=conversation_data
+            )
+
+            if success:
+                self.logger.info(
+                    f"{self._get_log_prefix()} Successfully saved conversation {conversation_id} "
+                    f"to JSON file for user {user_id}"
+                )
+            else:
+                self.logger.warning(
+                    f"{self._get_log_prefix()} Failed to save conversation {conversation_id} "
+                    f"to JSON file for user {user_id}"
+                )
+
+        except Exception as e:
+            # Log error but don't fail the entire operation
+            self.logger.error(
+                f"{self._get_log_prefix()} Error saving conversation to file: {e}",
+                exc_info=True
+            )
 
     async def handle_conversation_analyzed(self, event_data: Dict[str, Any]):
         """

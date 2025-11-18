@@ -6,8 +6,8 @@ Handles result filtering and ranking (temporal decay).
 
 from typing import List
 from src.infrastructure.chromadb.models import SearchResult
-from ...filters import FilterOrchestrator
-from ..models import SearchRequest
+from ....filters import FilterOrchestrator
+from ...models import SearchRequest
 from ...telemetry import SearchTelemetry
 
 

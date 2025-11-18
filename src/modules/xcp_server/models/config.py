@@ -7,10 +7,16 @@ Pydantic models for XCP server configuration loaded from environment variables.
 import os
 from enum import Enum
 from typing import Optional
+from pathlib import Path
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from the project root (where this code lives)
+# This ensures .env is found even when config is imported from anywhere
+# Path: config.py -> models/ -> xcp_server/ -> modules/ -> src/ -> project_root/
+project_root = Path(__file__).parent.parent.parent.parent.parent
+dotenv_path = project_root / ".env"
+load_dotenv(dotenv_path=dotenv_path, override=True)  # Load from correct path
 
 
 class TransportType(str, Enum):
@@ -63,7 +69,7 @@ class XCPConfig(BaseModel):
     )
 
     default_project_id: str = Field(
-        default_factory=lambda: os.getenv("XCP_DEFAULT_PROJECT_ID", "default"),
+        default_factory=lambda: os.getenv("XCP_DEFAULT_PROJECT_ID", "public"),
         description="Default project ID for operations"
     )
 
@@ -82,6 +88,17 @@ class XCPConfig(BaseModel):
     temporal_half_life_days: float = Field(
         default_factory=lambda: float(os.getenv("XCP_TEMPORAL_HALF_LIFE_DAYS", "30")),
         description="Default half-life in days for exponential decay"
+    )
+
+    # SSE Transport configuration
+    sse_host: str = Field(
+        default_factory=lambda: os.getenv("XCP_SSE_HOST", "localhost"),
+        description="Host to bind SSE server to"
+    )
+
+    sse_port: int = Field(
+        default_factory=lambda: int(os.getenv("XCP_SSE_PORT", "3001")),
+        description="Port for SSE server"
     )
 
     class Config:

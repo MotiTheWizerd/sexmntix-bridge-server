@@ -28,11 +28,11 @@ async def main():
                                                     session_id=SESSION_ID
     )
     print(f"Session created: App='{APP_NAME}', User='{USER_ID}', Session='{SESSION_ID}'")
-    root_agent = Agent(
+    root_agent = Agent (
         model='gemini-2.5-flash',
         name='root_agent',
         description=""Tells the current time in a specified city."",
-        instruction="You are a helpful assistant that tells the current time in cities. Use the 'get_current_time' tool for this purpose.",
+        instruction="You are a helpful assistant that tells the current time in cities. Use the 'get_current_time' tool for this purpose."
         
     )
 

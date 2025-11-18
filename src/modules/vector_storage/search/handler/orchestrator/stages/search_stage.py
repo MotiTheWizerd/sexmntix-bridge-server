@@ -8,7 +8,7 @@ from typing import List
 from src.infrastructure.chromadb.repository import VectorRepository
 from src.infrastructure.chromadb.models import SearchResult
 from ...models import SearchRequest
-from ....telemetry import SearchTelemetry
+from ...telemetry import SearchTelemetry
 
 
 class SearchStage:

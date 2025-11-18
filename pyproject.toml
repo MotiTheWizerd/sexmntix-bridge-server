@@ -7,6 +7,7 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
+
 dependencies = [
     "fastapi (>=0.121.0,<0.122.0)",
     "uvicorn (>=0.38.0,<0.39.0)",
@@ -30,8 +31,12 @@ dependencies = [
     "google-generativeai (>=0.8.5,<0.9.0)"
 ]
 
+[project.scripts]
+semantic-bridge-mcp = "src.modules.xcp_server.__main__:cli_main"
+
 [tool.poetry]
-package-mode = false
+package-mode = true
+packages = [{include = "src"}]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

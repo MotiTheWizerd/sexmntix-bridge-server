@@ -7,8 +7,8 @@ Handles response building with metrics collection.
 from typing import List
 from src.infrastructure.chromadb.models import SearchResult
 from src.infrastructure.chromadb.repository import VectorRepository
-from ..models import SearchRequest, SearchResponse
-from ..formatters import format_results_as_dicts
+from ...models import SearchRequest, SearchResponse
+from ...formatters import format_results_as_dicts
 from ..utils.metrics import get_collection_size
 
 

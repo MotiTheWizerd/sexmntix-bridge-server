@@ -8,6 +8,7 @@ and updating PostgreSQL with embeddings.
 from typing import Dict, Any, Optional, Tuple, List
 from .base_handler import BaseStorageHandler
 from ..config import InternalHandlerConfig
+from src.infrastructure.file_storage import MentalNoteFileStorage
 
 
 class MentalNoteStorageHandler(BaseStorageHandler):
@@ -20,6 +21,12 @@ class MentalNoteStorageHandler(BaseStorageHandler):
     With per-project isolation, creates VectorStorageService dynamically
     for each event based on user_id and project_id.
     """
+
+    def __init__(self, *args, **kwargs):
+        """Initialize handler with file storage support"""
+        super().__init__(*args, **kwargs)
+        # Initialize file storage for saving mental notes as JSON
+        self.file_storage = MentalNoteFileStorage()
 
     def _get_log_prefix(self) -> str:
         """Get log prefix for mental note handler"""
@@ -143,6 +150,85 @@ class MentalNoteStorageHandler(BaseStorageHandler):
                 self._get_doc_type()
             )
             self.logger.info(message)
+
+    async def handle_stored_event(self, event_data: Dict[str, Any]):
+        """
+        Override template method to add file storage step.
+
+        This extends the base handler workflow with JSON file storage.
+        """
+        try:
+            # Step 1: Log event reception
+            self._log_event_received(event_data)
+
+            # Step 2: Extract and validate
+            validated = self._extract_and_validate(event_data)
+            if not validated:
+                return
+
+            # Step 3: Log processing details
+            self._log_processing_details(validated)
+
+            # Step 4: Store vector in ChromaDB
+            vector_id, embedding = await self._store_vector(validated)
+
+            # Step 5: Log vector storage success
+            self._log_vector_stored(vector_id, validated, embedding)
+
+            # Step 6: Update PostgreSQL with embedding
+            await self._update_database(validated, embedding)
+
+            # Step 7: Save to JSON file (NEW STEP)
+            self._save_to_file(validated)
+
+        except Exception as e:
+            self._handle_error(e, event_data)
+
+    def _save_to_file(self, validated: Dict[str, Any]) -> None:
+        """
+        Save mental note to JSON file in users folder.
+
+        Args:
+            validated: Validated event data
+        """
+        try:
+            mental_note_id = validated["mental_note_id"]
+            user_id = validated["user_id"]
+            project_id = validated["project_id"]
+            raw_data = validated["raw_data"]
+
+            # Prepare mental note data for JSON file
+            mental_note_data = {
+                "mental_note_id": mental_note_id,
+                "user_id": user_id,
+                "project_id": project_id,
+                **raw_data  # Include all fields from raw_data
+            }
+
+            # Save to JSON file
+            success = self.file_storage.save_mental_note(
+                user_id=str(user_id),
+                mental_note_id=mental_note_id,
+                mental_note_data=mental_note_data
+            )
+
+            if success:
+                self.logger.info(
+                    f"{self._get_log_prefix()} Successfully saved mental note {mental_note_id} "
+                    f"to JSON file for user {user_id}"
+                )
+            else:
+                self.logger.warning(
+                    f"{self._get_log_prefix()} Failed to save mental note {mental_note_id} "
+                    f"to JSON file for user {user_id}"
+                )
+
+        except Exception as e:
+            # Log error but don't fail the entire operation
+            self.logger.error(
+                f"{self._get_log_prefix()} Error saving mental note to file: {e}",
+                exc_info=True
+            )
 
     async def handle_mental_note_stored(self, event_data: Dict[str, Any]):
         """

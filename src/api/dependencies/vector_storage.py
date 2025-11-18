@@ -3,7 +3,6 @@ Dependency for VectorStorageService injection.
 """
 
 import os
-from typing import Dict
 from fastapi import Request
 from src.modules.vector_storage import VectorStorageService
 from src.modules.embeddings import EmbeddingService
@@ -15,74 +14,55 @@ from src.infrastructure.chromadb.repository import VectorRepository
 # ChromaDB base path
 CHROMADB_BASE_PATH = os.getenv("CHROMADB_PATH", "./data/chromadb")
 
-# Cache for ChromaDB clients per user/project (for performance)
-_chromadb_clients: Dict[str, ChromaDBClient] = {}
-
-# Cache for base ChromaDB client (no user/project isolation)
-_base_chromadb_client: ChromaDBClient | None = None
+# Single shared ChromaDB client for all users/projects
+# Isolation is achieved via collection naming, not physical separation
+_shared_chromadb_client: ChromaDBClient | None = None
 
 # Initialize vector storage service (singleton for embedding service)
 _vector_storage_service: VectorStorageService | None = None
 
 
-def get_base_chromadb_client() -> ChromaDBClient:
+def get_chromadb_client(user_id: str = None, project_id: str = None) -> ChromaDBClient:
     """
-    Get or create a base ChromaDB client without user/project isolation.
+    Get or create the shared ChromaDB client.
 
-    This is used for server-side operations (like XCP server) that don't need
-    per-user/per-project isolation. Uses the base ChromaDB path directly.
+    All users and projects share a single ChromaDB instance. Isolation is
+    achieved through collection naming (hash-based), not physical separation.
+
+    Args:
+        user_id: Ignored (kept for backward compatibility)
+        project_id: Ignored (kept for backward compatibility)
 
     Returns:
-        ChromaDBClient instance for base path (no nesting)
+        Shared ChromaDBClient instance
     """
-    global _base_chromadb_client
+    global _shared_chromadb_client
 
     # Return cached client if exists
-    if _base_chromadb_client is not None:
-        return _base_chromadb_client
+    if _shared_chromadb_client is not None:
+        return _shared_chromadb_client
 
-    # Create new client at base path (no user_id/project_id)
-    _base_chromadb_client = ChromaDBClient(
+    # Create single shared client at base path
+    _shared_chromadb_client = ChromaDBClient(
         storage_path=CHROMADB_BASE_PATH,
         user_id=None,
         project_id=None
     )
 
-    return _base_chromadb_client
+    return _shared_chromadb_client
 
 
-def get_chromadb_client(user_id: str, project_id: str) -> ChromaDBClient:
+def get_base_chromadb_client() -> ChromaDBClient:
     """
-    Get or create a ChromaDB client for specific user/project.
+    Get or create the shared ChromaDB client.
 
-    Implements client caching for performance - each unique user/project
-    combination gets its own isolated ChromaDB instance.
-
-    Args:
-        user_id: User identifier
-        project_id: Project identifier
+    Alias for get_chromadb_client() for backward compatibility.
+    Since all clients now share the same instance, this returns the same client.
 
     Returns:
-        ChromaDBClient instance for the user/project
+        Shared ChromaDBClient instance
     """
-    # Create cache key
-    cache_key = f"{user_id}:{project_id}"
-
-    # Return cached client if exists
-    if cache_key in _chromadb_clients:
-        return _chromadb_clients[cache_key]
-
-    # Create new client with nested path: data/chromadb/{user_id}/{project_id}/
-    client = ChromaDBClient(
-        storage_path=CHROMADB_BASE_PATH,
-        user_id=user_id,
-        project_id=project_id
-    )
-
-    # Cache for future requests
-    _chromadb_clients[cache_key] = client
-
-    return client
+    return get_chromadb_client()
 
 
 def _create_vector_storage_service(
@@ -121,23 +101,24 @@ def create_vector_storage_service(
     """
     Create VectorStorageService for specific user/project.
 
-    This function creates an isolated VectorStorageService with its own
-    ChromaDB client pointing to data/chromadb/{user_id}/{project_id}/
+    All users/projects share the same ChromaDB client. Isolation is achieved
+    via collection naming within the shared instance.
 
     Args:
-        user_id: User identifier
-        project_id: Project identifier
+        user_id: User identifier (used for collection naming only)
+        project_id: Project identifier (used for collection naming only)
         embedding_service: EmbeddingService instance
         event_bus: EventBus instance
         logger: Logger instance
 
     Returns:
-        VectorStorageService instance for the user/project
+        VectorStorageService instance with shared ChromaDB client
     """
-    # Get or create ChromaDB client for this user/project
-    chromadb_client = get_chromadb_client(user_id, project_id)
+    # Get shared ChromaDB client (same for all users/projects)
+    chromadb_client = get_chromadb_client()
 
-    # Create vector repository with the isolated client
+    # Create vector repository with the shared client
+    # Isolation happens via collection naming (hash of user_id:project_id)
     vector_repository = VectorRepository(chromadb_client)
 
     # Create vector storage service
@@ -155,10 +136,10 @@ def create_base_vector_storage_service(
     logger: Logger
 ) -> VectorStorageService:
     """
-    Create VectorStorageService using base ChromaDB path (no user/project isolation).
+    Create VectorStorageService using shared ChromaDB client.
 
-    This is used for server-side operations (like XCP server) that don't need
-    per-user/per-project isolation. Uses data/chromadb/ directly.
+    Alias for create_vector_storage_service() for backward compatibility.
+    Since all clients now share the same instance, this returns the same service.
 
     Args:
         embedding_service: EmbeddingService instance
@@ -166,12 +147,12 @@ def create_base_vector_storage_service(
         logger: Logger instance
 
     Returns:
-        VectorStorageService instance for base path
+        VectorStorageService instance with shared ChromaDB client
     """
-    # Get or create base ChromaDB client (no nesting)
-    chromadb_client = get_base_chromadb_client()
+    # Get shared ChromaDB client
+    chromadb_client = get_chromadb_client()
 
-    # Create vector repository with the base client
+    # Create vector repository with the shared client
     vector_repository = VectorRepository(chromadb_client)
 
     # Create vector storage service
@@ -191,8 +172,8 @@ def initialize_vector_storage_service(
     """
     Initialize vector storage dependencies during app startup.
 
-    Note: With per-project isolation, VectorStorageService instances are
-    created on-demand per request. This function just validates dependencies.
+    Initializes the shared ChromaDB client. All users/projects share the same
+    instance with isolation via collection naming.
 
     Args:
         embedding_service: EmbeddingService instance
@@ -205,9 +186,10 @@ def initialize_vector_storage_service(
             "Ensure GOOGLE_API_KEY is configured in .env"
         )
 
-    # Store references for later use (event handlers, etc.)
-    # No longer creating singleton VectorStorageService
-    logger.info("Vector storage dependencies initialized (per-project isolation enabled)")
+    # Initialize shared ChromaDB client on startup
+    get_chromadb_client()
+
+    logger.info("Vector storage dependencies initialized (single shared ChromaDB instance)")
 
 
 def get_vector_storage_service(

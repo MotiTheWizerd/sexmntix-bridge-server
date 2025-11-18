@@ -13,6 +13,8 @@ from datetime import datetime
 from typing import Dict, Any, List
 import os
 from pathlib import Path
+import logging
+import traceback
 
 from src.api.dependencies.database import get_db_session
 from src.api.dependencies.services import get_chromadb_metrics_collector
@@ -32,6 +34,7 @@ from src.api.schemas.chromadb_viewer import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/chromadb")
@@ -265,24 +268,43 @@ async def list_collection_documents(
         Paginated list of documents with metadata
     """
     try:
+        # Log incoming request parameters
+        logger.info(f"[list_collection_documents] Starting request for collection: {collection_name}")
+        logger.info(f"[list_collection_documents] Parameters: offset={offset}, limit={limit}, include_embeddings={include_embeddings}")
+
         # Validate limit
         if limit > 100:
             limit = 100
         if limit < 1:
             limit = 1
+        logger.info(f"[list_collection_documents] Validated limit: {limit}")
 
         # Get the collection
+        logger.info(f"[list_collection_documents] Getting collection '{collection_name}'...")
         collection = chromadb_client.client.get_collection(collection_name)
+        logger.info(f"[list_collection_documents] Collection retrieved successfully")
 
         # Get total count
         total_count = collection.count()
+        logger.info(f"[list_collection_documents] Total count in collection: {total_count}")
+
+        # Build include list
+        include_list = ["documents", "metadatas", "embeddings" if include_embeddings else None]
+        logger.info(f"[list_collection_documents] Include list constructed: {include_list}")
+        logger.info(f"[list_collection_documents] Include list type: {type(include_list)}")
+        logger.info(f"[list_collection_documents] Include list items: {[type(item) for item in include_list]}")
 
         # Get documents with pagination
         # ChromaDB doesn't have native offset/limit, so we fetch and slice
+        fetch_limit = min(offset + limit, total_count) if total_count > 0 else None
+        logger.info(f"[list_collection_documents] Calling collection.get() with include={include_list}, limit={fetch_limit}")
+
         result = collection.get(
-            include=["documents", "metadatas", "embeddings" if include_embeddings else None],
-            limit=min(offset + limit, total_count) if total_count > 0 else None
+            include=include_list,
+            limit=fetch_limit
         )
+
+        logger.info(f"[list_collection_documents] collection.get() completed successfully")
 
         # Build document responses
         documents = []
@@ -291,9 +313,12 @@ async def list_collection_documents(
         metadatas = result.get("metadatas", [])
         embeddings = result.get("embeddings", []) if include_embeddings else []
 
+        logger.info(f"[list_collection_documents] Retrieved {len(ids)} document IDs")
+
         # Apply offset and limit
         start_idx = min(offset, len(ids))
         end_idx = min(offset + limit, len(ids))
+        logger.info(f"[list_collection_documents] Slicing from index {start_idx} to {end_idx}")
 
         for i in range(start_idx, end_idx):
             doc_response = DocumentResponse(
@@ -303,6 +328,8 @@ async def list_collection_documents(
                 embedding=embeddings[i] if i < len(embeddings) else None
             )
             documents.append(doc_response)
+
+        logger.info(f"[list_collection_documents] Successfully built {len(documents)} document responses")
 
         return DocumentListResponse(
             collection_name=collection_name,
@@ -314,9 +341,33 @@ async def list_collection_documents(
         )
 
     except Exception as e:
+        # Detailed error logging
+        error_type = type(e).__name__
+        error_msg = str(e)
+
+        logger.error(f"[list_collection_documents] ERROR occurred!")
+        logger.error(f"[list_collection_documents] Error type: {error_type}")
+        logger.error(f"[list_collection_documents] Error message: {error_msg}")
+        logger.error(f"[list_collection_documents] Collection name: {collection_name}")
+        logger.error(f"[list_collection_documents] Parameters: offset={offset}, limit={limit}, include_embeddings={include_embeddings}")
+        logger.error(f"[list_collection_documents] Include list that was used: {['documents', 'metadatas', 'embeddings' if include_embeddings else None]}")
+        logger.error(f"[list_collection_documents] Full traceback:\n{traceback.format_exc()}")
+
         raise HTTPException(
             status_code=404 if "does not exist" in str(e).lower() else 500,
-            detail=f"Error listing documents in '{collection_name}': {str(e)}"
+            detail={
+                "error": error_msg,
+                "error_type": error_type,
+                "operation": "list_collection_documents",
+                "collection_name": collection_name,
+                "parameters": {
+                    "offset": offset,
+                    "limit": limit,
+                    "include_embeddings": include_embeddings
+                },
+                "include_list_used": ["documents", "metadatas", "embeddings" if include_embeddings else None],
+                "traceback": traceback.format_exc()
+            }
         )
 
 
@@ -339,20 +390,37 @@ async def get_document_details(
         Document details with metadata and optional embedding
     """
     try:
+        # Log incoming request parameters
+        logger.info(f"[get_document_details] Starting request for document: {document_id} in collection: {collection_name}")
+        logger.info(f"[get_document_details] Parameters: include_embedding={include_embedding}")
+
         # Get the collection
+        logger.info(f"[get_document_details] Getting collection '{collection_name}'...")
         collection = chromadb_client.client.get_collection(collection_name)
+        logger.info(f"[get_document_details] Collection retrieved successfully")
+
+        # Build include list
+        include_list = ["documents", "metadatas", "embeddings" if include_embedding else None]
+        logger.info(f"[get_document_details] Include list constructed: {include_list}")
+        logger.info(f"[get_document_details] Calling collection.get() with ids=[{document_id}], include={include_list}")
 
         # Get specific document
         result = collection.get(
             ids=[document_id],
-            include=["documents", "metadatas", "embeddings" if include_embedding else None]
+            include=include_list
         )
 
+        logger.info(f"[get_document_details] collection.get() completed successfully")
+        logger.info(f"[get_document_details] Result IDs: {result.get('ids', [])}")
+
         if not result["ids"]:
+            logger.warning(f"[get_document_details] Document '{document_id}' not found in collection '{collection_name}'")
             raise HTTPException(
                 status_code=404,
                 detail=f"Document '{document_id}' not found in collection '{collection_name}'"
             )
+
+        logger.info(f"[get_document_details] Successfully retrieved document")
 
         return DocumentResponse(
             id=result["ids"][0],
@@ -364,9 +432,33 @@ async def get_document_details(
     except HTTPException:
         raise
     except Exception as e:
+        # Detailed error logging
+        error_type = type(e).__name__
+        error_msg = str(e)
+
+        logger.error(f"[get_document_details] ERROR occurred!")
+        logger.error(f"[get_document_details] Error type: {error_type}")
+        logger.error(f"[get_document_details] Error message: {error_msg}")
+        logger.error(f"[get_document_details] Collection name: {collection_name}")
+        logger.error(f"[get_document_details] Document ID: {document_id}")
+        logger.error(f"[get_document_details] Parameters: include_embedding={include_embedding}")
+        logger.error(f"[get_document_details] Include list that was used: {['documents', 'metadatas', 'embeddings' if include_embedding else None]}")
+        logger.error(f"[get_document_details] Full traceback:\n{traceback.format_exc()}")
+
         raise HTTPException(
             status_code=500,
-            detail=f"Error getting document '{document_id}': {str(e)}"
+            detail={
+                "error": error_msg,
+                "error_type": error_type,
+                "operation": "get_document_details",
+                "collection_name": collection_name,
+                "document_id": document_id,
+                "parameters": {
+                    "include_embedding": include_embedding
+                },
+                "include_list_used": ["documents", "metadatas", "embeddings" if include_embedding else None],
+                "traceback": traceback.format_exc()
+            }
         )
 
 
@@ -388,27 +480,45 @@ async def search_collection(
         List of documents ranked by similarity
     """
     try:
+        # Log incoming request parameters
+        logger.info(f"[search_collection] Starting search in collection: {collection_name}")
+        logger.info(f"[search_collection] Search query: {search_request.query}")
+        logger.info(f"[search_collection] Parameters: limit={search_request.limit}, include_embeddings={search_request.include_embeddings}, min_similarity={search_request.min_similarity}")
+        logger.info(f"[search_collection] Filters: {search_request.filters}")
+
         # Get embedding service
         embedding_service = request.app.state.embedding_service
         if not embedding_service:
+            logger.error(f"[search_collection] Embedding service not available")
             raise HTTPException(
                 status_code=503,
                 detail="Embedding service not available"
             )
 
         # Generate query embedding
+        logger.info(f"[search_collection] Generating embedding for query...")
         query_embedding = await embedding_service.generate_embedding(search_request.query)
+        logger.info(f"[search_collection] Query embedding generated successfully (dim: {len(query_embedding)})")
 
         # Get the collection
+        logger.info(f"[search_collection] Getting collection '{collection_name}'...")
         collection = chromadb_client.client.get_collection(collection_name)
+        logger.info(f"[search_collection] Collection retrieved successfully")
+
+        # Build include list
+        include_list = ["documents", "metadatas", "distances", "embeddings" if search_request.include_embeddings else None]
+        logger.info(f"[search_collection] Include list constructed: {include_list}")
+        logger.info(f"[search_collection] Calling collection.query() with n_results={search_request.limit}, include={include_list}")
 
         # Perform search
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=search_request.limit,
             where=search_request.filters,
-            include=["documents", "metadatas", "distances", "embeddings" if search_request.include_embeddings else None]
+            include=include_list
         )
+
+        logger.info(f"[search_collection] collection.query() completed successfully")
 
         # Build response
         documents = []
@@ -418,6 +528,8 @@ async def search_collection(
             metadatas = results.get("metadatas", [[]])[0]
             distances = results.get("distances", [[]])[0]
             embeddings = results.get("embeddings", [[]])[0] if search_request.include_embeddings else []
+
+            logger.info(f"[search_collection] Processing {len(ids)} search results")
 
             for i, doc_id in enumerate(ids):
                 distance = distances[i] if i < len(distances) else 0.0
@@ -437,14 +549,41 @@ async def search_collection(
                 )
                 documents.append(doc_response)
 
+        logger.info(f"[search_collection] Successfully built {len(documents)} document responses")
         return documents
 
     except HTTPException:
         raise
     except Exception as e:
+        # Detailed error logging
+        error_type = type(e).__name__
+        error_msg = str(e)
+
+        logger.error(f"[search_collection] ERROR occurred!")
+        logger.error(f"[search_collection] Error type: {error_type}")
+        logger.error(f"[search_collection] Error message: {error_msg}")
+        logger.error(f"[search_collection] Collection name: {collection_name}")
+        logger.error(f"[search_collection] Search query: {search_request.query}")
+        logger.error(f"[search_collection] Parameters: limit={search_request.limit}, include_embeddings={search_request.include_embeddings}")
+        logger.error(f"[search_collection] Include list that was used: {['documents', 'metadatas', 'distances', 'embeddings' if search_request.include_embeddings else None]}")
+        logger.error(f"[search_collection] Full traceback:\n{traceback.format_exc()}")
+
         raise HTTPException(
             status_code=500,
-            detail=f"Search failed in collection '{collection_name}': {str(e)}"
+            detail={
+                "error": error_msg,
+                "error_type": error_type,
+                "operation": "search_collection",
+                "collection_name": collection_name,
+                "parameters": {
+                    "query": search_request.query,
+                    "limit": search_request.limit,
+                    "include_embeddings": search_request.include_embeddings,
+                    "filters": search_request.filters
+                },
+                "include_list_used": ["documents", "metadatas", "distances", "embeddings" if search_request.include_embeddings else None],
+                "traceback": traceback.format_exc()
+            }
         )
 
 
@@ -468,24 +607,37 @@ async def advanced_query(
         Results grouped by collection with similarity scores
     """
     try:
+        # Log incoming request parameters
+        logger.info(f"[advanced_query] Starting advanced query")
+        logger.info(f"[advanced_query] Query: {query_request.query}")
+        logger.info(f"[advanced_query] Parameters: limit={query_request.limit}, include_embeddings={query_request.include_embeddings}, min_similarity={query_request.min_similarity}")
+        logger.info(f"[advanced_query] Filters: user_id={query_request.user_id}, project_id={query_request.project_id}, document_type={query_request.document_type}")
+        logger.info(f"[advanced_query] Target collections: {query_request.collections}")
+
         # Get embedding service
         embedding_service = request.app.state.embedding_service
         if not embedding_service:
+            logger.error(f"[advanced_query] Embedding service not available")
             raise HTTPException(
                 status_code=503,
                 detail="Embedding service not available"
             )
 
         # Generate query embedding
+        logger.info(f"[advanced_query] Generating embedding for query...")
         query_embedding = await embedding_service.generate_embedding(query_request.query)
+        logger.info(f"[advanced_query] Query embedding generated successfully (dim: {len(query_embedding)})")
 
         # Get collections to search
         if query_request.collections:
             collections_to_search = query_request.collections
+            logger.info(f"[advanced_query] Using specified collections: {collections_to_search}")
         else:
             # Get all collections
+            logger.info(f"[advanced_query] Getting all collections...")
             collection_metrics = await metrics_collector.get_collection_metrics()
             collections_to_search = [c["collection_name"] for c in collection_metrics.get("collections", [])]
+            logger.info(f"[advanced_query] Found {len(collections_to_search)} collections to search")
 
         # Search each collection
         results_by_collection = {}
@@ -493,6 +645,7 @@ async def advanced_query(
 
         for collection_name in collections_to_search:
             try:
+                logger.info(f"[advanced_query] Searching collection '{collection_name}'...")
                 collection = chromadb_client.client.get_collection(collection_name)
 
                 # Build where filter
@@ -504,13 +657,21 @@ async def advanced_query(
                 if query_request.document_type:
                     where_filter["document_type"] = query_request.document_type
 
+                logger.info(f"[advanced_query] Where filter for '{collection_name}': {where_filter}")
+
+                # Build include list
+                include_list = ["documents", "metadatas", "distances", "embeddings" if query_request.include_embeddings else None]
+                logger.info(f"[advanced_query] Include list for '{collection_name}': {include_list}")
+
                 # Search
                 results = collection.query(
                     query_embeddings=[query_embedding],
                     n_results=query_request.limit,
                     where=where_filter if where_filter else None,
-                    include=["documents", "metadatas", "distances", "embeddings" if query_request.include_embeddings else None]
+                    include=include_list
                 )
+
+                logger.info(f"[advanced_query] Query completed for '{collection_name}'")
 
                 # Process results
                 collection_docs = []
@@ -520,6 +681,8 @@ async def advanced_query(
                     metadatas = results.get("metadatas", [[]])[0]
                     distances = results.get("distances", [[]])[0]
                     embeddings = results.get("embeddings", [[]])[0] if query_request.include_embeddings else []
+
+                    logger.info(f"[advanced_query] Processing {len(ids)} results from '{collection_name}'")
 
                     for i, doc_id in enumerate(ids):
                         distance = distances[i] if i < len(distances) else 0.0
@@ -542,10 +705,15 @@ async def advanced_query(
                 if collection_docs:
                     results_by_collection[collection_name] = collection_docs
                     total_results += len(collection_docs)
+                    logger.info(f"[advanced_query] Added {len(collection_docs)} results from '{collection_name}'")
 
             except Exception as e:
-                # Skip collections that error out
+                # Log but skip collections that error out
+                logger.warning(f"[advanced_query] Error searching collection '{collection_name}': {type(e).__name__}: {str(e)}")
+                logger.warning(f"[advanced_query] Include list that caused error: {['documents', 'metadatas', 'distances', 'embeddings' if query_request.include_embeddings else None]}")
                 continue
+
+        logger.info(f"[advanced_query] Advanced query completed. Total results: {total_results} from {len(results_by_collection)} collections")
 
         return CollectionQueryResult(
             total_results=total_results,
@@ -556,9 +724,31 @@ async def advanced_query(
     except HTTPException:
         raise
     except Exception as e:
+        # Detailed error logging
+        error_type = type(e).__name__
+        error_msg = str(e)
+
+        logger.error(f"[advanced_query] ERROR occurred!")
+        logger.error(f"[advanced_query] Error type: {error_type}")
+        logger.error(f"[advanced_query] Error message: {error_msg}")
+        logger.error(f"[advanced_query] Query: {query_request.query}")
+        logger.error(f"[advanced_query] Parameters: limit={query_request.limit}, include_embeddings={query_request.include_embeddings}")
+        logger.error(f"[advanced_query] Full traceback:\n{traceback.format_exc()}")
+
         raise HTTPException(
             status_code=500,
-            detail=f"Advanced query failed: {str(e)}"
+            detail={
+                "error": error_msg,
+                "error_type": error_type,
+                "operation": "advanced_query",
+                "parameters": {
+                    "query": query_request.query,
+                    "limit": query_request.limit,
+                    "include_embeddings": query_request.include_embeddings,
+                    "collections": query_request.collections
+                },
+                "traceback": traceback.format_exc()
+            }
         )
 
 

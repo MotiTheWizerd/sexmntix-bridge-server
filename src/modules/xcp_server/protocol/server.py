@@ -19,7 +19,7 @@ from src.modules.xcp_server.models.config import XCPConfig
 from src.modules.xcp_server.tools import BaseTool
 from src.modules.xcp_server.protocol.handlers import ToolListHandler, ToolCallHandler
 from src.modules.xcp_server.protocol.session import SessionManager
-from src.modules.xcp_server.protocol.transport import StdioRunner
+from src.modules.xcp_server.protocol.transport import StdioRunner, SSERunner
 from src.modules.xcp_server.protocol.utils import ContextBuilder
 from src.events.schemas import EventType
 
@@ -84,6 +84,15 @@ class XCPMCPServer:
             logger,
             tools
         )
+        self.sse_runner = SSERunner(
+            self.server,
+            config,
+            event_bus,
+            logger,
+            tools,
+            host=config.sse_host,
+            port=config.sse_port
+        )
 
         # Register all tools
         self._register_tools()
@@ -139,6 +148,16 @@ class XCPMCPServer:
         like Claude Desktop.
         """
         await self.stdio_runner.run()
+
+    async def run_sse(self):
+        """Run MCP server with SSE transport over HTTP
+
+        Delegates to SSERunner for transport management.
+
+        This exposes the MCP server as an HTTP endpoint, allowing
+        multiple clients to connect from different projects/locations.
+        """
+        await self.sse_runner.run()
 
     async def shutdown(self):
         """Gracefully shutdown the MCP server"""

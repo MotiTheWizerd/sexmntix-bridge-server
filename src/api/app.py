@@ -172,6 +172,10 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("Event handlers not initialized - embedding service unavailable")
 
+    # XCP Server Service initialization disabled - use standalone mode via Claude Code
+    # The XCP/MCP server should be started separately via:
+    #   poetry run semantic-bridge-mcp
+    # This allows Claude Code to connect to it via stdio transport
     # Initialize XCP Server Service (if enabled)
     from src.modules.xcp_server import XCPServerService
     from src.modules.xcp_server.models.config import load_xcp_config

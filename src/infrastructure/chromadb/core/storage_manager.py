@@ -14,12 +14,15 @@ logger = get_logger(__name__)
 
 class StoragePathManager:
     """
-    Manages ChromaDB storage paths with support for multi-tenant isolation.
+    Manages ChromaDB storage paths for single shared instance.
 
     Features:
-    - Nested path structure: {base}/{user_id}/{project_id}
+    - Single base path for all users/projects (collection-based isolation)
     - Automatic directory creation
     - Path validation and logging
+
+    Note: User/project isolation is now handled via ChromaDB collection naming,
+    not physical path separation.
     """
 
     def __init__(self, base_path: str = "./data/chromadb"):
@@ -38,31 +41,20 @@ class StoragePathManager:
         project_id: Optional[str] = None
     ) -> str:
         """
-        Get the storage path, optionally with user/project nesting.
+        Get the storage path (always returns base path).
 
         Args:
-            user_id: Optional user ID for nested directory
-            project_id: Optional project ID for nested directory
+            user_id: Ignored (kept for backward compatibility)
+            project_id: Ignored (kept for backward compatibility)
 
         Returns:
-            Full storage path
+            Base storage path (shared by all users/projects)
 
-        Raises:
-            ValueError: If only one of user_id/project_id is provided
+        Note: User/project parameters are ignored. All users share the same
+        ChromaDB instance with isolation via collection naming.
         """
-        # Validate that both or neither user_id/project_id are provided
-        if (user_id is None) != (project_id is None):
-            raise ValueError(
-                "Both user_id and project_id must be provided together, or neither"
-            )
-
-        # Build nested path if user_id/project_id provided
-        if user_id and project_id:
-            path = str(Path(self.base_path) / user_id / project_id)
-        else:
-            path = self.base_path
-
-        return path
+        # Always return base path (no nesting)
+        return self.base_path
 
     def ensure_path_exists(
         self,
@@ -73,14 +65,13 @@ class StoragePathManager:
         Ensure storage path exists, creating directories as needed.
 
         Args:
-            user_id: Optional user ID for nested directory
-            project_id: Optional project ID for nested directory
+            user_id: Ignored (kept for backward compatibility)
+            project_id: Ignored (kept for backward compatibility)
 
         Returns:
-            Full storage path that now exists
+            Base storage path that now exists
 
-        Raises:
-            ValueError: If only one of user_id/project_id is provided
+        Note: Always creates/returns the base path, regardless of user_id/project_id.
         """
         path = self.get_path(user_id, project_id)
         os.makedirs(path, exist_ok=True)

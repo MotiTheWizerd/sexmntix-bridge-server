@@ -5,7 +5,16 @@
       "Bash(python:*)",
       "Bash(dir \"C:\\project\\semantix-bridge\\sexmntix-bridge-server\\test_*.py\" /b)",
       "Bash(tasklist:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(dir:*)",
+      "Bash(nul)",
+      "Bash(poetry run python:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(pip install:*)",
+      "Bash(curl:*)",
+      "Bash(move srcapiroutesmonitoring.py srcapiroutesmonitoring.py.backup)",
+      "Bash(git restore:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

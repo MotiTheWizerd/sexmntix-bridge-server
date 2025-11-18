@@ -6,8 +6,9 @@ Orchestrates core modules: naming strategy, storage management, and collection o
 
 Based on TypeScript architecture from 03-chromadb-storage.md.
 
-Storage Path: ./data/chromadb/{user_id}/{project_id}
+Storage Path: ./data/chromadb (single shared instance)
 Collection Naming: {prefix}_{hash16} where hash16 is SHA256(user_id:project_id)[:16]
+Isolation: Collection-based (not physical path separation)
 """
 
 from typing import Optional
@@ -30,11 +31,14 @@ class ChromaDBClient:
     - ChromaDBConfig: Configuration management
 
     Features:
-    - Persistent local storage with nested user_id/project_id directories
-    - Multi-user/project isolation via collection naming and storage paths
+    - Persistent local storage in single shared ChromaDB instance
+    - Multi-user/project isolation via collection naming (hash-based)
     - Collection caching for performance
     - Automatic collection creation
     - Health monitoring via heartbeat
+
+    Note: user_id/project_id parameters are used for collection naming only,
+    not for physical path separation. All users share ./data/chromadb/
     """
 
     def __init__(
@@ -48,10 +52,13 @@ class ChromaDBClient:
         Initialize ChromaDB persistent client.
 
         Args:
-            storage_path: Base path to ChromaDB storage directory
-            user_id: Optional user ID for nested directory structure
-            project_id: Optional project ID for nested directory structure
+            storage_path: Base path to ChromaDB storage directory (default: ./data/chromadb)
+            user_id: Ignored (kept for backward compatibility)
+            project_id: Ignored (kept for backward compatibility)
             config: Optional ChromaDB configuration (default: DEFAULT_CONFIG)
+
+        Note: user_id/project_id parameters are ignored. All clients share the same
+        ChromaDB instance at the base storage path. Isolation is via collection naming.
         """
         self.base_storage_path = storage_path
         self.default_user_id = user_id
@@ -62,10 +69,10 @@ class ChromaDBClient:
         # Initialize storage path manager
         self.storage_manager = StoragePathManager(storage_path)
 
-        # Get or create the storage path
+        # Get or create the storage path (always returns base path now)
         self.storage_path = self.storage_manager.ensure_path_exists(user_id, project_id)
 
-        # Initialize persistent client
+        # Initialize persistent client at base path (shared by all users/projects)
         self.client = chromadb.PersistentClient(
             path=self.storage_path,
             settings=Settings(
@@ -112,11 +119,11 @@ class ChromaDBClient:
         Uses "conversations_" prefix instead of default "semantix_" prefix.
         This keeps conversations isolated from memory_logs and mental_notes.
 
-        Physical folder structure: data/chromadb/{user_id}/conversations/
         Collection naming: conversations_{hash16}
         Hash is based on SHA256({user_id}:conversations)
 
-        Example: data/chromadb/user_1/conversations/
+        All conversation collections are stored in the shared ChromaDB instance
+        at ./data/chromadb/, isolated by collection name.
 
         Args:
             user_id: User identifier for isolation (can be "1" or "user_1")

@@ -47,6 +47,9 @@ class ServerLifecycleManager:
         if self._config.transport.value == "stdio":
             # Run stdio server (blocking)
             await self._server.run_stdio()
+        elif self._config.transport.value == "sse":
+            # Run SSE server (blocking)
+            await self._server.run_sse()
         else:
             raise NotImplementedError(
                 f"Transport '{self._config.transport}' not yet implemented"
