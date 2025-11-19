@@ -66,7 +66,8 @@ class MemorySearcher:
             user_id=user_id,
             project_id=project_id,
             limit=limit,
-            where_filter=combined_filter
+            where_filter=combined_filter,
+            collection_prefix="memory_logs"
         )
 
         # Apply temporal decay if enabled

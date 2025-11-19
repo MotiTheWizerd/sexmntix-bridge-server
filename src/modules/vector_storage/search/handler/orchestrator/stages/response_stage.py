@@ -57,7 +57,8 @@ class ResponseStage:
         collection_size = await get_collection_size(
             self.vector_repository,
             request.user_id,
-            request.project_id
+            request.project_id,
+            request.collection_prefix
         )
 
         # Build response

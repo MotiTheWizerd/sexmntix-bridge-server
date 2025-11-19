@@ -21,7 +21,8 @@ async def search(
     user_id: str,
     project_id: str,
     limit: int = 10,
-    where_filter: Optional[Dict[str, Any]] = None
+    where_filter: Optional[Dict[str, Any]] = None,
+    collection_prefix: Optional[str] = None
 ) -> List[SearchResult]:
     """
     Perform semantic similarity search.
@@ -43,7 +44,11 @@ async def search(
             "date": {"$gte": "2025-11-01"}
         }
     """
-    collection = client.get_collection(user_id, project_id)
+    collection = client.get_collection(
+        user_id,
+        project_id,
+        collection_prefix=collection_prefix
+    )
     collection_count = collection.count()
 
     logger.info(

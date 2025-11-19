@@ -23,6 +23,7 @@ class SearchRequest:
     query: str
     user_id: str
     project_id: str
+    collection_prefix: str = "memory_logs"
     limit: int = 10
     where_filter: Optional[Dict[str, Any]] = None
     min_similarity: float = 0.0
@@ -37,6 +38,8 @@ class SearchRequest:
             raise ValueError("User ID cannot be empty")
         if not self.project_id:
             raise ValueError("Project ID cannot be empty")
+        if not self.collection_prefix:
+            raise ValueError("Collection prefix cannot be empty")
         if self.limit <= 0:
             raise ValueError(f"Limit must be positive, got {self.limit}")
         if not 0.0 <= self.min_similarity <= 1.0:

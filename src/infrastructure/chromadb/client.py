@@ -139,6 +139,38 @@ class ChromaDBClient:
             collection_prefix="conversations"  # No trailing _ - naming_strategy adds it
         )
 
+    def get_memory_logs_collection(
+        self,
+        user_id: str,
+        project_id: str
+    ) -> Collection:
+        """
+        Get or create collection for memory logs.
+
+        Uses the 'memory_logs' prefix to avoid mixing with other document types.
+        """
+        return self.collection_manager.get_collection(
+            user_id,
+            project_id,
+            collection_prefix="memory_logs"
+        )
+
+    def get_mental_notes_collection(
+        self,
+        user_id: str,
+        project_id: str
+    ) -> Collection:
+        """
+        Get or create collection for mental notes.
+
+        Uses the 'mental_notes' prefix to keep mental notes isolated.
+        """
+        return self.collection_manager.get_collection(
+            user_id,
+            project_id,
+            collection_prefix="mental_notes"
+        )
+
     def list_collections(self) -> list[str]:
         """
         List all collection names in the database.

@@ -105,7 +105,8 @@ class ConversationStorer:
                 embedding=embedding,
                 memory_data=memory_unit_data,
                 user_id=user_id,
-                project_id="default"  # Using a default project_id for conversations
+                project_id="conversations",  # Fixed project scope for conversations
+                collection_prefix="conversations"
             )
 
             conversation_ids.append(conversation_id)

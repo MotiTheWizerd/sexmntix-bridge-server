@@ -69,7 +69,8 @@ class NoteSearcher:
             user_id=user_id,
             project_id=project_id,
             limit=limit,
-            where_filter=where_filter
+            where_filter=where_filter,
+            collection_prefix="mental_notes"
         )
 
         # Apply similarity filtering

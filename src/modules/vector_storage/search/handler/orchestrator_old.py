@@ -152,7 +152,8 @@ class SearchWorkflowOrchestrator:
             user_id=request.user_id,
             project_id=request.project_id,
             limit=request.limit,
-            where_filter=request.where_filter
+            where_filter=request.where_filter,
+            collection_prefix=getattr(request, "collection_prefix", "memory_logs")
         )
 
         self.telemetry.log_chromadb_search(
@@ -230,7 +231,8 @@ class SearchWorkflowOrchestrator:
         duration_ms = (time.time() - start_time) * 1000
         collection_size = await self.vector_repository.count(
             request.user_id,
-            request.project_id
+            request.project_id,
+            collection_prefix=getattr(request, "collection_prefix", "memory_logs")
         )
 
         # Build response

@@ -43,7 +43,7 @@ async def create_mental_note(
     Returns:
         Mental note ID string
     """
-    collection = client.get_collection(user_id, project_id)
+    collection = client.get_mental_notes_collection(user_id, project_id)
 
     # Generate unique ID using same pattern as memory logs
     note_id = generate_memory_id(mental_note_id, user_id, project_id)
@@ -88,7 +88,7 @@ async def read_mental_note(
     Returns:
         Mental note document dict or None if not found
     """
-    collection = client.get_collection(user_id, project_id)
+    collection = client.get_mental_notes_collection(user_id, project_id)
 
     result = collection.get(ids=[mental_note_id])
 
@@ -117,7 +117,7 @@ async def delete_mental_note(
     Returns:
         True if deleted, False if not found or error occurred
     """
-    collection = client.get_collection(user_id, project_id)
+    collection = client.get_mental_notes_collection(user_id, project_id)
 
     try:
         collection.delete(ids=[mental_note_id])
@@ -143,5 +143,5 @@ async def count_mental_notes(
     Returns:
         Number of mental notes in collection
     """
-    collection = client.get_collection(user_id, project_id)
+    collection = client.get_mental_notes_collection(user_id, project_id)
     return collection.count()

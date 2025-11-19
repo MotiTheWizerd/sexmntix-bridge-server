@@ -73,7 +73,8 @@ class NoteStorer:
             embedding=embedding,
             memory_data=mental_note_data_for_storage,
             user_id=user_id,
-            project_id=project_id
+            project_id=project_id,
+            collection_prefix="mental_notes"
         )
 
         # Publish event

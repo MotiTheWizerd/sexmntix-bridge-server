@@ -22,7 +22,8 @@ async def create_memory(
     embedding: List[float],
     memory_data: Dict[str, Any],
     user_id: str,
-    project_id: str
+    project_id: str,
+    collection_prefix: str = "memory_logs"
 ) -> str:
     """Create and store a memory embedding in ChromaDB collection.
 
@@ -43,7 +44,10 @@ async def create_memory(
     Returns:
         Memory ID string
     """
-    collection = client.get_collection(user_id, project_id)
+    if collection_prefix == "memory_logs":
+        collection = client.get_memory_logs_collection(user_id, project_id)
+    else:
+        collection = client.get_collection(user_id, project_id, collection_prefix=collection_prefix)
 
     # Generate unique ID
     memory_id = generate_memory_id(memory_log_id, user_id, project_id)
@@ -76,7 +80,8 @@ async def read_memory(
     client: ChromaDBClient,
     memory_id: str,
     user_id: str,
-    project_id: str
+    project_id: str,
+    collection_prefix: str = "memory_logs"
 ) -> Optional[Dict[str, Any]]:
     """Retrieve a memory by ID.
 
@@ -89,7 +94,10 @@ async def read_memory(
     Returns:
         Memory document dict or None if not found
     """
-    collection = client.get_collection(user_id, project_id)
+    if collection_prefix == "memory_logs":
+        collection = client.get_memory_logs_collection(user_id, project_id)
+    else:
+        collection = client.get_collection(user_id, project_id, collection_prefix=collection_prefix)
 
     result = collection.get(ids=[memory_id])
 
@@ -105,7 +113,8 @@ async def delete_memory(
     client: ChromaDBClient,
     memory_id: str,
     user_id: str,
-    project_id: str
+    project_id: str,
+    collection_prefix: str = "memory_logs"
 ) -> bool:
     """Delete a memory from the collection.
 
@@ -118,7 +127,10 @@ async def delete_memory(
     Returns:
         True if deleted, False if not found or error occurred
     """
-    collection = client.get_collection(user_id, project_id)
+    if collection_prefix == "memory_logs":
+        collection = client.get_memory_logs_collection(user_id, project_id)
+    else:
+        collection = client.get_collection(user_id, project_id, collection_prefix=collection_prefix)
 
     try:
         collection.delete(ids=[memory_id])
@@ -132,7 +144,8 @@ async def delete_memory(
 async def count_memories(
     client: ChromaDBClient,
     user_id: str,
-    project_id: str
+    project_id: str,
+    collection_prefix: str = "memory_logs"
 ) -> int:
     """Count the number of memories in a collection.
 
@@ -144,5 +157,9 @@ async def count_memories(
     Returns:
         Number of memories in collection
     """
-    collection = client.get_collection(user_id, project_id)
+    # collection_prefix kept for backward compatibility if callers forward dynamic values
+    if collection_prefix == "memory_logs":
+        collection = client.get_memory_logs_collection(user_id, project_id)
+    else:
+        collection = client.get_collection(user_id, project_id, collection_prefix=collection_prefix)
     return collection.count()

@@ -11,7 +11,8 @@ from src.infrastructure.chromadb.repository import VectorRepository
 async def get_collection_size(
     vector_repository: VectorRepository,
     user_id: str,
-    project_id: str
+    project_id: str,
+    collection_prefix: str = "memory_logs"
 ) -> int:
     """
     Get the size of a collection.
@@ -24,7 +25,7 @@ async def get_collection_size(
     Returns:
         Number of items in collection
     """
-    return await vector_repository.count(user_id, project_id)
+    return await vector_repository.count(user_id, project_id, collection_prefix=collection_prefix)
 
 
 def calculate_result_statistics(results: List[Any]) -> Dict[str, Any]:
@@ -67,6 +68,7 @@ async def collect_search_metrics(
     vector_repository: VectorRepository,
     user_id: str,
     project_id: str,
+    collection_prefix: str,
     results: List[Any],
     duration_seconds: float
 ) -> Dict[str, Any]:
@@ -83,7 +85,12 @@ async def collect_search_metrics(
     Returns:
         Dictionary with all metrics
     """
-    collection_size = await get_collection_size(vector_repository, user_id, project_id)
+    collection_size = await get_collection_size(
+        vector_repository,
+        user_id,
+        project_id,
+        collection_prefix
+    )
     result_stats = calculate_result_statistics(results)
 
     return {

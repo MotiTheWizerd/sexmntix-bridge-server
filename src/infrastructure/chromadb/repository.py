@@ -47,7 +47,8 @@ class VectorRepository:
         embedding: List[float],
         memory_data: Dict[str, Any],
         user_id: str,
-        project_id: str
+        project_id: str,
+        collection_prefix: str = "memory_logs"
     ) -> str:
         """
         Add memory embedding to ChromaDB collection.
@@ -64,6 +65,7 @@ class VectorRepository:
             memory_data: Complete memory log data
             user_id: User identifier for collection isolation
             project_id: Project identifier for collection isolation
+            collection_prefix: Collection prefix to target (default: memory_logs)
 
         Returns:
             Memory ID string
@@ -74,7 +76,8 @@ class VectorRepository:
             embedding,
             memory_data,
             user_id,
-            project_id
+            project_id,
+            collection_prefix=collection_prefix
         )
 
     async def search(
@@ -83,7 +86,8 @@ class VectorRepository:
         user_id: str,
         project_id: str,
         limit: int = 10,
-        where_filter: Optional[Dict[str, Any]] = None
+        where_filter: Optional[Dict[str, Any]] = None,
+        collection_prefix: str = "memory_logs"
     ) -> List[SearchResult]:
         """
         Perform semantic similarity search.
@@ -94,6 +98,7 @@ class VectorRepository:
             project_id: Project identifier
             limit: Maximum number of results
             where_filter: Optional metadata filter (ChromaDB where syntax)
+            collection_prefix: Collection prefix to target (default: memory_logs)
 
         Returns:
             List of SearchResult objects sorted by similarity
@@ -110,14 +115,16 @@ class VectorRepository:
             user_id,
             project_id,
             limit,
-            where_filter
+            where_filter,
+            collection_prefix
         )
 
     async def get_by_id(
         self,
         memory_id: str,
         user_id: str,
-        project_id: str
+        project_id: str,
+        collection_prefix: str = "memory_logs"
     ) -> Optional[Dict[str, Any]]:
         """
         Retrieve memory by ID.
@@ -126,6 +133,7 @@ class VectorRepository:
             memory_id: Memory identifier
             user_id: User identifier
             project_id: Project identifier
+            collection_prefix: Collection prefix to target (default: memory_logs)
 
         Returns:
             Memory document dict or None if not found
@@ -134,14 +142,16 @@ class VectorRepository:
             self.client,
             memory_id,
             user_id,
-            project_id
+            project_id,
+            collection_prefix=collection_prefix
         )
 
     async def delete(
         self,
         memory_id: str,
         user_id: str,
-        project_id: str
+        project_id: str,
+        collection_prefix: str = "memory_logs"
     ) -> bool:
         """
         Delete memory from collection.
@@ -150,6 +160,7 @@ class VectorRepository:
             memory_id: Memory identifier
             user_id: User identifier
             project_id: Project identifier
+            collection_prefix: Collection prefix to target (default: memory_logs)
 
         Returns:
             True if deleted, False if not found
@@ -158,10 +169,16 @@ class VectorRepository:
             self.client,
             memory_id,
             user_id,
-            project_id
+            project_id,
+            collection_prefix=collection_prefix
         )
 
-    async def count(self, user_id: str, project_id: str) -> int:
+    async def count(
+        self,
+        user_id: str,
+        project_id: str,
+        collection_prefix: str = "memory_logs"
+    ) -> int:
         """
         Count memories in collection.
 
@@ -175,5 +192,6 @@ class VectorRepository:
         return await memory.count(
             self.client,
             user_id,
-            project_id
+            project_id,
+            collection_prefix=collection_prefix
         )

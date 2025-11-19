@@ -62,9 +62,10 @@ class ConversationSearcher:
         results = await self.vector_repository.search(
             query_embedding=query_embedding,
             user_id=user_id,
-            project_id="default",  # Using a default project_id for conversations
+            project_id="conversations",
             limit=limit,
-            where_filter=combined_filter
+            where_filter=combined_filter,
+            collection_prefix="conversations"
         )
 
         # Apply similarity filtering
