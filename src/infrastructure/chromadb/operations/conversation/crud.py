@@ -49,10 +49,11 @@ async def create_conversation(
     conversation_db_id: int,
     embedding: List[float],
     conversation_data: Dict[str, Any],
-    user_id: str
+    user_id: str,
+    memory_index: Optional[int] = None
 ) -> str:
     """
-    Create and store a conversation in multiple storage systems.
+    Create and store a conversation memory unit in ChromaDB.
 
     Storage layers:
     1. ChromaDB: Vector embeddings for semantic search (conversations_{hash} collection)
@@ -62,8 +63,9 @@ async def create_conversation(
         client: ChromaDB client instance
         conversation_db_id: Database ID of conversation
         embedding: Vector embedding (768D float array)
-        conversation_data: Complete conversation data
+        conversation_data: Gemini memory unit data (not full conversation)
         user_id: User identifier for collection isolation
+        memory_index: Index of memory unit within conversation (for unique ID)
 
     Returns:
         Conversation ID string
@@ -71,12 +73,37 @@ async def create_conversation(
     # Get conversation-specific collection (separate from memory_logs/mental_notes)
     collection = client.get_conversation_collection(user_id)
 
-    # Generate unique ID (user-scoped only, no project_id)
-    conversation_id = generate_conversation_id(conversation_db_id, user_id)
+    # Generate unique ID for memory unit
+    if memory_index is not None:
+        # Multiple memory units per conversation
+        conversation_id = f"conversation_{conversation_db_id}_{user_id}_mem{memory_index}"
+    else:
+        # Fallback (shouldn't happen with new architecture)
+        conversation_id = generate_conversation_id(conversation_db_id, user_id)
 
-    # Prepare metadata using conversation-specific builder
-    # This filters out None values and only includes conversation fields
-    metadata = prepare_conversation_metadata(conversation_data)
+    # Prepare metadata based on data type
+    if memory_index is not None:
+        # Memory unit metadata (from Gemini)
+        metadata = {
+            "user_id": str(user_id),
+            "conversation_db_id": str(conversation_db_id),
+            "memory_index": memory_index,
+            "document_type": "memory_unit"
+        }
+        
+        # Add memory unit fields if present
+        if "memory_id" in conversation_data:
+            metadata["memory_id"] = str(conversation_data["memory_id"])
+        if "topic" in conversation_data:
+            metadata["topic"] = str(conversation_data["topic"])[:200]  # Limit length
+        if "group_id" in conversation_data:
+            metadata["group_id"] = str(conversation_data["group_id"])
+        if "tags" in conversation_data and isinstance(conversation_data["tags"], list):
+            # Store first 5 tags as comma-separated string
+            metadata["tags"] = ",".join(conversation_data["tags"][:5])
+    else:
+        # Full conversation metadata (fallback)
+        metadata = prepare_conversation_metadata(conversation_data)
 
     # Build document from conversation data
     document = build_conversation_document(conversation_data)
@@ -92,23 +119,10 @@ async def create_conversation(
     # Force HNSW index rebuild for immediate searchability
     new_count = collection.count()
 
-    print(f"[CONVERSATION_CRUD] Added conversation {conversation_id} to ChromaDB collection. Total count: {new_count}")
+    print(f"[CONVERSATION_CRUD] Added memory unit {conversation_id} to ChromaDB collection. Total count: {new_count}")
 
-    # Also save to file system for direct access
-    # Extract the actual conversation_id (UUID) from the data
-    actual_conversation_id = conversation_data.get("conversation_id", "unknown")
-
-    file_storage = ConversationFileStorage()
-    file_saved = file_storage.save_conversation(
-        user_id=user_id,
-        conversation_id=actual_conversation_id,
-        conversation_data=conversation_data
-    )
-
-    if file_saved:
-        print(f"[CONVERSATION_CRUD] Saved conversation to file: data/users/user_{user_id}/conversations/conversation_{actual_conversation_id}.json")
-    else:
-        print(f"[CONVERSATION_CRUD] Warning: Failed to save conversation to file system (non-blocking)")
+    # Note: File storage is handled at conversation level, not per memory unit
+    # Memory units are stored in ChromaDB only for semantic search
 
     return conversation_id
 

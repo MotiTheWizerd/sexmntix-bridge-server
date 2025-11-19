@@ -78,42 +78,72 @@ class ConversationStorageHandler(BaseStorageHandler):
             )
             return None
 
-        # Ensure conversation messages exist
-        conversation_messages = raw_data.get("conversation", [])
-        if not conversation_messages:
-            self.logger.error(
-                f"{self._get_log_prefix()} Validation failed: conversation has no messages"
+        # Extract Gemini analysis (required for embedding)
+        gemini_analysis = event_data.get("gemini_analysis", [])
+        
+        # Parse if it's a JSON string
+        if isinstance(gemini_analysis, str):
+            import json
+            import re
+            
+            # Log what we received for debugging
+            self.logger.info(
+                f"{self._get_log_prefix()} Received gemini_analysis as string, "
+                f"length: {len(gemini_analysis)}, preview: {gemini_analysis[:200]}"
             )
-            return None
+            
+            try:
+                # Strip markdown code blocks if present (```json ... ```)
+                cleaned = gemini_analysis.strip()
+                if cleaned.startswith("```"):
+                    # Remove markdown code fence
+                    cleaned = re.sub(r'^```(?:json)?\s*\n', '', cleaned)
+                    cleaned = re.sub(r'\n```\s*$', '', cleaned)
+                
+                gemini_analysis = json.loads(cleaned)
+                self.logger.info(
+                    f"{self._get_log_prefix()} Successfully parsed {len(gemini_analysis)} memory units"
+                )
+            except json.JSONDecodeError as e:
+                self.logger.error(
+                    f"{self._get_log_prefix()} Failed to parse gemini_analysis JSON: {e}"
+                )
+                self.logger.error(
+                    f"{self._get_log_prefix()} Raw content (first 500 chars): {gemini_analysis[:500]}"
+                )
+                gemini_analysis = []
 
         return {
             "conversation_db_id": conversation_db_id,
             "user_id": user_id,
             "project_id": project_id,
-            "raw_data": raw_data
+            "raw_data": raw_data,
+            "gemini_analysis": gemini_analysis
         }
 
-    async def _store_vector(self, validated: Dict[str, Any]) -> Tuple[str, List[float]]:
+    async def _store_vector(self, validated: Dict[str, Any]) -> Tuple[List[str], List[List[float]]]:
         """
-        Store conversation vector in separate ChromaDB collection.
+        Store conversation memory units in separate ChromaDB collection.
 
         Args:
-            validated: Validated event data
+            validated: Validated event data with gemini_analysis
 
         Returns:
-            Tuple of (conversation_id from ChromaDB, embedding vector)
+            Tuple of (list of conversation_ids, list of embedding vectors)
         """
         self.logger.info(
-            f"{self._get_log_prefix()} Calling store_conversation_vector"
+            f"{self._get_log_prefix()} Calling store_conversation_vector with "
+            f"{len(validated.get('gemini_analysis', []))} memory units"
         )
 
-        conversation_id, embedding = await self.orchestrator.store_conversation_vector(
+        conversation_ids, embeddings = await self.orchestrator.store_conversation_vector(
             conversation_db_id=validated["conversation_db_id"],
             raw_data=validated["raw_data"],
-            user_id=validated["user_id"]
+            user_id=validated["user_id"],
+            gemini_analysis=validated.get("gemini_analysis", [])
         )
 
-        return conversation_id, embedding
+        return conversation_ids, embeddings
 
     async def _update_database(self, validated: Dict[str, Any], embedding: List[float]):
         """
@@ -151,14 +181,22 @@ class ConversationStorageHandler(BaseStorageHandler):
             # Step 3: Log processing details
             self._log_processing_details(validated)
 
-            # Step 4: Store vector in ChromaDB
-            vector_id, embedding = await self._store_vector(validated)
+            # Step 4: Store vectors in ChromaDB (multiple memory units)
+            vector_ids, embeddings = await self._store_vector(validated)
 
             # Step 5: Log vector storage success
-            self._log_vector_stored(vector_id, validated, embedding)
+            if vector_ids:
+                self.logger.info(
+                    f"{self._get_log_prefix()} Stored {len(vector_ids)} memory units in ChromaDB"
+                )
+            else:
+                self.logger.warning(
+                    f"{self._get_log_prefix()} No memory units stored (no Gemini analysis)"
+                )
 
             # Step 6: Update PostgreSQL with embedding (skipped for conversations)
-            await self._update_database(validated, embedding)
+            # Conversations don't store embeddings in PostgreSQL
+            await self._update_database(validated, embeddings[0] if embeddings else [])
 
             # Step 7: Save to JSON file (NEW STEP)
             self._save_to_file(validated)

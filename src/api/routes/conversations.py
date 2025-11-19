@@ -245,3 +245,42 @@ async def search_conversations(
             status_code=500,
             detail=f"Search failed: {str(e)}"
         )
+
+
+@router.post("/fetch-memory")
+async def fetch_memory(
+    search_request: ConversationSearchRequest,
+    logger: Logger = Depends(get_logger),
+):
+    """
+    Fetch memory based on conversation search parameters.
+
+    Uses the same parameters as /conversations/search:
+    - query: Search query string
+    - user_id: User identifier
+    - project_id: Project identifier (optional, deprecated)
+    - limit: Maximum results (default: 10)
+    - min_similarity: Minimum similarity threshold (default: 0.0)
+    - model: Filter by AI model (optional)
+
+    Example:
+        POST /conversations/fetch-memory
+        {
+            "query": "authentication discussion",
+            "user_id": "1",
+            "project_id": "default",
+            "limit": 5,
+            "min_similarity": 0.5,
+            "model": "gpt-5-1-instant"
+        }
+
+    Returns:
+        Memory data (placeholder implementation).
+    """
+    logger.info(
+        f"Fetching memory for: '{search_request.query[:100]}' "
+        f"(user: {search_request.user_id})"
+    )
+
+    # Placeholder implementation
+    return {"message": "hello world"}

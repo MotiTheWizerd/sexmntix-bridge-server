@@ -346,82 +346,149 @@ class VectorStorageService:
             half_life_days=30.0
         )
 
+    def _build_embedding_text_from_memory_unit(self, memory_unit: Dict[str, Any]) -> str:
+        """
+        Build natural language embedding text from Gemini memory unit.
+        
+        Combines: topic + summary + key_points + tags + related_topics + reflection
+        into a single semantic paragraph for clean embedding.
+        
+        Args:
+            memory_unit: Gemini-enriched memory object
+            
+        Returns:
+            Natural language text ready for embedding
+        """
+        parts = []
+        
+        # Topic (title/subject)
+        if topic := memory_unit.get("topic"):
+            parts.append(topic + ".")
+        
+        # Summary (main content)
+        if summary := memory_unit.get("summary"):
+            parts.append(summary)
+        
+        # Key points (as natural list)
+        if key_points := memory_unit.get("key_points"):
+            if isinstance(key_points, list):
+                parts.append(" ".join(key_points))
+        
+        # Tags (semantic labels)
+        if tags := memory_unit.get("tags"):
+            if isinstance(tags, list):
+                parts.append(f"Tags: {', '.join(tags)}.")
+        
+        # Related topics (connections)
+        if related_topics := memory_unit.get("related_topics"):
+            if isinstance(related_topics, list):
+                parts.append(f"Related topics: {', '.join(related_topics)}.")
+        
+        # Reflection (meta-cognitive insight)
+        if reflection := memory_unit.get("reflection"):
+            parts.append(f"Reflection: {reflection}")
+        
+        # Join into natural paragraph with spaces
+        return " ".join(parts)
+
     async def store_conversation_vector(
         self,
         conversation_db_id: int,
         conversation_data: Dict[str, Any],
-        user_id: str
-    ) -> tuple[str, List[float]]:
+        user_id: str,
+        gemini_analysis: List[Dict[str, Any]] = None
+    ) -> tuple[List[str], List[List[float]]]:
         """
-        Generate embedding and store conversation in separate ChromaDB collection.
+        Generate embeddings and store Gemini memory units in separate ChromaDB collection.
 
         Uses conversations_{hash(user_id)} collection instead of semantix_{hash}.
-        Extracts text from all messages in conversation array.
+        Embeds ONLY Gemini-enriched memory units (not raw conversation).
         Storage structure: user_id/conversations/{conversation_id}/
 
         Args:
             conversation_db_id: Database ID of conversation
-            conversation_data: Complete conversation data
+            conversation_data: Complete conversation data (for metadata only)
             user_id: User identifier for collection isolation
+            gemini_analysis: List of Gemini-enriched memory units to embed
 
         Returns:
-            Tuple of (conversation_id, embedding_vector)
+            Tuple of (list of conversation_ids, list of embedding_vectors)
 
         Raises:
-            ValueError: If conversation messages are empty
+            ValueError: If no Gemini analysis provided
             ProviderError: If embedding generation fails
         """
         from src.infrastructure.chromadb.operations.conversation import create_conversation
 
-        # Extract text from all messages in conversation
-        messages = conversation_data.get("conversation", [])
-        if not messages:
-            raise ValueError("Conversation has no messages")
-
-        # Combine all message texts for embedding
-        # Format: "role: text" for each message, separated by newlines
-        combined_text = "\n".join([
-            f"{msg.get('role', 'unknown')}: {msg.get('text', '')}"
-            for msg in messages
-        ])
-
-        if not combined_text.strip():
-            raise ValueError("Conversation messages contain no text")
+        # Require Gemini analysis - no fallback to raw conversation
+        if not gemini_analysis:
+            self.logger.warning(
+                f"[CONVERSATION_STORAGE] No Gemini analysis for conversation {conversation_db_id} - "
+                "skipping embedding (raw conversations are not embedded)"
+            )
+            return [], []
 
         self.logger.info(
-            f"[CONVERSATION_STORAGE] Generating embedding for conversation "
-            f"{conversation_db_id} ({len(messages)} messages, {len(combined_text)} chars)"
+            f"[CONVERSATION_STORAGE] Processing {len(gemini_analysis)} memory units "
+            f"for conversation {conversation_db_id}"
         )
 
-        # Generate embedding
-        embedding_result = await self.storage_handler.embedding_service.generate_embedding(
-            combined_text
-        )
-        embedding = embedding_result.embedding
-
-        self.logger.info(
-            f"[CONVERSATION_STORAGE] Embedding generated "
-            f"(dimensions: {len(embedding)}, cached: {embedding_result.cached})"
-        )
-
-        # Get ChromaDB client from vector repository
+        # Get ChromaDB client
         chromadb_client = self.storage_handler.vector_repository.client
 
-        # Store in separate conversation collection (user-scoped only)
-        conversation_id = await create_conversation(
-            client=chromadb_client,
-            conversation_db_id=conversation_db_id,
-            embedding=embedding,
-            conversation_data=conversation_data,
-            user_id=user_id
-        )
+        conversation_ids = []
+        embeddings = []
+
+        # Process each memory unit separately
+        for idx, memory_unit in enumerate(gemini_analysis):
+            # Build natural language text for embedding
+            embedding_text = self._build_embedding_text_from_memory_unit(memory_unit)
+
+            if not embedding_text.strip():
+                self.logger.warning(
+                    f"[CONVERSATION_STORAGE] Memory unit {idx} has no embeddable text - skipping"
+                )
+                continue
+
+            self.logger.info(
+                f"[CONVERSATION_STORAGE] Generating embedding for memory unit {idx} "
+                f"({len(embedding_text)} chars)"
+            )
+
+            # Generate embedding from natural language text
+            embedding_result = await self.storage_handler.embedding_service.generate_embedding(
+                embedding_text
+            )
+            embedding = embedding_result.embedding
+
+            self.logger.info(
+                f"[CONVERSATION_STORAGE] Embedding generated for memory unit {idx} "
+                f"(dimensions: {len(embedding)}, cached: {embedding_result.cached})"
+            )
+
+            # Store in ChromaDB with memory unit JSON as document
+            conversation_id = await create_conversation(
+                client=chromadb_client,
+                conversation_db_id=conversation_db_id,
+                embedding=embedding,
+                conversation_data=memory_unit,  # Store memory unit, not full conversation
+                user_id=user_id,
+                memory_index=idx
+            )
+
+            conversation_ids.append(conversation_id)
+            embeddings.append(embedding)
+
+            self.logger.info(
+                f"[CONVERSATION_STORAGE] Memory unit {idx} stored with id: {conversation_id}"
+            )
 
         self.logger.info(
-            f"[CONVERSATION_STORAGE] Stored in ChromaDB collection conversations_{{hash}} "
-            f"with id: {conversation_id}"
+            f"[CONVERSATION_STORAGE] Stored {len(conversation_ids)} memory units "
+            f"in ChromaDB collection conversations_{{hash}}"
         )
 
-        return conversation_id, embedding
+        return conversation_ids, embeddings
 
     async def search_similar_conversations(
         self,
