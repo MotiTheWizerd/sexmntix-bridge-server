@@ -49,10 +49,13 @@ class ConversationFileStorage:
         Creates directory structure if needed:
         data/users/user_{user_id}/conversations/conversation_{conversation_id}.json
 
+        If file exists, appends new messages to the conversation array.
+        If file doesn't exist, creates new file with the conversation data.
+
         Args:
             user_id: User identifier
             conversation_id: Conversation identifier (UUID)
-            conversation_data: Complete conversation data dictionary
+            conversation_data: Conversation data dictionary with 'conversation' array
 
         Returns:
             True if saved successfully, False on error
@@ -64,14 +67,53 @@ class ConversationFileStorage:
         # Get file path
         file_path = self.path_manager.get_conversation_file_path(user_id, conversation_id)
 
-        # Write JSON file
-        success = self.file_ops.write_json(file_path, conversation_data)
+        # Check if file already exists
+        existing_data = self.file_ops.read_json(file_path)
 
-        if success:
-            self.logger.info(
-                f"[FILE_STORAGE] Saved conversation to file: {file_path} "
+        if existing_data:
+            # File exists - append new messages to existing conversation array
+            self.logger.debug(
+                f"[FILE_STORAGE] Conversation file exists, appending new messages "
                 f"(user: {user_id}, conversation: {conversation_id})"
             )
+
+            # Get existing and new conversation arrays
+            existing_messages = existing_data.get("conversation", [])
+            new_messages = conversation_data.get("conversation", [])
+
+            # Append new messages to existing ones
+            existing_data["conversation"] = existing_messages + new_messages
+
+            # Update other fields from new data (but keep created_at from original)
+            for key, value in conversation_data.items():
+                if key != "conversation" and key != "created_at":
+                    existing_data[key] = value
+
+            # Write merged data
+            success = self.file_ops.write_json(file_path, existing_data)
+
+            if success:
+                self.logger.info(
+                    f"[FILE_STORAGE] Appended {len(new_messages)} message(s) to conversation file: {file_path} "
+                    f"(total messages: {len(existing_data['conversation'])})"
+                )
+
+        else:
+            # File doesn't exist - create new file
+            self.logger.debug(
+                f"[FILE_STORAGE] Creating new conversation file "
+                f"(user: {user_id}, conversation: {conversation_id})"
+            )
+
+            # Write new conversation file
+            success = self.file_ops.write_json(file_path, conversation_data)
+
+            if success:
+                message_count = len(conversation_data.get("conversation", []))
+                self.logger.info(
+                    f"[FILE_STORAGE] Created new conversation file: {file_path} "
+                    f"(user: {user_id}, conversation: {conversation_id}, messages: {message_count})"
+                )
 
         return success
 

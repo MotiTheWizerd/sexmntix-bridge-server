@@ -12,6 +12,7 @@ from src.api.bootstrap.services import (
     initialize_core_services,
     initialize_embedding_service,
     initialize_chromadb_metrics,
+    initialize_llm_service,
     initialize_sxthalamus,
 )
 from src.services.socket_service import SocketService
@@ -89,6 +90,10 @@ async def lifespan(app: FastAPI):
     app.state.logger.info("Database connection initialized")
     app.state.logger.info("Socket.IO service initialized")
 
+    # Initialize LLM service
+    llm_service = initialize_llm_service(app.state.db_manager, logger)
+    app.state.llm_service = llm_service
+
     # Initialize ChromaDB metrics collector
     chromadb_metrics_collector = initialize_chromadb_metrics(
         service_config, event_bus, logger
@@ -137,7 +142,7 @@ async def lifespan(app: FastAPI):
         logger.warning("Event handlers not initialized - embedding service unavailable")
 
     # Initialize SXThalamus Service (if enabled)
-    sxthalamus_service = initialize_sxthalamus(event_bus, logger)
+    sxthalamus_service = initialize_sxthalamus(event_bus, logger, llm_service)
     app.state.sxthalamus_service = sxthalamus_service
 
     yield

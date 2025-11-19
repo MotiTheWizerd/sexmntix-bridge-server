@@ -7,17 +7,20 @@ Handles conditional initialization of the SXThalamus service.
 from typing import Optional
 from src.modules.core import EventBus, Logger
 from src.modules.SXThalamus import SXThalamusService, SXThalamusConfig
+from src.modules.llm import LLMService
 
 
 def initialize_sxthalamus(
     event_bus: EventBus,
-    logger: Logger
+    logger: Logger,
+    llm_service: LLMService
 ) -> Optional[SXThalamusService]:
     """Initialize SXThalamus service if enabled.
 
     Args:
         event_bus: Application event bus
         logger: Application logger
+        llm_service: Centralized LLM service
 
     Returns:
         SXThalamusService instance if enabled, None otherwise
@@ -34,6 +37,7 @@ def initialize_sxthalamus(
         sxthalamus_service = SXThalamusService(
             event_bus=event_bus,
             logger=logger,
+            llm_service=llm_service,
             config=config
         )
 

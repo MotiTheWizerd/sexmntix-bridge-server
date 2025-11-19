@@ -86,8 +86,12 @@ class ConversationHandler:
 
             self.logger.info(f"📤 INPUT TEXT:\n{combined_text}\n{'='*80}")
 
-            # Process through Gemini (delegated to service)
-            processed_result = await self.process_message(combined_text)
+            # Process through Gemini (delegated to service) with user context
+            user_id = event_data.get("user_id")
+            processed_result = await self.process_message(
+                combined_text,
+                user_id=user_id
+            )
 
             self.logger.info(
                 "Conversation processed through Gemini successfully",

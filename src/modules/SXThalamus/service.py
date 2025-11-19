@@ -4,10 +4,9 @@ from typing import Optional
 
 from src.modules.core.event_bus.event_bus import EventBus
 from src.modules.core.telemetry.logger import Logger
+from src.modules.llm import LLMService
 
 from .config import SXThalamusConfig
-from .exceptions import GeminiAPIError, GeminiTimeoutError
-from .gemini import GeminiClient
 from .prompts import SXThalamusPromptBuilder
 from .handlers import ConversationHandler
 
@@ -20,14 +19,14 @@ class SXThalamusService:
     long messages for better chunking and storage.
 
     Features:
-    - Direct Gemini API integration
+    - Direct Gemini API integration via centralized LLM service
     - Semantic message grouping
     - Event-driven architecture
     - Comprehensive error handling and logging
 
     Architecture:
     - Service: Orchestration and event handling
-    - Client: Low-level Gemini API communication
+    - LLMService: Centralized LLM client management
     - PromptBuilder: Prompt formatting and templates
     """
 
@@ -35,6 +34,7 @@ class SXThalamusService:
         self,
         event_bus: EventBus,
         logger: Logger,
+        llm_service: LLMService,
         config: Optional[SXThalamusConfig] = None
     ):
         """
@@ -43,17 +43,13 @@ class SXThalamusService:
         Args:
             event_bus: Event bus for publishing events
             logger: Logger instance for telemetry
+            llm_service: Centralized LLM service
             config: Optional configuration (loads from env if None)
         """
         self.event_bus = event_bus
         self.logger = logger
+        self.llm_service = llm_service
         self.config = config or SXThalamusConfig.from_env()
-
-        # Initialize Gemini client (API key loaded from environment)
-        self.client = GeminiClient(
-            model=self.config.model,
-            timeout_seconds=self.config.timeout_seconds
-        )
 
         # Initialize prompt builder
         self.prompt_builder = SXThalamusPromptBuilder()
@@ -61,7 +57,7 @@ class SXThalamusService:
         # Initialize conversation handler (delegates event handling)
         self.conversation_handler = ConversationHandler(
             logger=self.logger,
-            process_message_func=self.process_message,
+            process_message_func=self.process_message_with_context,
             event_bus=self.event_bus
         )
 
@@ -69,24 +65,25 @@ class SXThalamusService:
             "SXThalamusService initialized",
             extra={
                 "enabled": self.config.enabled,
-                "model": self.config.model,
                 "timeout": self.config.timeout_seconds
             }
         )
-
-    async def process_message(
+    
+    async def process_message_with_context(
         self,
         message: str,
+        user_id: Optional[str] = None,
         prompt: Optional[str] = None
     ) -> str:
         """
-        Process a message through Gemini API for semantic grouping.
-
-        This method sends the message to Gemini for intelligent preprocessing
-        that prepares it for better chunking.
+        Process a message through Gemini API with user context.
+        
+        This method uses the centralized LLM service to fetch user-specific
+        model configuration and process the message.
 
         Args:
             message: The AI message to process
+            user_id: User identifier for fetching model config
             prompt: Optional custom prompt (defaults to grouping prompt)
 
         Returns:
@@ -107,18 +104,24 @@ class SXThalamusService:
         self.logger.info(
             "Processing message through Gemini",
             extra={
+                "user_id": user_id,
                 "message_length": len(message),
                 "prompt_length": len(prompt)
             }
         )
 
         try:
-            # Call Gemini API via client
-            result = await self.client.generate_content(prompt)
+            # Use centralized LLM service
+            result = await self.llm_service.generate_content(
+                prompt=prompt,
+                user_id=user_id,
+                worker_type="conversation_analyzer"
+            )
 
             self.logger.info(
                 "Gemini processing completed successfully",
                 extra={
+                    "user_id": user_id,
                     "result_length": len(result),
                     "result_preview": result[:500]  # First 500 chars
                 }
@@ -129,17 +132,11 @@ class SXThalamusService:
 
             return result
 
-        except (GeminiAPIError, GeminiTimeoutError) as e:
-            self.logger.error(
-                f"Gemini processing failed: {e}",
-                extra={"error_type": type(e).__name__}
-            )
-            raise
-
         except Exception as e:
             self.logger.error(
-                f"Unexpected error during message processing: {e}",
-                extra={"error_type": type(e).__name__}
+                f"Gemini processing failed: {e}",
+                extra={"error_type": type(e).__name__, "user_id": user_id},
+                exc_info=True
             )
             raise
 

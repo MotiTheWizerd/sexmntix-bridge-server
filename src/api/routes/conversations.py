@@ -199,7 +199,7 @@ async def search_conversations(
         # Create VectorStorageService for this specific user (conversations are user-scoped)
         vector_service = create_vector_storage_service(
             user_id=search_request.user_id,
-            project_id="",  # Empty project_id - conversations are user-scoped only
+            project_id="conversations",  # Dedicated collection for conversations
             embedding_service=request.app.state.embedding_service,
             event_bus=request.app.state.event_bus,
             logger=logger
@@ -296,7 +296,7 @@ async def fetch_memory(
 
         vector_service = create_vector_storage_service(
             user_id=search_request.user_id,
-            project_id="",  # Empty project_id - conversations are user-scoped only
+            project_id="conversations",  # Dedicated collection for conversations
             embedding_service=request.app.state.embedding_service,
             event_bus=request.app.state.event_bus,
             logger=logger
@@ -324,7 +324,6 @@ async def fetch_memory(
 
         # Step 2: Send results to Gemini for synthesis
         from src.modules.SXThalamus.prompts import SXThalamusPromptBuilder
-        from src.modules.SXThalamus.gemini import GeminiClient
 
         # Build prompt with search results
         prompt_builder = SXThalamusPromptBuilder()
@@ -332,9 +331,13 @@ async def fetch_memory(
 
         logger.info(f"Built memory synthesis prompt (length: {len(prompt)})")
 
-        # Call Gemini
-        gemini_client = GeminiClient()
-        synthesized_memory = await gemini_client.generate_content(prompt)
+        # Call Gemini via centralized LLM service
+        llm_service = request.app.state.llm_service
+        synthesized_memory = await llm_service.generate_content(
+            prompt=prompt,
+            user_id=search_request.user_id,
+            worker_type="memory_synthesizer"
+        )
 
         logger.info(
             f"Gemini synthesis completed (length: {len(synthesized_memory)})",

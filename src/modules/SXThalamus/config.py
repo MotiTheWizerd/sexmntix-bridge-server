@@ -8,14 +8,12 @@ import os
 class SXThalamusConfig:
     """Configuration for SXThalamus service
 
-    Note: GEMINI_API_KEY is loaded from environment via load_dotenv() in the client
+    Note: Model configuration is now per-user in the database.
+    GEMINI_API_KEY is loaded from environment via load_dotenv() in the client.
     """
 
     enabled: bool = True
     """Enable/disable SXThalamus preprocessing"""
-
-    model: str = "gemini-2.0-flash"
-    """Gemini model identifier"""
 
     timeout_seconds: float = 30.0
     """Timeout for API calls in seconds"""
@@ -31,7 +29,6 @@ class SXThalamusConfig:
         Environment variables:
             SXTHALAMUS_ENABLED: Enable/disable the service (default: true)
             GEMINI_API_KEY: Google Gemini API key (loaded in client via load_dotenv)
-            SXTHALAMUS_MODEL: Model identifier (default: gemini-2.0-flash)
             SXTHALAMUS_TIMEOUT: Timeout in seconds (default: 30.0)
             SXTHALAMUS_MAX_RETRIES: Max retry attempts (default: 2)
 
@@ -40,7 +37,6 @@ class SXThalamusConfig:
         """
         return cls(
             enabled=os.getenv("SXTHALAMUS_ENABLED", "true").lower() == "true",
-            model=os.getenv("SXTHALAMUS_MODEL", "gemini-2.0-flash"),
             timeout_seconds=float(os.getenv("SXTHALAMUS_TIMEOUT", "30.0")),
             max_retries=int(os.getenv("SXTHALAMUS_MAX_RETRIES", "2"))
         )

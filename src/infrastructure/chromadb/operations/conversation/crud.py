@@ -277,9 +277,13 @@ async def search_conversations(
             # Calculate similarity score (1 - normalized distance)
             # ChromaDB uses L2 distance, normalize to [0, 1] range
             similarity = 1.0 - (distance / 2.0) if distance <= 2.0 else 0.0
+            
+            # Log similarity scores for debugging
+            print(f"[CONVERSATION_SEARCH] Result {i}: distance={distance:.4f}, similarity={similarity:.4f}, min_threshold={min_similarity}")
 
             # Apply minimum similarity filter if provided
             if min_similarity is not None and similarity < min_similarity:
+                print(f"[CONVERSATION_SEARCH] Filtered out result {i} (similarity {similarity:.4f} < {min_similarity})")
                 continue
 
             search_results.append({
