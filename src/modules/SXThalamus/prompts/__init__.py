@@ -10,6 +10,7 @@ from typing import Any
 from .semantic_grouping import build_semantic_grouping_prompt
 from .default import build_default_prompt
 from .custom import build_custom_prompt
+from .memory_synthesis import build_memory_synthesis_prompt
 
 
 class SXThalamusPromptBuilder:
@@ -66,10 +67,27 @@ class SXThalamusPromptBuilder:
         """
         return build_custom_prompt(template, **kwargs)
 
+    @staticmethod
+    def build_memory_synthesis_prompt(search_results: list) -> str:
+        """
+        Build a prompt for synthesizing search results into natural language memory.
+
+        Takes raw semantic search results and creates a prompt for Gemini
+        to synthesize them into a coherent memory summary.
+
+        Args:
+            search_results: List of search results from vector storage
+
+        Returns:
+            Formatted prompt for memory synthesis
+        """
+        return build_memory_synthesis_prompt(search_results)
+
 
 __all__ = [
     "build_semantic_grouping_prompt",
     "build_default_prompt",
     "build_custom_prompt",
+    "build_memory_synthesis_prompt",
     "SXThalamusPromptBuilder",
 ]

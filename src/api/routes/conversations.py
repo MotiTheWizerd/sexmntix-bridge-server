@@ -250,10 +250,16 @@ async def search_conversations(
 @router.post("/fetch-memory")
 async def fetch_memory(
     search_request: ConversationSearchRequest,
+    request: Request,
     logger: Logger = Depends(get_logger),
 ):
     """
-    Fetch memory based on conversation search parameters.
+    Fetch synthesized memory from conversation search results.
+
+    Workflow:
+    1. Perform semantic search (same as /conversations/search)
+    2. Send raw search results to Gemini for synthesis
+    3. Return only the synthesized natural language memory
 
     Uses the same parameters as /conversations/search:
     - query: Search query string
@@ -275,12 +281,72 @@ async def fetch_memory(
         }
 
     Returns:
-        Memory data (placeholder implementation).
+        {
+            "synthesized_memory": "Core Concept: ...\n\nI remember...\n\nKey Association: ..."
+        }
     """
     logger.info(
         f"Fetching memory for: '{search_request.query[:100]}' "
         f"(user: {search_request.user_id})"
     )
 
-    # Placeholder implementation
-    return {"message": "hello world"}
+    try:
+        # Step 1: Perform semantic search (same as /conversations/search)
+        from src.api.dependencies.vector_storage import create_vector_storage_service
+
+        vector_service = create_vector_storage_service(
+            user_id=search_request.user_id,
+            project_id="",  # Empty project_id - conversations are user-scoped only
+            embedding_service=request.app.state.embedding_service,
+            event_bus=request.app.state.event_bus,
+            logger=logger
+        )
+
+        # Build filter for model if provided
+        combined_filter = {}
+        if search_request.model:
+            combined_filter["model"] = search_request.model
+
+        # Search conversations
+        results = await vector_service.search_similar_conversations(
+            query=search_request.query,
+            user_id=search_request.user_id,
+            limit=search_request.limit,
+            where_filter=combined_filter,
+            min_similarity=search_request.min_similarity
+        )
+
+        logger.info(f"Found {len(results)} search results for memory synthesis")
+
+        if not results:
+            logger.info("No search results found, returning empty memory")
+            return {"synthesized_memory": "No relevant memories found."}
+
+        # Step 2: Send results to Gemini for synthesis
+        from src.modules.SXThalamus.prompts import SXThalamusPromptBuilder
+        from src.modules.SXThalamus.gemini import GeminiClient
+
+        # Build prompt with search results
+        prompt_builder = SXThalamusPromptBuilder()
+        prompt = prompt_builder.build_memory_synthesis_prompt(results)
+
+        logger.info(f"Built memory synthesis prompt (length: {len(prompt)})")
+
+        # Call Gemini
+        gemini_client = GeminiClient()
+        synthesized_memory = await gemini_client.generate_content(prompt)
+
+        logger.info(
+            f"Gemini synthesis completed (length: {len(synthesized_memory)})",
+            extra={"preview": synthesized_memory[:200]}
+        )
+
+        # Step 3: Return only the synthesized memory
+        return {"synthesized_memory": synthesized_memory}
+
+    except Exception as e:
+        logger.error(f"Memory fetch failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Memory fetch failed: {str(e)}"
+        )

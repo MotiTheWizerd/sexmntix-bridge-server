@@ -676,7 +676,7 @@ Decision: Keep best performer or run both in parallel
 
 - Track API costs
 - Implement caching for repeated conversations
-- Consider using cheaper model (gemini-flash-2.0) for simpler conversations
+- Consider using cheaper model (gemini-flash-1.5) for simpler conversations
 - Add cost limits per user/project
 
 ### Long-Term (This Month)
