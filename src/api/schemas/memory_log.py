@@ -1,39 +1,153 @@
 from pydantic import BaseModel, field_validator
-from datetime import datetime
-from typing import Dict, Any, Optional, List
+from datetime import datetime, date
+from typing import Dict, Any, Optional, List, Literal
 
+
+# ============================================================================
+# Nested Schema Models
+# ============================================================================
+
+class TemporalContext(BaseModel):
+    """Temporal context information"""
+    date_iso: str  # ISO format date string
+    year: int
+    month: int
+    week_number: int
+    quarter: str  # e.g., "2025-Q1"
+    time_period: Literal["recent", "last-week", "last-month", "archived"]
+
+
+class Complexity(BaseModel):
+    """Complexity metrics"""
+    technical: Optional[str] = None  # "1-5: <description>"
+    business: Optional[str] = None  # "1-5: <description>"
+    coordination: Optional[str] = None  # "1-5: <description>"
+
+
+class Outcomes(BaseModel):
+    """Outcome metrics"""
+    performance_impact: Optional[str] = None  # "<specific metrics or 'No impact'>"
+    test_coverage_delta: Optional[str] = None  # "<percentage change>"
+    technical_debt_reduced: Optional[Literal["low", "medium", "high"]] = None
+    follow_up_needed: Optional[bool] = None
+
+
+class Solution(BaseModel):
+    """Solution details"""
+    approach: Optional[str] = None  # "<high-level strategy used>"
+    key_changes: Optional[List[str]] = None  # ["<file>: <specific change and reason>"]
+
+
+class Gotcha(BaseModel):
+    """Gotcha/issue encountered"""
+    issue: Optional[str] = None  # "<specific problem encountered>"
+    solution: Optional[str] = None  # "<exact resolution steps>"
+    category: Optional[Literal["testing", "integration", "configuration", "typing", "environment"]] = None
+    severity: Optional[Literal["low", "medium", "high"]] = None
+
+
+class CodeContext(BaseModel):
+    """Code context information"""
+    key_patterns: Optional[List[str]] = None  # ["<pattern>() - <usage description>"]
+    api_surface: Optional[List[str]] = None  # ["<function>(param: Type): ReturnType - <description>"]
+    dependencies_added: Optional[List[str]] = None  # ["<library>: <reason>"]
+    breaking_changes: Optional[List[str]] = None  # ["<old> → <new>", "<change description>"]
+
+
+class FuturePlanning(BaseModel):
+    """Future planning information"""
+    next_logical_steps: Optional[List[str]] = None  # ["<next task description>"]
+    architecture_decisions: Optional[Dict[str, str]] = None  # {"<decision_name>": "<rationale>"}
+    extension_points: Optional[List[str]] = None  # ["<file> - <where to add new features>"]
+
+
+class UserContext(BaseModel):
+    """User context preferences"""
+    development_style: Optional[str] = None  # "<staged-testing|tdd|rapid-prototype|thorough-documentation>"
+    naming_preferences: Optional[str] = None  # "<natural-conversational|technical-precise|domain-specific>"
+    architecture_philosophy: Optional[str] = None  # "<single-responsibility|event-driven|layered|microservices>"
+    quality_standards: Optional[str] = None  # "<high-test-coverage|performance-first|maintainability-focus>"
+
+
+class SemanticContext(BaseModel):
+    """Semantic context information"""
+    domain_concepts: Optional[List[str]] = None  # ["<business-concept>", "<domain-term>"]
+    technical_patterns: Optional[List[str]] = None  # ["<pattern-name>", "<architecture-pattern>"]
+    integration_points: Optional[List[str]] = None  # ["<external-system>", "<dependency>"]
+
+
+# ============================================================================
+# Main Memory Log Schema
+# ============================================================================
 
 class MemoryLogData(BaseModel):
-    """Nested memory log data structure - all fields are optional"""
-    content: Optional[str] = None
-    task: Optional[str] = None
-    agent: Optional[str] = "mcp_client"
-    tags: Optional[List[str]] = []
-    metadata: Optional[Dict[str, Any]] = {}
-
+    """
+    Comprehensive memory log data structure.
+    
+    Required fields (by importance):
+    - task: Task identifier (required)
+    - agent: Agent identifier (required)
+    - date: Date string (required)
+    
+    All other fields are optional for flexibility.
+    """
+    # Required fields
+    task: str  # "task-name-kebab-case"
+    agent: str  # "claude-sonnet-4"
+    date: str  # "2025-01-15"
+    
+    # Optional core fields
+    component: Optional[str] = None  # "component-name"
+    temporal_context: Optional[TemporalContext] = None  # Auto-calculated if not provided
+    complexity: Optional[Complexity] = None
+    files_modified: Optional[str] = None  # "<number>"
+    files_touched: Optional[List[str]] = None  # ["<file-path>"]
+    tests_added: Optional[str] = None  # "<number>"
+    related_tasks: Optional[List[str]] = None  # ["<task-name>"]
+    outcomes: Optional[Outcomes] = None
+    summary: Optional[str] = None  # "<problem> → <solution>"
+    root_cause: Optional[str] = None  # "<underlying cause of the issue>"
+    solution: Optional[Solution] = None
+    validation: Optional[str] = None  # "<how success was verified>"
+    gotchas: Optional[List[Gotcha]] = None
+    lesson: Optional[str] = None  # "<key insight for future work>"
+    tags: Optional[List[str]] = None  # ["<searchable>", "<keywords>"]
+    code_context: Optional[CodeContext] = None
+    future_planning: Optional[FuturePlanning] = None
+    user_context: Optional[UserContext] = None
+    semantic_context: Optional[SemanticContext] = None
+    
+    # Legacy support
+    content: Optional[str] = None  # For backward compatibility
+    metadata: Optional[Dict[str, Any]] = {}  # For backward compatibility
+    
     model_config = {"extra": "allow"}
 
 
 class MemoryLogCreate(BaseModel):
-    """New unified format for memory log creation
-
+    """
+    New comprehensive format for memory log creation
+    
     Format:
     {
         "user_id": "uuid-string",
         "project_id": "default",
+        "session_id": "string",
         "memory_log": {
-            "content": "...",
-            "task": "...",
-            "agent": "...",
-            "tags": [...],
-            "metadata": {...}
+            "task": "task-name-kebab-case",
+            "agent": "claude-sonnet-4",
+            "date": "2025-01-15",
+            ... (all other fields optional)
         }
     }
-
-    The system will automatically add a datetime field.
+    
+    The system will automatically:
+    - Add datetime field (ISO-8601 timestamp)
+    - Calculate temporal_context if not provided
     """
     user_id: str
     project_id: str
+    session_id: Optional[str] = None
     memory_log: MemoryLogData
 
 

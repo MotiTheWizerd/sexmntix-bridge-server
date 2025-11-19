@@ -106,19 +106,30 @@ class MemoryArgumentValidator:
         """Extract and validate all arguments
 
         Args:
-            arguments: Raw arguments from tool call with new structure:
+            arguments: Raw arguments from tool call with comprehensive structure:
                 {
-                    "user_id": 1,
+                    "user_id": "uuid-string",
                     "project_id": "default",
+                    "session_id": "string",
                     "memory_log": {
-                        "content": "...",
-                        "task": "...",
-                        "agent": "...",
+                        "task": "task-name-kebab-case",  // Required
+                        "agent": "claude-sonnet-4",  // Required
+                        "date": "2025-01-15",  // Required
+                        "component": "...",
+                        "temporal_context": {...},
+                        "complexity": {...},
+                        "outcomes": {...},
+                        "solution": {...},
+                        "gotchas": [...],
+                        "code_context": {...},
+                        "future_planning": {...},
+                        "user_context": {...},
+                        "semantic_context": {...},
                         "tags": [...],
-                        "metadata": {...}
+                        ... (all other fields optional)
                     }
                 }
-            context: Execution context (not used for user_id/project_id anymore)
+            context: Execution context
 
         Returns:
             Dict[str, Any]: Validated arguments with datetime added
@@ -129,6 +140,7 @@ class MemoryArgumentValidator:
         # Extract top-level required fields
         user_id = arguments.get("user_id")
         project_id = arguments.get("project_id")
+        session_id = arguments.get("session_id")
         memory_log = arguments.get("memory_log")
 
         # Validate top-level fields
@@ -139,44 +151,70 @@ class MemoryArgumentValidator:
         if not memory_log or not isinstance(memory_log, dict):
             raise ValueError("memory_log is required and must be an object")
 
-        # Extract fields from nested memory_log object (all optional now)
-        content = memory_log.get("content", "")
-        task = memory_log.get("task", "")
-        agent = memory_log.get("agent", cls.DEFAULT_AGENT)
+        # Extract required fields from nested memory_log object
+        task = memory_log.get("task")
+        agent = memory_log.get("agent")
+        date = memory_log.get("date")
+
+        # Validate required fields
+        if not task:
+            raise ValueError("task is required in memory_log")
+        is_valid, error = cls.validate_task(task)
+        if not is_valid:
+            raise ValueError(error)
+
+        if not agent:
+            agent = cls.DEFAULT_AGENT
+        if not isinstance(agent, str):
+            raise ValueError("agent must be a string")
+
+        if not date:
+            raise ValueError("date is required in memory_log (format: YYYY-MM-DD)")
+        if not isinstance(date, str):
+            raise ValueError("date must be a string")
+
+        # Validate date format
+        try:
+            datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            try:
+                datetime.fromisoformat(date.replace('Z', '+00:00'))
+            except ValueError:
+                raise ValueError(f"Invalid date format: {date}. Expected format: YYYY-MM-DD")
+
+        # Extract optional fields
         tags = memory_log.get("tags", [])
-        metadata = memory_log.get("metadata", {})
-
-        # Validate content if provided (only validate non-empty values)
-        if content:
-            is_valid, error = cls.validate_content(content)
-            if not is_valid:
-                raise ValueError(error)
-
-        # Validate task if provided (only validate non-empty values)
-        if task:
-            is_valid, error = cls.validate_task(task)
-            if not is_valid:
-                raise ValueError(error)
+        content = memory_log.get("content", "")  # Legacy support
+        metadata = memory_log.get("metadata", {})  # Legacy support
 
         # Validate optional fields
         is_valid, error = cls.validate_tags(tags)
         if not is_valid:
             raise ValueError(error)
 
+        if content:
+            is_valid, error = cls.validate_content(content)
+            if not is_valid:
+                raise ValueError(error)
+
         is_valid, error = cls.validate_metadata(metadata)
         if not is_valid:
             raise ValueError(error)
 
-        # Add datetime field (system-generated)
+        # Add datetime field (system-generated ISO-8601 timestamp)
         current_datetime = datetime.utcnow().isoformat()
 
+        # Return all fields including the full memory_log structure
         return {
-            "content": content,
             "task": task,
             "agent": agent,
+            "date": date,
+            "content": content,  # Legacy support
             "tags": tags if tags else [],
             "metadata": metadata if metadata else {},
             "user_id": str(user_id),
             "project_id": project_id,
-            "datetime": current_datetime
+            "session_id": session_id,
+            "datetime": current_datetime,
+            "memory_log_data": memory_log  # Pass through full structure
         }

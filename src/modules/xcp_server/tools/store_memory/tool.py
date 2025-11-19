@@ -139,21 +139,37 @@ class StoreMemoryTool(BaseTool):
         """Build raw_data structure using builder
 
         Args:
-            validated_args: Validated arguments
+            validated_args: Validated arguments (includes memory_log_data if comprehensive format)
 
         Returns:
             Dict[str, Any]: Complete raw_data structure
         """
-        return self.builder.build_raw_data(
-            task=validated_args["task"],
-            agent=validated_args["agent"],
-            content=validated_args["content"],
-            user_id=validated_args["user_id"],
-            project_id=validated_args["project_id"],
-            datetime_iso=validated_args["datetime"],
-            tags=validated_args["tags"],
-            metadata=validated_args["metadata"]
-        )
+        # Use comprehensive format if memory_log_data is provided
+        if "memory_log_data" in validated_args:
+            return self.builder.build_raw_data(
+                task=validated_args["task"],
+                agent=validated_args["agent"],
+                date=validated_args["date"],
+                user_id=validated_args["user_id"],
+                project_id=validated_args["project_id"],
+                datetime_iso=validated_args["datetime"],
+                session_id=validated_args.get("session_id"),
+                memory_log_data=validated_args["memory_log_data"]
+            )
+        else:
+            # Legacy format
+            return self.builder.build_raw_data(
+                task=validated_args["task"],
+                agent=validated_args["agent"],
+                date=validated_args["date"],
+                user_id=validated_args["user_id"],
+                project_id=validated_args["project_id"],
+                datetime_iso=validated_args["datetime"],
+                session_id=validated_args.get("session_id"),
+                tags=validated_args.get("tags", []),
+                metadata=validated_args.get("metadata", {}),
+                content=validated_args.get("content", "")
+            )
 
     def _log_storage_request(
         self,

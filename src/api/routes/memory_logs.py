@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+from datetime import datetime
 from src.api.dependencies.database import get_db_session
 from src.api.dependencies.event_bus import get_event_bus
 from src.api.dependencies.logger import get_logger
@@ -9,10 +10,12 @@ from src.api.schemas.memory_log import (
     MemoryLogCreate,
     MemoryLogResponse,
     MemoryLogSearchRequest,
-    MemoryLogSearchResult
+    MemoryLogSearchResult,
+    TemporalContext
 )
 from src.database.repositories.memory_log_repository import MemoryLogRepository
 from src.modules.core import EventBus, Logger
+from src.modules.core.temporal_context import TemporalContextCalculator
 
 router = APIRouter(prefix="/memory-logs", tags=["memory-logs"])
 
@@ -27,16 +30,27 @@ async def create_memory_log(
     """
     Create a new memory log with automatic embedding generation via event-driven architecture.
 
-    New Unified Format (same as MCP tool):
+    New Comprehensive Format:
     {
-        "user_id": 1,
+        "user_id": "uuid-string",
         "project_id": "default",
+        "session_id": "string",
         "memory_log": {
-            "content": "Memory content",
-            "task": "bug_fix",
-            "agent": "user",
-            "tags": ["api", "rest"],
-            "metadata": {"source": "web"}
+            "task": "task-name-kebab-case",
+            "agent": "claude-sonnet-4",
+            "date": "2025-01-15",
+            "component": "component-name",
+            "temporal_context": {...},  // Auto-calculated if not provided
+            "complexity": {...},
+            "outcomes": {...},
+            "solution": {...},
+            "gotchas": [...],
+            "code_context": {...},
+            "future_planning": {...},
+            "user_context": {...},
+            "semantic_context": {...},
+            "tags": ["searchable", "keywords"],
+            ... (all other fields optional)
         }
     }
 
@@ -49,43 +63,50 @@ async def create_memory_log(
     for better performance and non-blocking failures.
 
     User and project IDs enable multi-tenant isolation in vector storage.
-    The system automatically adds a datetime field.
+    The system automatically adds a datetime field and calculates temporal_context if not provided.
     """
-    # All fields in memory_log are now optional
-    task = data.memory_log.task or ""
-    agent = data.memory_log.agent or "mcp_client"
-    content = data.memory_log.content or ""
+    # Extract required fields
+    task = data.memory_log.task
+    agent = data.memory_log.agent
+    date_str = data.memory_log.date
 
     logger.info(f"Creating memory log for task: {task}")
 
-    # Add datetime field (system-generated)
-    from datetime import datetime
+    # Parse date string to datetime
+    try:
+        # Try parsing date string (format: "2025-01-15")
+        date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+        date_datetime = datetime.combine(date_obj, datetime.min.time())
+    except ValueError:
+        # Fallback: try ISO format
+        try:
+            date_datetime = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            date_obj = date_datetime.date()
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid date format: {date_str}. Expected format: YYYY-MM-DD"
+            )
+
+    # Convert memory_log to dict, handling nested models
+    memory_log_dict = data.memory_log.model_dump(exclude_none=True)
+    
+    # Calculate temporal_context if not provided
+    if "temporal_context" not in memory_log_dict or memory_log_dict["temporal_context"] is None:
+        temporal_context_data = TemporalContextCalculator.calculate_temporal_context(date_obj)
+        memory_log_dict['temporal_context'] = temporal_context_data
+
+    # Add datetime field (system-generated ISO-8601 timestamp)
     current_datetime = datetime.utcnow()
     current_datetime_iso = current_datetime.isoformat()
 
-    # Build raw_data with new nested structure (same as MCP tool)
-    # Format tags as tag_0, tag_1, etc.
-    memory_log_data = {
-        "task": task,
-        "agent": agent,
-        "content": content
-    }
-
-    # Add formatted tags if provided
-    if data.memory_log.tags:
-        for i, tag in enumerate(data.memory_log.tags[:5]):  # Max 5 tags
-            memory_log_data[f"tag_{i}"] = str(tag)
-
-    # Merge additional metadata if provided
-    if data.memory_log.metadata:
-        memory_log_data.update(data.memory_log.metadata)
-
-    # Build top-level structure
+    # Build top-level structure with session_id
     raw_data = {
         "user_id": str(data.user_id),
         "project_id": data.project_id,
+        "session_id": data.session_id,
         "datetime": current_datetime_iso,
-        "memory_log": memory_log_data
+        "memory_log": memory_log_dict
     }
 
     # Create memory log in PostgreSQL (synchronous for immediate response with ID)
@@ -93,7 +114,7 @@ async def create_memory_log(
     memory_log = await repo.create(
         task=task,
         agent=agent,
-        date=current_datetime,
+        date=date_datetime,
         raw_data=raw_data,
         user_id=str(data.user_id),
         project_id=data.project_id,
@@ -106,7 +127,7 @@ async def create_memory_log(
         "memory_log_id": memory_log.id,
         "task": task,
         "agent": agent,
-        "date": current_datetime,
+        "date": date_datetime,
         "raw_data": raw_data,
         "user_id": str(data.user_id),
         "project_id": data.project_id,
@@ -201,14 +222,18 @@ async def search_memory_logs(
         # Build combined filter with tag if provided
         combined_filter = search_request.filters or {}
         if search_request.tag:
-            # Add tag filter using $or across tag_0 through tag_4
+            # Add tag filter - tags are stored in metadata as:
+            # 1. tag_0, tag_1, tag_2, tag_3, tag_4 (individual fields)
+            # 2. tags (comma-separated string)
+            # Check both formats for compatibility
             tag_filter = {
                 "$or": [
                     {"tag_0": search_request.tag},
                     {"tag_1": search_request.tag},
                     {"tag_2": search_request.tag},
                     {"tag_3": search_request.tag},
-                    {"tag_4": search_request.tag}
+                    {"tag_4": search_request.tag},
+                    {"tags": {"$contains": search_request.tag}}  # Check comma-separated string
                 ]
             }
             # Combine with existing filters using $and
