@@ -318,9 +318,18 @@ class CollectionViewerService:
         end_idx = min(offset + limit, len(ids))
 
         for i in range(start_idx, end_idx):
+            # Parse document string to dict (ChromaDB stores as JSON string)
+            doc = docs[i] if i < len(docs) else {}
+            if isinstance(doc, str):
+                import json
+                try:
+                    doc = json.loads(doc)
+                except json.JSONDecodeError:
+                    doc = {"raw": doc}  # Fallback if not valid JSON
+            
             doc_response = DocumentResponse(
                 id=ids[i],
-                document=docs[i] if i < len(docs) else {},
+                document=doc,
                 metadata=metadatas[i] if i < len(metadatas) else {},
                 embedding=embeddings[i] if i < len(embeddings) else None
             )

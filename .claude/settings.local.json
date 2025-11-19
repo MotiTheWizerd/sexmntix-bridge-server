@@ -14,7 +14,9 @@
       "Bash(pip install:*)",
       "Bash(curl:*)",
       "Bash(move srcapiroutesmonitoring.py srcapiroutesmonitoring.py.backup)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(\"src\\modules\\SXThalamus\\prompts\\default.py\")",
+      "Bash(touch:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

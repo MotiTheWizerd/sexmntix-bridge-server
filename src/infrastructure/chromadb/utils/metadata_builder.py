@@ -54,6 +54,9 @@ def prepare_metadata(memory_log: Dict[str, Any], document_type: str = "memory_lo
             metadata["quarter"] = temporal.get("quarter", "")
             metadata["year"] = str(temporal.get("year", ""))
 
+    # Filter out None values (ChromaDB doesn't accept None)
+    metadata = {k: v for k, v in metadata.items() if v is not None}
+
     return metadata
 
 

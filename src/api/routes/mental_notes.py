@@ -32,19 +32,11 @@ async def create_mental_note(
 
     # Build raw_data from input
     raw_data = data.model_dump(mode="json")
-    logger.info(f"[EMBEDDING DEBUG] raw_data: {raw_data}")
+    logger.info(f"Creating mental note with raw_data: {raw_data}")
 
-    # Generate embedding from content
-    content = raw_data.get("content", "")
-    logger.info(f"[EMBEDDING DEBUG] Extracted content: '{content}'")
-
-    embedding_result = await embedding_service.generate_embedding(content)
-    embedding_vector = embedding_result.embedding
-    logger.info(f"[EMBEDDING DEBUG] Generated embedding - type: {type(embedding_vector)}, length: {len(embedding_vector) if embedding_vector else 'None'}, first 5 values: {embedding_vector[:5] if embedding_vector else 'None'}")
-
-    # Create mental note in PostgreSQL with embedding
+    # Create mental note in PostgreSQL without embedding
+    # Embedding will be generated and stored in ChromaDB via event handler
     repo = MentalNoteRepository(db)
-    logger.info(f"[EMBEDDING DEBUG] Calling repo.create with embedding of length: {len(embedding_vector) if embedding_vector else 'None'}")
 
     mental_note = await repo.create(
         session_id=data.sessionId,
@@ -52,10 +44,9 @@ async def create_mental_note(
         raw_data=raw_data,
         user_id=data.user_id,
         project_id=data.project_id,
-        embedding=embedding_vector,
+        embedding=None,  # Skip PostgreSQL embedding, will be stored in ChromaDB
     )
 
-    logger.info(f"[EMBEDDING DEBUG] Mental note created - id: {mental_note.id}, has embedding: {mental_note.embedding is not None}, embedding type: {type(mental_note.embedding)}")
     logger.info(f"Mental note stored in PostgreSQL with id: {mental_note.id}")
 
     # Emit event for async vector storage (background task via event handler)

@@ -4,31 +4,30 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 import asyncio
 from contextlib import asynccontextmanager
-from src.modules.core import EventBus, Logger
 from src.database import DatabaseManager
 from src.api.middleware.logging import LoggingMiddleware
 from src.api.routes import health, memory_logs, mental_notes, users, socket_test, memory_logs_example, embeddings, monitoring, conversations
+from src.api.bootstrap.config import load_app_config, load_service_config
+from src.api.bootstrap.services import (
+    initialize_core_services,
+    initialize_embedding_service,
+    initialize_chromadb_metrics,
+    initialize_sxthalamus,
+)
 from src.services.socket_service import SocketService
 from src.services.chromadb_metrics import ChromaDBMetricsCollector
-from src.events.emitters import EventEmitter
-from src.infrastructure.chromadb.client import ChromaDBClient
-from src.modules.embeddings import (
-    EmbeddingService,
-    GoogleEmbeddingProvider,
-    ProviderConfig,
-    EmbeddingCache,
-)
+from src.modules.core import Logger
 import socketio
-import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Initialize services that need to be available before app creation
-event_bus = EventBus()
-logger = Logger("semantic-bridge-server")
-socket_service = SocketService(event_bus, logger)
-event_emitter = EventEmitter(socket_service)
+# Load configuration
+app_config = load_app_config()
+service_config = load_service_config()
+
+# Initialize core services that need to be available before app creation
+event_bus, logger, socket_service = initialize_core_services()
 
 
 async def stream_metrics_to_clients(
@@ -74,31 +73,7 @@ async def stream_metrics_to_clients(
         raise
 
 # Initialize embedding service
-google_api_key = os.getenv("GOOGLE_API_KEY")
-if google_api_key:
-    embedding_config = ProviderConfig(
-        provider_name="google",
-        model_name=os.getenv("EMBEDDING_MODEL", "models/text-embedding-004"),
-        api_key=google_api_key,
-        timeout_seconds=float(os.getenv("EMBEDDING_TIMEOUT", "30.0")),
-        max_retries=int(os.getenv("EMBEDDING_MAX_RETRIES", "3"))
-    )
-    embedding_provider = GoogleEmbeddingProvider(embedding_config)
-    embedding_cache = EmbeddingCache(
-        max_size=int(os.getenv("EMBEDDING_CACHE_SIZE", "1000")),
-        ttl_hours=int(os.getenv("EMBEDDING_CACHE_TTL_HOURS", "24"))
-    )
-    embedding_service = EmbeddingService(
-        event_bus=event_bus,
-        logger=logger,
-        provider=embedding_provider,
-        cache=embedding_cache,
-        cache_enabled=os.getenv("EMBEDDING_CACHE_ENABLED", "true").lower() == "true"
-    )
-    logger.info("Embedding service initialized successfully")
-else:
-    embedding_service = None
-    logger.warning("GOOGLE_API_KEY not found - embedding service disabled")
+embedding_service = initialize_embedding_service(service_config, event_bus, logger)
 
 
 @asynccontextmanager
@@ -107,32 +82,18 @@ async def lifespan(app: FastAPI):
     app.state.event_bus = event_bus
     app.state.logger = logger
     app.state.socket_service = socket_service
-    app.state.event_emitter = event_emitter
     app.state.embedding_service = embedding_service
     app.state.logger.info("Application starting...")
 
-    database_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@localhost:5432/semantic_bridge")
-    app.state.db_manager = DatabaseManager(database_url)
+    app.state.db_manager = DatabaseManager(app_config.database_url)
     app.state.logger.info("Database connection initialized")
     app.state.logger.info("Socket.IO service initialized")
 
-    # Initialize ChromaDB client for metrics (base path, no user/project isolation)
-    chromadb_base_path = os.getenv("CHROMADB_PATH", "./data/chromadb")
-    chromadb_client = ChromaDBClient(
-        storage_path=chromadb_base_path,
-        user_id=None,
-        project_id=None
-    )
-    app.state.logger.info(f"ChromaDB client initialized at {chromadb_base_path} (no user/project nesting)")
-
     # Initialize ChromaDB metrics collector
-    chromadb_metrics_collector = ChromaDBMetricsCollector(
-        event_bus=event_bus,
-        logger=logger,
-        chromadb_client=chromadb_client
+    chromadb_metrics_collector = initialize_chromadb_metrics(
+        service_config, event_bus, logger
     )
     app.state.chromadb_metrics_collector = chromadb_metrics_collector
-    app.state.logger.info("ChromaDB metrics collector initialized")
 
     # Start background task for streaming metrics to UI
     metrics_streaming_task = asyncio.create_task(
@@ -141,11 +102,14 @@ async def lifespan(app: FastAPI):
             metrics_collector=chromadb_metrics_collector,
             db_manager=app.state.db_manager,
             logger=logger,
-            interval_seconds=5  # Update every 5 seconds
+            interval_seconds=service_config.background_tasks.metrics_interval_seconds
         )
     )
     app.state.metrics_streaming_task = metrics_streaming_task
-    app.state.logger.info("Metrics streaming task started (5s interval)")
+    app.state.logger.info(
+        f"Metrics streaming task started "
+        f"({service_config.background_tasks.metrics_interval_seconds}s interval)"
+    )
 
     # Initialize event handlers for memory log storage
     if embedding_service:
@@ -172,95 +136,9 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("Event handlers not initialized - embedding service unavailable")
 
-    # XCP Server Service initialization disabled - use standalone mode via Claude Code
-    # The XCP/MCP server should be started separately via:
-    #   poetry run semantic-bridge-mcp
-    # This allows Claude Code to connect to it via stdio transport
-    # Initialize XCP Server Service (if enabled)
-    from src.modules.xcp_server import XCPServerService
-    from src.modules.xcp_server.models.config import load_xcp_config
-    from src.events.schemas import EventType
-    from datetime import datetime
-
-    xcp_config = load_xcp_config()
-
-    if xcp_config.enabled and embedding_service:
-        try:
-            from src.api.dependencies.vector_storage import create_base_vector_storage_service
-            from src.api.dependencies.database import get_db_session
-
-            logger.info("Initializing XCP MCP Server...")
-
-            # Create base vector storage service (no user/project nesting)
-            # XCP server uses base ChromaDB path: data/chromadb/
-            vector_storage_service = create_base_vector_storage_service(
-                embedding_service=embedding_service,
-                event_bus=event_bus,
-                logger=logger
-            )
-
-            # Initialize XCP Server Service
-            xcp_service = XCPServerService(
-                event_bus=event_bus,
-                logger=logger,
-                embedding_service=embedding_service,
-                vector_storage_service=vector_storage_service,
-                db_session_factory=get_db_session,
-                config=xcp_config
-            )
-
-            # Initialize XCP server
-            xcp_service.initialize()
-            app.state.xcp_server_service = xcp_service
-
-            # Emit initialization event with simple timestamp payload
-            event_bus.publish(
-                EventType.MCP_SERVERS_INITIALIZED.value,
-                {"ts": datetime.utcnow().isoformat()}
-            )
-
-            logger.info("initialize_mcp_servers event emitted")
-
-        except Exception as e:
-            logger.error(f"Failed to initialize XCP server: {e}", exc_info=True)
-            app.state.xcp_server_service = None
-    else:
-        if not xcp_config.enabled:
-            logger.info("XCP server disabled in configuration")
-        elif not embedding_service:
-            logger.warning("XCP server not initialized - embedding service unavailable")
-        app.state.xcp_server_service = None
-
     # Initialize SXThalamus Service (if enabled)
-    from src.modules.SXThalamus import SXThalamusService, SXThalamusConfig
-
-    sxthalamus_config = SXThalamusConfig.from_env()
-
-    if sxthalamus_config.enabled:
-        try:
-            logger.info("Initializing SXThalamus service...")
-
-            sxthalamus_service = SXThalamusService(
-                event_bus=event_bus,
-                logger=logger,
-                config=sxthalamus_config
-            )
-
-            # Subscribe to conversation.stored event
-            event_bus.subscribe(
-                "conversation.stored",
-                sxthalamus_service.handle_conversation_stored
-            )
-
-            app.state.sxthalamus_service = sxthalamus_service
-            logger.info("SXThalamus service initialized and subscribed to conversation.stored")
-
-        except Exception as e:
-            logger.error(f"Failed to initialize SXThalamus: {e}", exc_info=True)
-            app.state.sxthalamus_service = None
-    else:
-        logger.info("SXThalamus service disabled in configuration")
-        app.state.sxthalamus_service = None
+    sxthalamus_service = initialize_sxthalamus(event_bus, logger)
+    app.state.sxthalamus_service = sxthalamus_service
 
     yield
 
@@ -293,9 +171,9 @@ def create_app() -> FastAPI:
     socket_app = socketio.ASGIApp(socket_service.sio, other_asgi_app=None)
 
     app = FastAPI(
-        title="Semantic Bridge Server",
-        description="Event-driven API server",
-        version="0.1.0",
+        title=app_config.title,
+        description=app_config.description,
+        version=app_config.version,
         lifespan=lifespan
     )
 
@@ -324,10 +202,10 @@ def create_app() -> FastAPI:
     # Add CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=app_config.cors_allow_origins,
+        allow_credentials=app_config.cors_allow_credentials,
+        allow_methods=app_config.cors_allow_methods,
+        allow_headers=app_config.cors_allow_headers,
     )
 
     # Add middleware
