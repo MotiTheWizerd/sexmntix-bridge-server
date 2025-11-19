@@ -379,8 +379,8 @@ class VectorStorageService:
             raise ValueError("Conversation has no messages")
 
         # Combine all message texts for embedding
-        # Format: "role: text" for each message
-        combined_text = " ".join([
+        # Format: "role: text" for each message, separated by newlines
+        combined_text = "\n".join([
             f"{msg.get('role', 'unknown')}: {msg.get('text', '')}"
             for msg in messages
         ])
