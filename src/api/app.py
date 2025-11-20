@@ -6,7 +6,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from src.database import DatabaseManager
 from src.api.middleware.logging import LoggingMiddleware
-from src.api.routes import health, memory_logs, mental_notes, users, socket_test, memory_logs_example, embeddings, monitoring, conversations
+from src.api.routes import health, memory_logs, mental_notes, users, socket_test, memory_logs_example, embeddings, monitoring, conversations, vscode_projects
 from src.api.bootstrap.config import load_app_config, load_service_config
 from src.api.bootstrap.services import (
     initialize_core_services,
@@ -225,6 +225,7 @@ def create_app() -> FastAPI:
     app.include_router(socket_test.router)
     app.include_router(memory_logs_example.router)
     app.include_router(monitoring.router)
+    app.include_router(vscode_projects.router)
 
     # Register embeddings router if service is available
     if embedding_service:
