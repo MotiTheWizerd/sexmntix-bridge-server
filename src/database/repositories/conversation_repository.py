@@ -85,6 +85,58 @@ class ConversationRepository(BaseRepository[Conversation]):
         )
         return list(result.scalars().all())
 
+    async def get_by_session_id(self, session_id: str, limit: int = 100) -> List[Conversation]:
+        """
+        Get conversations by session_id.
+
+        Args:
+            session_id: Session identifier
+            limit: Maximum number of results
+
+        Returns:
+            List of conversations for the specified session
+        """
+        result = await self.session.execute(
+            select(Conversation)
+            .where(Conversation.session_id == session_id)
+            .order_by(desc(Conversation.created_at))
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def get_by_session_and_user(
+        self,
+        session_id: str,
+        user_id: str,
+        project_id: str,
+        limit: int = 100
+    ) -> List[Conversation]:
+        """
+        Get conversations for specific session/user/project combination.
+
+        Args:
+            session_id: Session identifier
+            user_id: User identifier
+            project_id: Project identifier
+            limit: Maximum number of results
+
+        Returns:
+            List of conversations for the session/user/project
+        """
+        result = await self.session.execute(
+            select(Conversation)
+            .where(
+                and_(
+                    Conversation.session_id == session_id,
+                    Conversation.user_id == user_id,
+                    Conversation.project_id == project_id
+                )
+            )
+            .order_by(desc(Conversation.created_at))
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     async def search_similar(
         self,
         query_embedding: List[float],

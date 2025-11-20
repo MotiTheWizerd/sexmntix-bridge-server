@@ -396,6 +396,7 @@ class VectorStorageService:
         conversation_db_id: int,
         conversation_data: Dict[str, Any],
         user_id: str,
+        session_id: str = None,
         gemini_analysis: List[Dict[str, Any]] = None
     ) -> tuple[List[str], List[List[float]]]:
         """
@@ -409,6 +410,7 @@ class VectorStorageService:
             conversation_db_id: Database ID of conversation
             conversation_data: Complete conversation data (for metadata only)
             user_id: User identifier for collection isolation
+            session_id: Optional session identifier for grouping conversations
             gemini_analysis: List of Gemini-enriched memory units to embed
 
         Returns:
@@ -473,7 +475,8 @@ class VectorStorageService:
                 embedding=embedding,
                 conversation_data=memory_unit,  # Store memory unit, not full conversation
                 user_id=user_id,
-                memory_index=idx
+                memory_index=idx,
+                session_id=session_id
             )
 
             conversation_ids.append(conversation_id)

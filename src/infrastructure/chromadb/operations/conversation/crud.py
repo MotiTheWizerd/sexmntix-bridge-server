@@ -11,7 +11,7 @@ from typing import Dict, Any, Optional, List
 
 from src.infrastructure.chromadb.client import ChromaDBClient
 from src.infrastructure.chromadb.utils import prepare_conversation_metadata
-from src.infrastructure.file_storage import ConversationFileStorage
+
 
 
 def generate_conversation_id(conversation_db_id: int, user_id: str) -> str:
@@ -50,7 +50,8 @@ async def create_conversation(
     embedding: List[float],
     conversation_data: Dict[str, Any],
     user_id: str,
-    memory_index: Optional[int] = None
+    memory_index: Optional[int] = None,
+    session_id: Optional[str] = None
 ) -> str:
     """
     Create and store a conversation memory unit in ChromaDB.
@@ -66,6 +67,7 @@ async def create_conversation(
         conversation_data: Gemini memory unit data (not full conversation)
         user_id: User identifier for collection isolation
         memory_index: Index of memory unit within conversation (for unique ID)
+        session_id: Optional session identifier for grouping conversations
 
     Returns:
         Conversation ID string
@@ -90,7 +92,11 @@ async def create_conversation(
             "memory_index": memory_index,
             "document_type": "memory_unit"
         }
-        
+
+        # Add session_id if provided
+        if session_id:
+            metadata["session_id"] = str(session_id)
+
         # Add memory unit fields if present
         if "memory_id" in conversation_data:
             metadata["memory_id"] = str(conversation_data["memory_id"])
@@ -104,6 +110,9 @@ async def create_conversation(
     else:
         # Full conversation metadata (fallback)
         metadata = prepare_conversation_metadata(conversation_data)
+        # Add session_id to fallback metadata too
+        if session_id:
+            metadata["session_id"] = str(session_id)
 
     # Build document from conversation data
     document = build_conversation_document(conversation_data)
@@ -180,17 +189,7 @@ async def delete_conversation(
         collection.delete(ids=[conversation_id])
         print(f"[CONVERSATION_CRUD] Deleted conversation {conversation_id} from ChromaDB")
 
-        # Also delete from file system if actual_conversation_id provided
-        if actual_conversation_id:
-            file_storage = ConversationFileStorage()
-            file_deleted = file_storage.delete_conversation(
-                user_id=user_id,
-                conversation_id=actual_conversation_id
-            )
-            if file_deleted:
-                print(f"[CONVERSATION_CRUD] Deleted conversation file: conversation_{actual_conversation_id}.json")
-            else:
-                print(f"[CONVERSATION_CRUD] Warning: Failed to delete conversation file (non-blocking)")
+
 
         return True
     except Exception as e:

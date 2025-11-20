@@ -8,7 +8,7 @@ updating PostgreSQL with embeddings, and saving to JSON files.
 from typing import Dict, Any, Optional, Tuple, List
 from .base_handler import BaseStorageHandler
 from ..config import InternalHandlerConfig
-from src.infrastructure.file_storage import MemoryLogFileStorage
+
 
 
 class MemoryLogStorageHandler(BaseStorageHandler):
@@ -26,7 +26,7 @@ class MemoryLogStorageHandler(BaseStorageHandler):
         """Initialize handler with file storage support"""
         super().__init__(*args, **kwargs)
         # Initialize file storage for saving memory logs as JSON
-        self.file_storage = MemoryLogFileStorage()
+
 
     def _get_log_prefix(self) -> str:
         """Get log prefix for memory log handler"""
@@ -154,72 +154,12 @@ class MemoryLogStorageHandler(BaseStorageHandler):
             # Step 6: Update PostgreSQL with embedding
             await self._update_database(validated, embedding)
 
-            # Step 7: Save to JSON file (NEW STEP)
-            self._save_to_file(validated)
+
 
         except Exception as e:
             self._handle_error(e, event_data)
 
-    def _save_to_file(self, validated: Dict[str, Any]) -> None:
-        """
-        Save memory log to JSON file in users folder.
 
-        Args:
-            validated: Validated event data
-        """
-        print("=" * 80)
-        print("[DEBUG] _save_to_file called!")
-        print(f"[DEBUG] validated keys: {list(validated.keys())}")
-
-        try:
-            memory_log_id = validated["memory_log_id"]
-            user_id = validated["user_id"]
-            project_id = validated["project_id"]
-            raw_data = validated["raw_data"]
-
-            print(f"[DEBUG] memory_log_id: {memory_log_id}, user_id: {user_id}, project_id: {project_id}")
-
-            # Prepare memory log data for JSON file
-            memory_log_data = {
-                "memory_log_id": memory_log_id,
-                "user_id": user_id,
-                "project_id": project_id,
-                **raw_data  # Include all fields from raw_data
-            }
-
-            print(f"[DEBUG] About to save file with file_storage: {self.file_storage}")
-
-            # Save to JSON file
-            success = self.file_storage.save_memory_log(
-                user_id=str(user_id),
-                memory_log_id=memory_log_id,
-                memory_log_data=memory_log_data
-            )
-
-            print(f"[DEBUG] Save result: {success}")
-
-            if success:
-                self.logger.info(
-                    f"[MEMORY_LOG_HANDLER] Successfully saved memory log {memory_log_id} "
-                    f"to JSON file for user {user_id}"
-                )
-            else:
-                self.logger.warning(
-                    f"[MEMORY_LOG_HANDLER] Failed to save memory log {memory_log_id} "
-                    f"to JSON file for user {user_id}"
-                )
-
-        except Exception as e:
-            # Log error but don't fail the entire operation
-            print(f"[DEBUG] Exception in _save_to_file: {e}")
-            import traceback
-            traceback.print_exc()
-            self.logger.error(
-                f"[MEMORY_LOG_HANDLER] Error saving memory log to file: {e}",
-                exc_info=True
-            )
-
-        print("=" * 80)
 
     async def handle_memory_log_stored(self, event_data: Dict[str, Any]):
         """

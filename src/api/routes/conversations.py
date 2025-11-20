@@ -68,6 +68,7 @@ async def create_conversation(
         "conversation_id": data.conversation_id,
         "model": data.model,
         "conversation": [msg.model_dump() for msg in data.conversation],
+        "session_id": data.session_id,
         "created_at": datetime.utcnow().isoformat()
     }
 
@@ -81,6 +82,7 @@ async def create_conversation(
         raw_data=raw_data,
         user_id=data.user_id,
         project_id=data.project_id,
+        session_id=data.session_id,
     )
 
     logger.info(f"Conversation stored in PostgreSQL with id: {conversation.id}")
@@ -93,6 +95,7 @@ async def create_conversation(
         "raw_data": raw_data,
         "user_id": data.user_id,
         "project_id": data.project_id,
+        "session_id": data.session_id,
     }
 
     # Use publish (not publish_async) to schedule as background task
@@ -205,10 +208,12 @@ async def search_conversations(
             logger=logger
         )
 
-        # Build filter for model if provided
+        # Build filter for model and session_id if provided
         combined_filter = {}
         if search_request.model:
             combined_filter["model"] = search_request.model
+        if search_request.session_id:
+            combined_filter["session_id"] = search_request.session_id
 
         # Search conversations using separate collection (user-scoped only)
         results = await vector_service.search_similar_conversations(
@@ -302,10 +307,12 @@ async def fetch_memory(
             logger=logger
         )
 
-        # Build filter for model if provided
+        # Build filter for model and session_id if provided
         combined_filter = {}
         if search_request.model:
             combined_filter["model"] = search_request.model
+        if search_request.session_id:
+            combined_filter["session_id"] = search_request.session_id
 
         # Search conversations
         results = await vector_service.search_similar_conversations(

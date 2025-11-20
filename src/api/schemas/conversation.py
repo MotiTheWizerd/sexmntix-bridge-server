@@ -63,6 +63,7 @@ class ConversationCreate(BaseModel):
     conversation_id: str
     model: str
     conversation: List[ConversationMessage]
+    session_id: Optional[str] = None  # Optional: Session identifier for grouping conversations
 
 
 class ConversationResponse(BaseModel):
@@ -77,6 +78,7 @@ class ConversationResponse(BaseModel):
     raw_data: Dict[str, Any]
     user_id: Optional[str] = None
     project_id: Optional[str] = None
+    session_id: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -96,6 +98,7 @@ class ConversationSearchRequest(BaseModel):
     limit: Optional[int] = 10
     min_similarity: Optional[float] = 0.0
     model: Optional[str] = None  # Filter by specific AI model
+    session_id: Optional[str] = None  # Filter by session identifier
 
 
 class ConversationSearchResult(BaseModel):

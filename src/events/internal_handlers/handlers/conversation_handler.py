@@ -8,7 +8,7 @@ This fires AFTER SXThalamus has processed conversations with Gemini.
 from typing import Dict, Any, Optional, Tuple, List
 from .base_handler import BaseStorageHandler
 from ..config import InternalHandlerConfig
-from src.infrastructure.file_storage import ConversationFileStorage
+
 
 
 class ConversationStorageHandler(BaseStorageHandler):
@@ -26,7 +26,7 @@ class ConversationStorageHandler(BaseStorageHandler):
         """Initialize handler with file storage support"""
         super().__init__(*args, **kwargs)
         # Initialize file storage for saving conversations as JSON
-        self.file_storage = ConversationFileStorage()
+
 
     def _get_log_prefix(self) -> str:
         """Get log prefix for conversation handler"""
@@ -58,6 +58,7 @@ class ConversationStorageHandler(BaseStorageHandler):
         project_id = event_data.get("project_id")
         conversation_db_id = event_data.get("conversation_db_id")
         raw_data = event_data.get("raw_data")
+        session_id = event_data.get("session_id")
 
         # Validation
         if not user_id or not project_id:
@@ -78,14 +79,45 @@ class ConversationStorageHandler(BaseStorageHandler):
             )
             return None
 
+        # Log raw_data structure
+        import json
+        self.logger.info(
+            f"{self._get_log_prefix()} raw_data type: {type(raw_data)}"
+        )
+        self.logger.info(
+            f"{self._get_log_prefix()} raw_data keys: {list(raw_data.keys()) if isinstance(raw_data, dict) else 'N/A (not a dict)'}"
+        )
+        self.logger.info(
+            f"{self._get_log_prefix()} raw_data JSON:\n{json.dumps(raw_data, indent=2, default=str)}"
+        )
+
         # Extract Gemini analysis (required for embedding)
         gemini_analysis = event_data.get("gemini_analysis", [])
-        
+
+        # Log gemini_analysis before parsing
+        self.logger.info(
+            f"{self._get_log_prefix()} gemini_analysis type: {type(gemini_analysis)}"
+        )
+        if isinstance(gemini_analysis, str):
+            self.logger.info(
+                f"{self._get_log_prefix()} gemini_analysis length: {len(gemini_analysis)}"
+            )
+            self.logger.info(
+                f"{self._get_log_prefix()} gemini_analysis preview (first 500 chars): {gemini_analysis[:500]}"
+            )
+        elif isinstance(gemini_analysis, list):
+            self.logger.info(
+                f"{self._get_log_prefix()} gemini_analysis list length: {len(gemini_analysis)}"
+            )
+            if gemini_analysis:
+                self.logger.info(
+                    f"{self._get_log_prefix()} gemini_analysis first item: {json.dumps(gemini_analysis[0], indent=2, default=str)}"
+                )
+
         # Parse if it's a JSON string
         if isinstance(gemini_analysis, str):
-            import json
             import re
-            
+
             # Log what we received for debugging
             self.logger.info(
                 f"{self._get_log_prefix()} Received gemini_analysis as string, "
@@ -118,6 +150,7 @@ class ConversationStorageHandler(BaseStorageHandler):
             "user_id": user_id,
             "project_id": project_id,
             "raw_data": raw_data,
+            "session_id": session_id,
             "gemini_analysis": gemini_analysis
         }
 
@@ -138,8 +171,9 @@ class ConversationStorageHandler(BaseStorageHandler):
 
         conversation_ids, embeddings = await self.orchestrator.store_conversation_vector(
             conversation_db_id=validated["conversation_db_id"],
-            raw_data=validated["raw_data"],
+            conversation_data=validated["raw_data"],
             user_id=validated["user_id"],
+            session_id=validated.get("session_id"),
             gemini_analysis=validated.get("gemini_analysis", [])
         )
 
@@ -170,6 +204,21 @@ class ConversationStorageHandler(BaseStorageHandler):
         This extends the base handler workflow with JSON file storage.
         """
         try:
+            # Step 0: Log complete raw JSON from client
+            import json
+            self.logger.info(
+                f"{self._get_log_prefix()} ============ RAW CLIENT DATA START ============"
+            )
+            self.logger.info(
+                f"{self._get_log_prefix()} Complete event_data JSON:\n{json.dumps(event_data, indent=2, default=str)}"
+            )
+            self.logger.info(
+                f"{self._get_log_prefix()} Event data keys: {list(event_data.keys())}"
+            )
+            self.logger.info(
+                f"{self._get_log_prefix()} ============ RAW CLIENT DATA END ============"
+            )
+
             # Step 1: Log event reception
             self._log_event_received(event_data)
 
@@ -198,65 +247,12 @@ class ConversationStorageHandler(BaseStorageHandler):
             # Conversations don't store embeddings in PostgreSQL
             await self._update_database(validated, embeddings[0] if embeddings else [])
 
-            # Step 7: Save to JSON file (NEW STEP)
-            self._save_to_file(validated)
+
 
         except Exception as e:
             self._handle_error(e, event_data)
 
-    def _save_to_file(self, validated: Dict[str, Any]) -> None:
-        """
-        Save conversation to JSON file in users folder.
 
-        Args:
-            validated: Validated event data
-        """
-        try:
-            conversation_db_id = validated["conversation_db_id"]
-            user_id = validated["user_id"]
-            project_id = validated["project_id"]
-            raw_data = validated["raw_data"]
-
-            # Extract conversation_id from raw_data
-            conversation_id = raw_data.get("conversation_id")
-            if not conversation_id:
-                self.logger.warning(
-                    f"{self._get_log_prefix()} No conversation_id in raw_data, "
-                    f"cannot save to file for conversation DB ID {conversation_db_id}"
-                )
-                return
-
-            # Prepare conversation data for JSON file
-            conversation_data = {
-                "user_id": user_id,
-                "project_id": project_id,
-                **raw_data  # Include all fields from raw_data
-            }
-
-            # Save to JSON file
-            success = self.file_storage.save_conversation(
-                user_id=str(user_id),
-                conversation_id=conversation_id,
-                conversation_data=conversation_data
-            )
-
-            if success:
-                self.logger.info(
-                    f"{self._get_log_prefix()} Successfully saved conversation {conversation_id} "
-                    f"to JSON file for user {user_id}"
-                )
-            else:
-                self.logger.warning(
-                    f"{self._get_log_prefix()} Failed to save conversation {conversation_id} "
-                    f"to JSON file for user {user_id}"
-                )
-
-        except Exception as e:
-            # Log error but don't fail the entire operation
-            self.logger.error(
-                f"{self._get_log_prefix()} Error saving conversation to file: {e}",
-                exc_info=True
-            )
 
     async def handle_conversation_analyzed(self, event_data: Dict[str, Any]):
         """

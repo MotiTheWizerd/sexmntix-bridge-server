@@ -30,6 +30,7 @@ class ConversationStorer:
         conversation_db_id: int,
         conversation_data: Dict[str, Any],
         user_id: str,
+        session_id: Optional[str] = None,
         gemini_analysis: List[Dict[str, Any]] = None
     ) -> Tuple[List[str], List[List[float]]]:
         """
@@ -39,6 +40,7 @@ class ConversationStorer:
             conversation_db_id: Database ID of conversation
             conversation_data: Complete conversation data (for metadata only)
             user_id: User identifier for collection isolation
+            session_id: Optional session identifier for grouping conversations
             gemini_analysis: List of Gemini-enriched memory units to embed
 
         Returns:
@@ -88,15 +90,21 @@ class ConversationStorer:
             )
 
             # Convert raw data to the format expected by add_memory
+            metadata = {
+                "document_type": "conversation_memory_unit",
+                "conversation_db_id": conversation_db_id,
+                "memory_index": idx,
+                **memory_unit.get("metadata", {})
+            }
+
+            # Add session_id to metadata if provided
+            if session_id:
+                metadata["session_id"] = session_id
+
             memory_unit_data = {
                 "raw_data": memory_unit,
                 "content": embedding_text,
-                "metadata": {
-                    "document_type": "conversation_memory_unit",
-                    "conversation_db_id": conversation_db_id,
-                    "memory_index": idx,
-                    **memory_unit.get("metadata", {})
-                }
+                "metadata": metadata
             }
 
             # Store in vector repository with memory unit JSON as document

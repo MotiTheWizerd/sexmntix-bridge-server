@@ -109,6 +109,7 @@ class ConversationHandler:
                 "raw_data": raw_data,
                 "user_id": event_data.get("user_id"),
                 "project_id": event_data.get("project_id"),
+                "session_id": event_data.get("session_id"),
                 "gemini_analysis": processed_result,
                 "original_combined_text": combined_text
             }

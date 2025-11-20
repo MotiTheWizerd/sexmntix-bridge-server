@@ -7,11 +7,11 @@ print("Registered Routes:")
 found = False
 for route in app.routes:
     if isinstance(route, APIRoute):
-        if "vscode-projects" in route.path:
+        if "user-projects" in route.path:
             print(f"- {route.path} [{','.join(route.methods)}]")
             found = True
 
 if found:
-    print("\nSUCCESS: vscode-projects routes found.")
+    print("\nSUCCESS: user-projects routes found.")
 else:
-    print("\nFAILURE: vscode-projects routes NOT found.")
+    print("\nFAILURE: user-projects routes NOT found.")

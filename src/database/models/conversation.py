@@ -28,6 +28,7 @@ class Conversation(Base):
         raw_data: Complete conversation data (JSONB)
         user_id: User identifier for multi-tenant isolation
         project_id: Project identifier for multi-tenant isolation
+        session_id: Session identifier for grouping related conversations
         created_at: Timestamp of creation
     """
 
@@ -47,6 +48,9 @@ class Conversation(Base):
     # Multi-tenant isolation
     user_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
     project_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+
+    # Session grouping
+    session_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

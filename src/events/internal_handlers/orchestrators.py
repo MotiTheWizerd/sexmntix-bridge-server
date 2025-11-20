@@ -116,6 +116,7 @@ class VectorStorageOrchestrator:
         conversation_db_id: int,
         raw_data: Dict[str, Any],
         user_id: str,
+        session_id: str = None,
         gemini_analysis: List[Dict[str, Any]] = None
     ) -> Tuple[List[str], List[List[float]]]:
         """
@@ -128,6 +129,7 @@ class VectorStorageOrchestrator:
             conversation_db_id: Conversation ID from PostgreSQL
             raw_data: Raw conversation data (for metadata only)
             user_id: User identifier
+            session_id: Optional session identifier for grouping conversations
             gemini_analysis: List of Gemini-enriched memory units
 
         Returns:
@@ -140,6 +142,7 @@ class VectorStorageOrchestrator:
             conversation_db_id=conversation_db_id,
             conversation_data=raw_data,
             user_id=user_id,
+            session_id=session_id,
             gemini_analysis=gemini_analysis
         )
 

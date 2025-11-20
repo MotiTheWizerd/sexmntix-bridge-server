@@ -16,7 +16,9 @@
       "Bash(move srcapiroutesmonitoring.py srcapiroutesmonitoring.py.backup)",
       "Bash(git restore:*)",
       "Bash(\"src\\modules\\SXThalamus\\prompts\\default.py\")",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "Bash(alembic revision:*)",
+      "Bash(poetry run alembic:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
