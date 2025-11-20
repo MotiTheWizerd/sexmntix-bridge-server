@@ -68,7 +68,7 @@ class SXThalamusPromptBuilder:
         return build_custom_prompt(template, **kwargs)
 
     @staticmethod
-    def build_memory_synthesis_prompt(search_results: list) -> str:
+    def build_memory_synthesis_prompt(search_results: list, query: str = None) -> str:
         """
         Build a prompt for synthesizing search results into natural language memory.
 
@@ -77,11 +77,12 @@ class SXThalamusPromptBuilder:
 
         Args:
             search_results: List of search results from vector storage
+            query: The original user query that triggered this search (optional)
 
         Returns:
             Formatted prompt for memory synthesis
         """
-        return build_memory_synthesis_prompt(search_results)
+        return build_memory_synthesis_prompt(search_results, query=query)
 
 
 __all__ = [

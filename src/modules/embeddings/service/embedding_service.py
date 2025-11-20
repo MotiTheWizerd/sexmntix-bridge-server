@@ -1,11 +1,13 @@
 """
 Embedding service - orchestrates embedding generation with caching and events.
 
-Refactored to use composition pattern with specialized components for
-better maintainability, testability, and adherence to Single Responsibility Principle.
+Refactored to ultra-modular pattern with thin orchestrator coordinating
+focused micro-components.
 """
 
+import time
 from typing import List, Optional
+from datetime import datetime
 
 from src.modules.core import EventBus, Logger
 
@@ -16,30 +18,21 @@ from ..models import (
     EmbeddingBatchResponse,
     ProviderHealthResponse,
 )
-
-# Import composed components
 from .config import EmbeddingServiceConfig
-from .validators import TextValidator
-from .formatters import EmbeddingLogFormatter
-from .handlers.cache_handler import CacheHandler
-from .handlers.batch_processor import BatchProcessor
-from .handlers.response_builder import ResponseBuilder
-from .events.event_emitter import EmbeddingEventEmitter
-from .utils.metrics_collector import MetricsCollector
+
+# Import micro-components
+from .components.validation.text_validator import TextValidator
+from .components.cache.cache_handler import CacheHandler
+from .components.events.event_emitter import EventEmitter
+from .components.responses.response_builder import ResponseBuilder
+from .components.batch.batch_processor import BatchProcessor
 
 
 class EmbeddingService:
     """
     Service for generating text embeddings with caching and event publishing.
-
-    Uses composition pattern with specialized components:
-    - TextValidator: Input validation
-    - CacheHandler: Cache operations
-    - BatchProcessor: Batch processing with cache optimization
-    - ResponseBuilder: Response object construction
-    - EmbeddingEventEmitter: Event publishing
-    - EmbeddingLogFormatter: Log message formatting
-    - MetricsCollector: Performance timing
+    
+    Orchestrator pattern: Coordinates focused micro-components.
     """
 
     def __init__(
@@ -60,34 +53,23 @@ class EmbeddingService:
             cache: Optional cache instance (creates default if None)
             cache_enabled: Whether to use caching
         """
-        # Store core dependencies
-        self.event_bus = event_bus
         self.logger = logger
         self.provider = provider
-
-        # Initialize composed components
+        
+        # Initialize micro-components
         self.validator = TextValidator()
-        self.formatter = EmbeddingLogFormatter()
         self.cache_handler = CacheHandler(
-            cache if cache else EmbeddingCache(),
-            cache_enabled
+            cache=cache if cache else EmbeddingCache(),
+            enabled=cache_enabled
         )
-        self.response_builder = ResponseBuilder()
-        self.event_emitter = EmbeddingEventEmitter(event_bus)
-        self.metrics = MetricsCollector()
+        self.event_emitter = EventEmitter(event_bus)
+        self.response_builder = ResponseBuilder(provider.provider_name)
+        self.batch_processor = BatchProcessor()
 
-        # Initialize batch processor with dependencies
-        self.batch_processor = BatchProcessor(
-            self.cache_handler,
-            provider,
-            self.response_builder
+        self.logger.info(
+            f"EmbeddingService initialized with provider: {provider.provider_name}, "
+            f"cache_enabled: {cache_enabled}"
         )
-
-        # Log initialization
-        self.logger.info(self.formatter.format_initialization(
-            provider.provider_name,
-            cache_enabled
-        ))
 
     async def generate_embedding(
         self,
@@ -109,93 +91,73 @@ class EmbeddingService:
             ProviderError: If embedding generation fails
         """
         # Validate input
-        validated_text = self.validator.validate_text(text)
-        model_name = self.validator.validate_model_override(
-            model,
-            self.provider.config.model_name
-        )
+        validated_text = self.validator.validate_single(text)
+        model_name = model if model else self.provider.config.model_name
 
         # Check cache
-        cached_embedding = self.cache_handler.get_cached_embedding(
-            validated_text,
-            model_name
-        )
+        cached_embedding = self.cache_handler.get_embedding(validated_text, model_name)
 
         if cached_embedding:
-            # Cache hit - build response and emit event
-            self.logger.debug(self.formatter.format_cache_hit(
-                validated_text[:EmbeddingServiceConfig.TEXT_PREVIEW_SHORT]
-            ))
+            # Cache hit
+            self.logger.debug(
+                f"Cache hit for text: {validated_text[:EmbeddingServiceConfig.TEXT_PREVIEW_SHORT]}..."
+            )
+            
+            self.event_emitter.emit_cache_hit(
+                text=validated_text,
+                model=model_name,
+                dimensions=len(cached_embedding)
+            )
 
-            response = self.response_builder.build_embedding_response(
+            return self.response_builder.build_embedding_response(
                 text=validated_text,
                 embedding=cached_embedding,
                 model=model_name,
-                provider=self.provider.provider_name,
                 cached=True
             )
 
-            self.event_emitter.emit_cache_hit(
-                validated_text[:EmbeddingServiceConfig.TEXT_PREVIEW_LONG],
-                model_name,
-                len(cached_embedding)
-            )
-
-            return response
-
         # Cache miss - generate embedding
-        self.logger.info(self.formatter.format_generation_started(
-            validated_text[:EmbeddingServiceConfig.TEXT_PREVIEW_SHORT]
-        ))
+        self.logger.info(
+            f"Generating embedding for text: {validated_text[:EmbeddingServiceConfig.TEXT_PREVIEW_SHORT]}..."
+        )
 
         try:
-            # Generate with timing
-            start_time = self.metrics.start_timer()
+            start_time = time.time()
             embedding = await self.provider.generate_embedding(validated_text)
-            duration = self.metrics.calculate_duration(start_time)
+            duration = time.time() - start_time
 
             # Cache the result
-            self.cache_handler.store_embedding(
-                validated_text,
-                model_name,
-                embedding
-            )
-
-            # Build response
-            response = self.response_builder.build_embedding_response(
-                text=validated_text,
-                embedding=embedding,
-                model=model_name,
-                provider=self.provider.provider_name,
-                cached=False
-            )
+            self.cache_handler.store_embedding(validated_text, model_name, embedding)
 
             # Emit success event
             self.event_emitter.emit_generated(
-                validated_text[:EmbeddingServiceConfig.TEXT_PREVIEW_LONG],
-                model_name,
-                self.provider.provider_name,
-                len(embedding),
-                duration,
+                text=validated_text,
+                model=model_name,
+                provider=self.provider.provider_name,
+                dimensions=len(embedding),
+                duration=duration,
                 cached=False
             )
 
-            self.logger.info(self.formatter.format_generation_success(
-                duration,
-                len(embedding)
-            ))
-
-            return response
-
-        except Exception as e:
-            # Emit error event
-            self.event_emitter.emit_error(
-                validated_text[:EmbeddingServiceConfig.TEXT_PREVIEW_LONG],
-                model_name,
-                e
+            self.logger.info(
+                f"Embedding generated successfully in {duration:.2f}s, "
+                f"dimensions: {len(embedding)}"
             )
 
-            self.logger.error(self.formatter.format_generation_error(str(e)))
+            return self.response_builder.build_embedding_response(
+                text=validated_text,
+                embedding=embedding,
+                model=model_name,
+                cached=False
+            )
+
+        except Exception as e:
+            self.event_emitter.emit_error(
+                text=validated_text,
+                model=model_name,
+                error=e
+            )
+            self.logger.error(f"Failed to generate embedding: {e}")
             raise
 
     async def generate_embeddings_batch(
@@ -212,108 +174,90 @@ class EmbeddingService:
 
         Returns:
             EmbeddingBatchResponse with all embeddings and stats
-
-        Raises:
-            InvalidTextError: If texts list is invalid
-            ProviderError: If batch embedding generation fails
         """
         # Validate input
-        cleaned_texts = self.validator.validate_texts(texts)
-        model_name = self.validator.validate_model_override(
-            model,
-            self.provider.config.model_name
-        )
+        cleaned_texts = self.validator.validate_batch(texts)
+        model_name = model if model else self.provider.config.model_name
 
-        self.logger.info(self.formatter.format_batch_processing(len(cleaned_texts)))
+        self.logger.info(f"Processing batch of {len(cleaned_texts)} texts")
 
-        # Process batch with timing
-        start_time = self.metrics.start_timer()
+        start_time = time.time()
 
         try:
+            # Delegate to batch processor
             embeddings, cache_hits = await self.batch_processor.process_batch(
-                cleaned_texts,
-                model_name
+                texts=cleaned_texts,
+                model=model_name,
+                provider=self.provider,
+                cache_handler=self.cache_handler,
+                response_builder=self.response_builder
             )
-
-            processing_time = self.metrics.calculate_duration(start_time)
-
-            # Build response
-            response = self.response_builder.build_batch_response(
-                embeddings,
-                cache_hits,
-                processing_time
-            )
-
+            
+            processing_time = time.time() - start_time
+            
             # Emit batch event
             newly_generated = len(cleaned_texts) - cache_hits
             self.event_emitter.emit_batch_generated(
-                len(embeddings),
-                cache_hits,
-                newly_generated,
-                processing_time,
-                model_name,
-                self.provider.provider_name
+                total_count=len(embeddings),
+                cache_hits=cache_hits,
+                newly_generated=newly_generated,
+                processing_time=processing_time,
+                model=model_name,
+                provider=self.provider.provider_name
             )
 
-            self.logger.info(self.formatter.format_batch_complete(
-                len(embeddings),
-                cache_hits,
-                processing_time
-            ))
+            self.logger.info(
+                f"Batch processing complete: {len(embeddings)} embeddings, "
+                f"{cache_hits} cache hits, {processing_time:.2f}s"
+            )
 
-            return response
+            return self.response_builder.build_batch_response(
+                embeddings=embeddings,
+                cache_hits=cache_hits,
+                processing_time=processing_time
+            )
 
         except Exception as e:
-            self.logger.error(self.formatter.format_batch_error(str(e)))
+            self.logger.error(f"Batch embedding generation failed: {e}")
             raise
 
     async def health_check(self) -> ProviderHealthResponse:
-        """
-        Check provider health.
+        """Check provider health."""
+        self.logger.info("Running provider health check")
 
-        Returns:
-            ProviderHealthResponse with status and metrics
-        """
-        self.logger.info(self.formatter.format_health_check())
-
-        # Perform health check with timing
-        start_time = self.metrics.start_timer()
+        start_time = time.time()
         is_healthy = await self.provider.health_check()
-        latency_ms = self.metrics.calculate_latency_ms(start_time)
+        duration = time.time() - start_time
+        latency_ms = duration * 1000
 
-        # Build response
-        response = self.response_builder.build_health_response(
-            self.provider.provider_name,
-            self.provider.config.model_name,
-            is_healthy,
-            latency_ms
+        response = ProviderHealthResponse(
+            provider=self.provider.provider_name,
+            status="healthy" if is_healthy else "unavailable",
+            model=self.provider.config.model_name,
+            latency_ms=round(latency_ms, EmbeddingServiceConfig.DURATION_PRECISION_MS) if is_healthy else None,
+            last_error=None if is_healthy else "Health check failed",
+            checked_at=datetime.utcnow()
         )
 
-        # Emit health check event
         self.event_emitter.emit_health_check(
-            self.provider.provider_name,
-            response.status,
-            latency_ms if is_healthy else None
+            provider=self.provider.provider_name,
+            status=response.status,
+            latency_ms=response.latency_ms
         )
 
         return response
 
     def get_cache_stats(self) -> dict:
-        """
-        Get cache statistics.
-
-        Returns:
-            Dictionary with cache metrics
-        """
+        """Get cache statistics."""
         return self.cache_handler.get_stats()
 
     def clear_cache(self) -> None:
         """Clear the embedding cache."""
         self.cache_handler.clear()
-        self.logger.info(self.formatter.format_cache_cleared())
+        self.logger.info("Embedding cache cleared")
 
     async def close(self):
         """Close provider connections."""
         if hasattr(self.provider, 'close'):
             await self.provider.close()
-        self.logger.info(self.formatter.format_service_closed())
+        self.logger.info("EmbeddingService closed")

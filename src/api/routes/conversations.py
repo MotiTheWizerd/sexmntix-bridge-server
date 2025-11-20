@@ -327,7 +327,7 @@ async def fetch_memory(
 
         # Build prompt with search results
         prompt_builder = SXThalamusPromptBuilder()
-        prompt = prompt_builder.build_memory_synthesis_prompt(results)
+        prompt = prompt_builder.build_memory_synthesis_prompt(results, query=search_request.query)
 
         logger.info(f"Built memory synthesis prompt (length: {len(prompt)})")
 
