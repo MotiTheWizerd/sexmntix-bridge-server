@@ -33,8 +33,7 @@ async def create_user_project(
     repo = UserProjectRepository(db)
     project = await repo.create(
         user_id=data.user_id,
-        project_name=data.project_name,
-        project_type=data.project_type
+        project_name=data.project_name
     )
 
     logger.info(f"User project created with id: {project.id}")
