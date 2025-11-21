@@ -1,160 +1,347 @@
-"""Main client for interacting with Qwen Code CLI"""
+"""
+Direct API client for Qwen models
 
-import subprocess
-import shutil
-from typing import Optional
+This client makes direct HTTP requests to Qwen/OpenAI-compatible APIs,
+bypassing the qwen CLI for much faster performance (< 1 second vs 20+ seconds).
+"""
+
+import os
+import json
+import time
+from typing import Optional, Dict, Any, List
 from pathlib import Path
+import http.client
+import urllib.parse
 
-from .exceptions import QwenNotInstalledError, QwenExecutionError
+from .exceptions import QwenAPIError, QwenConfigError, QwenAuthError, QwenRequestError
 
 
 class QwenClient:
     """
-    Python client for Qwen Code CLI.
+    Direct API client for Qwen models.
     
-    This client wraps the qwen CLI tool and provides a programmatic interface.
+    This client makes HTTP requests directly to Qwen/OpenAI-compatible APIs,
+    completely bypassing the qwen CLI for much faster performance.
     
-    Prerequisites:
-        - qwen CLI must be installed: npm install -g @qwen-code/qwen-code@latest
-        - qwen CLI must be authenticated (run 'qwen' and complete auth)
+    Configuration (in order of priority):
+        1. Constructor parameters
+        2. Environment variables (OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL)
+        3. .env file in current directory
     
     Example:
-        >>> client = QwenClient()
-        >>> response = client.ask("Explain what this code does")
+        >>> client = QwenClient(
+        ...     api_key="your-api-key",
+        ...     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        ...     model="qwen3-coder-plus"
+        ... )
+        >>> response = client.ask("What is Python?")
         >>> print(response)
     """
     
-    def __init__(self, cli_path: Optional[str] = None, working_dir: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        model: Optional[str] = None,
+        timeout: int = 60,
+        max_tokens: int = 2000,
+        temperature: float = 0.7,
+    ):
         """
-        Initialize Qwen CLI client.
+        Initialize Qwen API client.
         
         Args:
-            cli_path: Path to qwen executable. If None, searches in system PATH.
-            working_dir: Working directory for CLI commands. Defaults to current directory.
+            api_key: API key for authentication. If None, reads from OPENAI_API_KEY env var.
+            base_url: Base URL for API. If None, reads from OPENAI_BASE_URL env var.
+            model: Model name. If None, reads from OPENAI_MODEL env var.
+            timeout: Request timeout in seconds (default: 60)
+            max_tokens: Maximum tokens in response (default: 2000)
+            temperature: Sampling temperature 0.0-1.0 (default: 0.7)
         
         Raises:
-            QwenNotInstalledError: If qwen CLI is not found.
+            QwenConfigError: If required configuration is missing
         """
-        self.cli_path = cli_path or self._find_qwen_cli()
-        self.working_dir = Path(working_dir) if working_dir else Path.cwd()
+        # Load from .env file if it exists
+        self._load_env_file()
         
-        if not self.cli_path:
-            raise QwenNotInstalledError()
+        # Get configuration with priority: params > env vars > CLI credentials
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        self.base_url = base_url or os.getenv("OPENAI_BASE_URL")
+        self.model = model or os.getenv("OPENAI_MODEL")
+        
+        # Try to load from CLI credentials if no API key provided
+        if not self.api_key:
+            cli_creds = self._load_cli_credentials()
+            if cli_creds:
+                self.api_key = cli_creds.get("access_token")
+                
+                # Use resource_url from credentials if available, otherwise default to DashScope
+                if not self.base_url:
+                    self.base_url = cli_creds.get("resource_url") or "https://dashscope.aliyuncs.com/compatible-mode/v1"
+                
+                # Use Qwen default model if not specified
+                if not self.model:
+                    self.model = "qwen3-coder-plus"
+
+        # Validate required config
+        if not self.api_key:
+            raise QwenConfigError(
+                "API key is required. Set it via:\n"
+                "  1. QwenClient(api_key='...')\n"
+                "  2. OPENAI_API_KEY environment variable\n"
+                "  3. .env file with OPENAI_API_KEY=...\n"
+                "  4. Login via CLI: 'qwen auth login'"
+            )
+        
+        if not self.base_url:
+            raise QwenConfigError(
+                "Base URL is required. Set it via:\n"
+                "  1. QwenClient(base_url='...')\n"
+                "  2. OPENAI_BASE_URL environment variable\n"
+                "  3. .env file with OPENAI_BASE_URL=..."
+            )
+        
+        if not self.model:
+            raise QwenConfigError(
+                "Model name is required. Set it via:\n"
+                "  1. QwenClient(model='...')\n"
+                "  2. OPENAI_MODEL environment variable\n"
+                "  3. .env file with OPENAI_MODEL=..."
+            )
+        
+        # Request settings
+        self.timeout = timeout
+        self.max_tokens = max_tokens
+        self.temperature = temperature
+        
+        # Parse base URL
+        self._parse_base_url()
     
-    def _find_qwen_cli(self) -> Optional[str]:
-        """Find qwen CLI in system PATH."""
-        return shutil.which("qwen")
+    def _load_cli_credentials(self) -> Optional[Dict[str, Any]]:
+        """Load credentials from Qwen CLI storage (~/.qwen/oauth_creds.json)"""
+        try:
+            home_dir = Path.home()
+            creds_path = home_dir / ".qwen" / "oauth_creds.json"
+            
+            if not creds_path.exists():
+                return None
+                
+            with open(creds_path, "r") as f:
+                creds = json.load(f)
+                
+            # Check expiry
+            if "expiry_date" in creds:
+                expiry = creds["expiry_date"]
+                # Add 5 minute buffer
+                if time.time() * 1000 > expiry - (5 * 60 * 1000):
+                    print("⚠️  Warning: Qwen CLI token is expired or expiring soon.")
+                    return None
+            
+            return creds
+            
+        except Exception:
+            return None
+
+    def _load_env_file(self):
+        """Load .env file if it exists in current directory"""
+        env_file = Path.cwd() / ".env"
+        if env_file.exists():
+            with open(env_file, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, value = line.split("=", 1)
+                        key = key.strip()
+                        value = value.strip().strip('"').strip("'")
+                        if key and value and key not in os.environ:
+                            os.environ[key] = value
     
-    def ask(self, prompt: str, timeout: Optional[int] = 300) -> str:
+    def _parse_base_url(self):
+        """Parse base URL into host, port, and path components"""
+        # Normalize URL (add scheme and /v1 if missing)
+        url = self.base_url.strip()
+        if not url.startswith("http"):
+            url = f"https://{url}"
+            
+        if not url.endswith("/v1") and not url.endswith("/v1/"):
+            url = f"{url}/v1"
+            
+        self.base_url = url
+        
+        parsed = urllib.parse.urlparse(self.base_url)
+        self.scheme = parsed.scheme or "https"
+        self.host = parsed.netloc
+        self.base_path = parsed.path
+        
+        # Handle port
+        if ":" in self.host:
+            self.host, port_str = self.host.rsplit(":", 1)
+            self.port = int(port_str)
+        else:
+            self.port = 443 if self.scheme == "https" else 80
+    
+    def ask(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+    ) -> str:
         """
         Send a prompt to Qwen and get a response.
         
-        This is the most basic operation - send a question/command and get the response.
-        Uses qwen's non-interactive mode with the -p/--prompt flag.
+        This makes a direct API call, bypassing the CLI entirely.
+        Much faster than CLI approach (< 1 second vs 20+ seconds).
         
         Args:
-            prompt: The question or command to send to Qwen
-            timeout: Maximum time to wait for response in seconds (default: 300)
+            prompt: The question or command to send
+            system_prompt: Optional system prompt to set context
+            max_tokens: Override default max_tokens for this request
+            temperature: Override default temperature for this request
         
         Returns:
-            The response from Qwen as a string
+            The response text from Qwen
         
         Raises:
-            QwenExecutionError: If the CLI command fails
+            QwenRequestError: If the API request fails
+            QwenAuthError: If authentication fails
         
         Example:
             >>> client = QwenClient()
-            >>> response = client.ask("What files are in this directory?")
-            >>> print(response)
+            >>> response = client.ask("What is 2+2?")
+            >>> print(response)  # "2+2 equals 4"
         """
-        try:
-            # Use qwen's non-interactive mode with -p flag
-            # This is the proper way to use qwen CLI programmatically
-            result = subprocess.run(
-                [self.cli_path, "-p", prompt],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=str(self.working_dir)
-            )
-            
-            if result.returncode != 0:
-                raise QwenExecutionError(
-                    command=f"qwen -p '{prompt[:50]}...'",
-                    stderr=result.stderr,
-                    exit_code=result.returncode
-                )
-            
-            # Parse the output to extract just the response
-            return self._parse_response(result.stdout)
-            
-        except subprocess.TimeoutExpired:
-            raise QwenExecutionError(
-                command=f"qwen -p '{prompt[:50]}...'",
-                stderr=f"Command timed out after {timeout} seconds",
-                exit_code=-1
-            )
-    
-    def _parse_response(self, raw_output: str) -> str:
-        """
-        Parse raw CLI output to extract the actual response.
+        # Build messages
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
         
-        This is a basic parser - we'll improve it as we learn more about the output format.
-        """
-        # For now, just return the raw output
-        # We'll refine this as we test and see what the actual output looks like
-        return raw_output.strip()
+        # Build request body
+        request_body = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": max_tokens or self.max_tokens,
+            "temperature": temperature or self.temperature,
+        }
+        
+        # Make API request
+        response_data = self._make_request("/chat/completions", request_body)
+        
+        # Extract response text
+        try:
+            return response_data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError) as e:
+            raise QwenAPIError(f"Unexpected API response format: {e}")
     
-    def check_version(self) -> str:
+    def _make_request(self, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Get the installed qwen CLI version.
+        Make HTTP request to the API.
+        
+        Args:
+            endpoint: API endpoint (e.g., "/chat/completions")
+            data: Request body data
         
         Returns:
-            Version string (e.g., "0.2.3")
+            Response data as dictionary
         
-        Example:
-            >>> client = QwenClient()
-            >>> print(client.check_version())
-            0.2.3
+        Raises:
+            QwenRequestError: If request fails
+            QwenAuthError: If authentication fails
         """
+        # Build full path
+        path = self.base_path.rstrip("/") + endpoint
+        
+        # Prepare headers
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+            "User-Agent": "QwenSDK-Python/0.2.0",
+        }
+        
+        body = json.dumps(data).encode("utf-8")
+        
+        # Make request
         try:
-            result = subprocess.run(
-                [self.cli_path, "--version"],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            
-            if result.returncode != 0:
-                raise QwenExecutionError(
-                    command="qwen --version",
-                    stderr=result.stderr,
-                    exit_code=result.returncode
+            if self.scheme == "https":
+                conn = http.client.HTTPSConnection(
+                    self.host,
+                    self.port,
+                    timeout=self.timeout
+                )
+            else:
+                conn = http.client.HTTPConnection(
+                    self.host,
+                    self.port,
+                    timeout=self.timeout
                 )
             
-            return result.stdout.strip()
+            conn.request("POST", path, body, headers)
+            response = conn.getresponse()
+            response_body = response.read().decode("utf-8")
             
-        except subprocess.TimeoutExpired:
-            raise QwenExecutionError(
-                command="qwen --version",
-                stderr="Command timed out",
-                exit_code=-1
-            )
+            # Handle response
+            if response.status == 401:
+                raise QwenAuthError("Invalid API key")
+            
+            if response.status != 200:
+                try:
+                    error_data = json.loads(response_body)
+                    error_msg = error_data.get("error", {}).get("message", response_body)
+                except:
+                    error_msg = response_body
+                raise QwenRequestError(response.status, error_msg)
+            
+            # Parse response
+            try:
+                return json.loads(response_body)
+            except json.JSONDecodeError as e:
+                # Truncate body if too long
+                preview = response_body[:200] + "..." if len(response_body) > 200 else response_body
+                raise QwenAPIError(f"Invalid JSON response: {e}. Body: {preview}")
+            
+        except http.client.HTTPException as e:
+            raise QwenRequestError(0, f"HTTP error: {e}")
+        except OSError as e:
+            raise QwenRequestError(0, f"Network error: {e}")
+        finally:
+            conn.close()
     
-    def is_available(self) -> bool:
+    def chat(
+        self,
+        messages: List[Dict[str, str]],
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+    ) -> str:
         """
-        Check if qwen CLI is available and working.
+        Send a multi-turn conversation to Qwen.
+        
+        Args:
+            messages: List of message dicts with 'role' and 'content' keys
+                     Example: [{"role": "user", "content": "Hello"}]
+            max_tokens: Override default max_tokens
+            temperature: Override default temperature
         
         Returns:
-            True if qwen CLI is installed and accessible, False otherwise
+            The response text from Qwen
         
         Example:
-            >>> client = QwenClient()
-            >>> if client.is_available():
-            ...     print("Qwen is ready!")
+            >>> messages = [
+            ...     {"role": "system", "content": "You are a helpful assistant"},
+            ...     {"role": "user", "content": "What is Python?"},
+            ... ]
+            >>> response = client.chat(messages)
         """
+        request_body = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": max_tokens or self.max_tokens,
+            "temperature": temperature or self.temperature,
+        }
+        
+        response_data = self._make_request("/chat/completions", request_body)
+        
         try:
-            self.check_version()
-            return True
-        except (QwenExecutionError, QwenNotInstalledError):
-            return False
+            return response_data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError) as e:
+            raise QwenAPIError(f"Unexpected API response format: {e}")

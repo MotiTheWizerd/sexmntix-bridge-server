@@ -1,17 +1,18 @@
 """
-Qwen CLI SDK - Python wrapper for Qwen Code CLI
+Qwen SDK - Direct API client for Qwen models
 
-This SDK provides a programmatic Python interface to interact with the Qwen Code CLI tool.
-It assumes that the qwen CLI is already installed and authenticated.
+This SDK makes direct HTTP requests to Qwen/OpenAI-compatible APIs,
+bypassing the qwen CLI entirely for much faster performance.
 """
 
 from .client import QwenClient
-from .exceptions import QwenCLIError, QwenNotInstalledError, QwenExecutionError
+from .exceptions import QwenAPIError, QwenConfigError, QwenAuthError, QwenRequestError
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "QwenClient",
-    "QwenCLIError",
-    "QwenNotInstalledError",
-    "QwenExecutionError",
+    "QwenAPIError",
+    "QwenConfigError",
+    "QwenAuthError",
+    "QwenRequestError",
 ]

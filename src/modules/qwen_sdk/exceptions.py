@@ -1,31 +1,28 @@
-"""Custom exceptions for Qwen CLI SDK"""
+"""Custom exceptions for Qwen SDK"""
 
 
-class QwenCLIError(Exception):
-    """Base exception for all Qwen CLI SDK errors"""
+class QwenAPIError(Exception):
+    """Base exception for all Qwen API errors"""
     pass
 
 
-class QwenNotInstalledError(QwenCLIError):
-    """Raised when qwen CLI is not found in the system"""
+class QwenConfigError(QwenAPIError):
+    """Raised when configuration is invalid or missing"""
     
-    def __init__(self):
-        super().__init__(
-            "Qwen CLI not found. Please install it first:\n"
-            "  npm install -g @qwen-code/qwen-code@latest\n"
-            "Or check: https://github.com/QwenLM/qwen-code"
-        )
+    def __init__(self, message: str):
+        super().__init__(f"Configuration error: {message}")
 
 
-class QwenExecutionError(QwenCLIError):
-    """Raised when qwen CLI command execution fails"""
+class QwenAuthError(QwenAPIError):
+    """Raised when authentication fails"""
     
-    def __init__(self, command: str, stderr: str, exit_code: int):
-        self.command = command
-        self.stderr = stderr
-        self.exit_code = exit_code
-        super().__init__(
-            f"Qwen CLI command failed (exit code {exit_code}):\n"
-            f"Command: {command}\n"
-            f"Error: {stderr}"
-        )
+    def __init__(self, message: str = "Authentication failed. Please check your API key."):
+        super().__init__(message)
+
+
+class QwenRequestError(QwenAPIError):
+    """Raised when API request fails"""
+    
+    def __init__(self, status_code: int, message: str):
+        self.status_code = status_code
+        super().__init__(f"API request failed ({status_code}): {message}")
