@@ -87,3 +87,20 @@ class MentalNoteRepository(BaseRepository[MentalNote]):
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def get_without_embeddings(self, limit: int = 100) -> List[MentalNote]:
+        """Get mental notes that don't have embeddings yet.
+
+        Args:
+            limit: Maximum number of notes to return
+
+        Returns:
+            List of mental notes where embedding IS NULL
+        """
+        result = await self.session.execute(
+            select(MentalNote)
+            .where(MentalNote.embedding.is_(None))
+            .order_by(desc(MentalNote.created_at))
+            .limit(limit)
+        )
+        return list(result.scalars().all())
