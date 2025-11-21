@@ -1,0 +1,173 @@
+{
+  "task": "provider-indicator-wrong-value-investigation",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-24",
+  "component": "ui-provider-indicator-system",
+
+  "temporal_context": {
+    "date_iso": "2025-10-24",
+    "year": 2025,
+    "month": 10,
+    "week_number": 43,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Complex bidirectional provider ID mapping between UI/Extension, streaming response pipeline, event emission system",
+    "business": "5: Critical UX bug - provider indicator shows wrong provider confusing users",
+    "coordination": "3: Multiple layers - Extension adapters, StreamingResponseHandler, UI event mappers, provider tracking"
+  },
+
+  "files_modified": "4",
+  "files_touched": [
+    "src/ui/modules/ui-logic/core/events/bridge-handler/mapping/event-mapper/incoming/ChatStreamMappers.js",
+    "src/ui/modules/ui-logic/core/events/bridge-handler/mapping/EventMapper.js",
+    "src/ui/modules/ui-logic/core/events/bridge-handler/mapping/event-mapper/EventMapperOrchestrator.js",
+    "src/ui/modules/ui-logic/core/events/BridgeHandler.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "per-tab-provider-selection-implementation",
+    "dynamic-per-message-provider-isolation-implementation",
+    "multi-tab-provider-id-propagation-failed-attempt"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "none",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Provider indicator shows wrong provider (Codex when Claude selected, vice versa) → Attempted to emit provider.active.v1 from chunks but discovered provider field has wrong value from ProviderIdMapper translation",
+  "root_cause": "Provider ID bidirectional mapping issue: UI uses 'openai' for Codex, backend uses 'codex'. StreamingResponseHandler sets chunk.provider = extMessage.providerId (user's selection), not actual adapter ID that responded. ProviderIdMapper translates 'codex' ↔ 'openai' but chunks get user's INPUT ID instead of adapter's RESPONSE ID",
+
+  "solution": {
+    "approach": "INCOMPLETE - Added provider.active.v1 emission from ChatStreamMappers when chunks arrive with provider field, but discovered provider field value is incorrect due to ID mapping",
+    "key_changes": [
+      "ChatStreamMappers.js: Added eventBus injection, emit provider.active.v1 when chunk.provider exists",
+      "EventMapper.js: Added setEventBus() method for dependency injection",
+      "EventMapperOrchestrator.js: Added setEventBus() to re-initialize ChatStreamMappers with eventBus",
+      "BridgeHandler.js: Inject eventBus into eventMapper on construction"
+    ]
+  },
+
+  "validation": "FAILED - provider.active.v1 event IS emitted and received (ProviderTracker log confirms), but provider value is wrong: shows 'openai' instead of 'codex'",
+
+  "gotchas": [
+    {
+      "issue": "Provider field in chunks contains user's INPUT providerId (extMessage.providerId), not the ACTUAL adapter ID that responded",
+      "solution": "UNRESOLVED - Need to determine if adapter should set provider field, or if StreamingResponseHandler should get it from dispatcher/providerManager instead of extMessage",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "ProviderIdMapper has bidirectional translation: UI 'openai' ↔ Backend 'codex', UI 'claude' ↔ Backend 'claude-code-cli'",
+      "solution": "DISCOVERED but not resolved - UI ProviderRegistry line 36 shows aliases: ['codex'] for openai provider. Need to understand correct ID flow",
+      "category": "configuration",
+      "severity": "high"
+    },
+    {
+      "issue": "Changed code without full understanding - added eventBus injection and provider.active.v1 emission before understanding provider ID flow",
+      "solution": "STOPPED coding, created research plan to understand: (1) Where adapter sets provider field (2) CodexAdapter id property (3) ProviderIdMapper translation (4) Provider ID flow from UI to Extension",
+      "category": "process",
+      "severity": "high"
+    },
+    {
+      "issue": "UI ProviderRegistry uses id='openai' with aliases=['codex'] - confusing naming",
+      "solution": "DISCOVERED - UI internally uses 'openai' as ID for Codex provider, with 'codex' as backend alias",
+      "category": "configuration",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "CRITICAL LESSON: Must fully understand data flow BEFORE coding. When debugging wrong values, trace the ENTIRE pipeline from source to destination. Don't assume - verify each transformation step. Provider ID mapping has multiple translation points that must be understood together.",
+  "tags": [
+    "INCOMPLETE",
+    "provider-indicator",
+    "wrong-value",
+    "provider-id-mapping",
+    "ui-extension-sync",
+    "provider.active.v1",
+    "ProviderIdMapper",
+    "bidirectional-mapping",
+    "chunk.provider",
+    "StreamingResponseHandler",
+    "ChatStreamMappers",
+    "CRITICAL-BUG",
+    "investigation-needed",
+    "DO-NOT-CODE-BY-FEELING"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "ProviderIdMapper.toUI() - Translates backend 'codex' → UI 'openai'",
+      "ProviderIdMapper.toBackend() - Translates UI 'openai' → backend 'codex'",
+      "StreamingResponseHandler.handleStreaming() - Sets effectiveProviderId = extMessage.providerId (line 32)",
+      "ChatStreamMappers.mapStreamChunk() - Emits provider.active.v1 with chunk.provider",
+      "ProviderTracker.on('provider.active.v1') - Updates activeProvider in UI"
+    ],
+    "api_surface": [
+      "ConversationMessage.provider?: string - Provider ID field on response chunks (ExtensionTypes.ts:183)",
+      "eventBus.emit('provider.active.v1', {provider, timestamp}) - UI event for provider changes",
+      "ChatStore.updateProviderId(chatId, providerId) - Updates provider per chat (exists but NOT USED)",
+      "CodexAdapter.id = 'codex' - Backend adapter identifier",
+      "UI ProviderRegistry: id='openai', aliases=['codex'] - Confusing UI/backend split"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "ChatStreamMappers constructor now requires eventBus parameter (dependency injection)",
+      "EventMapperOrchestrator.setEventBus() re-initializes ChatStreamMappers"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "RESEARCH: Trace complete provider ID flow - UI selection → Extension message → Adapter processing → Response chunks → UI display",
+      "RESEARCH: Determine if CodexAdapter/ClaudeAdapter should set message.provider field on responses",
+      "RESEARCH: Check if StreamingResponseHandler should get provider from dispatcher.getActive() instead of extMessage.providerId",
+      "FIX: Once understood, modify either adapter or StreamingResponseHandler to set correct provider ID on chunks",
+      "VERIFY: Provider indicator shows correct provider for both Claude and Codex selections",
+      "CONSIDER: Simplify ProviderIdMapper - do we need bidirectional 'openai'↔'codex' if UI can use 'codex' directly?"
+    ],
+    "architecture_decisions": {
+      "provider-id-mapping": "Current bidirectional mapping ('openai'↔'codex', 'claude'↔'claude-code-cli') creates confusion. Consider using consistent IDs across UI/Extension.",
+      "chunk-provider-field": "ConversationMessage.provider field exists but gets set to INPUT providerId (extMessage), not RESPONSE adapter ID. Need to determine source of truth.",
+      "event-emission-location": "Decided to emit provider.active.v1 from ChatStreamMappers when chunks arrive (earliest moment in UI). This part works - event IS emitted and received."
+    },
+    "extension_points": [
+      "StreamingResponseHandler.ts line 60-77 - Where provider field is set on chunks, could get from dispatcher instead",
+      "CodexAdapter/ClaudeAdapter - Could set provider field on ConversationMessage responses",
+      "ChatStreamMappers.mapStreamChunk() - Already emits provider.active.v1, just needs correct value"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "thorough-research-first",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "event-driven-dependency-injection",
+    "quality_standards": "understand-before-coding"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "provider-indicator",
+      "multi-provider-system",
+      "ui-extension-bridge",
+      "bidirectional-id-mapping",
+      "streaming-response-pipeline"
+    ],
+    "technical_patterns": [
+      "dependency-injection",
+      "event-driven-architecture",
+      "provider-id-translation",
+      "chunk-based-streaming"
+    ],
+    "integration_points": [
+      "ChatStreamMappers-EventBus",
+      "StreamingResponseHandler-UIEventEmitter",
+      "ProviderIdMapper-UI-Extension-boundary"
+    ]
+  }
+}

@@ -1,0 +1,163 @@
+{
+  "task": "streaming-mode-session-and-permission-fixes",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-09",
+  "component": "message-routing-streaming-architecture",
+
+  "temporal_context": {
+    "date_iso": "2025-10-09",
+    "year": 2025,
+    "month": 10,
+    "week_number": 41,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Complex async streaming architecture with event-driven state management across extension-UI boundary",
+    "business": "5: Critical user experience - blocking mode worked but streaming mode completely broken (no session continuity, no permission dialogs)",
+    "coordination": "3: Required understanding of 5-layer architecture: CLIExecutor → ConversationManager → Adapter → MessageRouter → UI"
+  },
+
+  "files_modified": "6",
+  "files_touched": [
+    "src/shared/streaming/types.ts",
+    "src/shared/streaming/StreamingChunkBuffer.ts",
+    "src/shared/streaming/SessionIdExtractor.ts",
+    "src/ext/modules/logic-manager/LogicManager.ts",
+    "src/ext/modules/logic-manager/message-router/MessageRouter.ts",
+    "src/ext/modules/logic-manager/conversation-processor/ConversationProcessor.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "streaming-infrastructure-phase-1-3-implementation",
+    "permission-requests-streaming-mode-fix",
+    "streaming-visual-indicator-enhancement"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No performance impact - added minimal processing per chunk (2 conditionals)",
+    "test_coverage_delta": "No change - manual testing only",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "Chat always starting new conversations + permission dialogs not appearing in streaming mode → Added sessionId extraction and permission_denials processing directly in MessageRouter streaming handler",
+
+  "root_cause": "Streaming mode bypasses adapter preprocessing layer. In blocking mode, adapter processes complete response arrays (applyPermissionDenials, extract sessionId) before returning. In streaming mode, raw chunks flow directly from adapter to MessageRouter, skipping all preprocessing logic. Business logic must be replicated in MessageRouter for streaming.",
+
+  "solution": {
+    "approach": "Identify where blocking mode processes data (adapter layer), then replicate that logic in MessageRouter streaming handler by detecting specific chunk types and extracting data directly from chunk objects",
+    "key_changes": [
+      "MessageRouter.ts: Added sessionId extraction from first chunk using SessionIdExtractor.extractOrNull() - calls stateEmitter.setSessionId() to persist session across messages",
+      "MessageRouter.ts: Added permission_denials detection in result chunks - loops through denials array, maps tool names to actions, extracts targets from tool_input, emits permission request events",
+      "MessageRouter.ts: Added mapToolNameToAction() helper - converts tool_name (Write, Bash, etc.) to action types (write, execute, etc.)",
+      "MessageRouter.ts: Added extractTargetFromToolInput() helper - builds target object from tool_input based on tool type (file_path for Write, command for Bash, pattern for Grep)",
+      "LogicManager.ts: Injected StateEmitter into MessageRouter constructor - enables MessageRouter to call setSessionId()",
+      "SessionIdExtractor.ts (NEW): Pattern-based extraction from JSON objects - handles top-level session_id and nested message.session_id formats"
+    ]
+  },
+
+  "validation": "Manual testing - sent messages in streaming mode, verified: (1) sessionId extracted log appears, (2) second message continues same conversation, (3) Write tool triggers permission dialog, (4) file created successfully after approval",
+
+  "gotchas": [
+    {
+      "issue": "Initially added StreamingChunkBuffer to MessageRouter but got 0 chunks emitted - chunks are already parsed JSON objects from ConversationManager, not raw NDJSON strings",
+      "solution": "Removed buffer from MessageRouter - chunks from adapter are already complete objects. Buffer belongs at ConversationManager level (raw NDJSON → parsed objects). In MessageRouter just use SessionIdExtractor.extractOrNull(chunk) directly on object.",
+      "category": "architecture-misunderstanding",
+      "severity": "high"
+    },
+    {
+      "issue": "Permission denials structure different in streaming - blocking mode marks tool_result.needsPermission, streaming has permission_denials array in result chunk",
+      "solution": "Check for chunk.type === 'result' && chunk.permission_denials?.length > 0, then loop through denials extracting tool_name, tool_use_id, tool_input. Map these to permission request format.",
+      "category": "data-format-difference",
+      "severity": "medium"
+    },
+    {
+      "issue": "Tool name mapping needed - permission_denials has tool_name string (Write, Bash) but createPermissionRequest expects action string (write, execute)",
+      "solution": "Created mapToolNameToAction() lookup table: {Write: 'write', Bash: 'execute', Delete: 'delete', Read: 'read', Glob: 'search', Grep: 'search'}",
+      "category": "data-transformation",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "CRITICAL PATTERN: When adding new business logic, ALWAYS implement for BOTH blocking and streaming modes. Blocking mode processes in adapter (complete response arrays), streaming mode processes in MessageRouter (individual chunks). Check chunk.type to detect specific events. Chunks are already parsed objects - no buffering needed at MessageRouter level.",
+
+  "tags": [
+    "streaming-architecture",
+    "session-management",
+    "permission-system",
+    "message-routing",
+    "event-driven-architecture",
+    "async-generators",
+    "chunk-processing",
+    "state-management",
+    "blocking-vs-streaming-modes"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "SessionIdExtractor.extractOrNull(chunk) - Extract sessionId from various JSON formats (top-level or nested)",
+      "stateEmitter.setSessionId(sessionId) - Persist session ID to UIStateManager, emits ui.session.state.change.v1 event to UI",
+      "createPermissionRequest(toolId, action, reason, {target, params}) - Build permission request object for UI",
+      "chunk.type === 'result' && chunk.permission_denials - Detect permission denials in streaming result chunk",
+      "mapToolNameToAction(toolName) - Convert tool name string to action type for permission system"
+    ],
+    "api_surface": [
+      "SessionIdExtractor.extractOrNull(json: any): string | null - Returns sessionId or null",
+      "StateEmitter.setSessionId(sessionId: string): void - Updates state and emits event",
+      "MessageRouter.mapToolNameToAction(toolName: string): string - Maps Write→write, Bash→execute, etc.",
+      "MessageRouter.extractTargetFromToolInput(toolName: string, toolInput: any): any - Builds target object from tool_input"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Add tool chunks handling during streaming - toolbox not appearing in UI (same pattern: detect tool_use_start/end chunks, emit events)",
+      "Add unit tests for SessionIdExtractor with various JSON formats",
+      "Add unit tests for mapToolNameToAction and extractTargetFromToolInput",
+      "Consider refactoring to reduce code duplication between blocking permission logic (ConversationProcessor) and streaming logic (MessageRouter)"
+    ],
+    "architecture_decisions": {
+      "replicate_logic_vs_refactor": "Chose to replicate permission logic in MessageRouter rather than refactor adapter. Rationale: Streaming and blocking have fundamentally different data flows - streaming gets chunks, blocking gets arrays. Refactoring would add complexity without clear benefit.",
+      "where_to_buffer": "StreamingChunkBuffer belongs at ConversationManager level (NDJSON strings → JSON objects), NOT at MessageRouter level (already parsed objects). Each layer processes appropriate data type.",
+      "helper_methods_location": "Added mapToolNameToAction and extractTargetFromToolInput as private methods in MessageRouter rather than shared utils. Rationale: Currently only used in streaming handler, can extract to shared later if needed elsewhere."
+    },
+    "extension_points": [
+      "MessageRouter.handleStreamingResponse() - Add more chunk.type checks for new streaming features (e.g., tool_use_start for toolbox display)",
+      "SessionIdExtractor - Add more extraction patterns if new providers use different sessionId formats",
+      "mapToolNameToAction() - Add new tool name mappings as new tools are added to system",
+      "extractTargetFromToolInput() - Add cases for new tool types (e.g., network requests, API calls)"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "event-driven",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "streaming-chunks",
+      "session-continuity",
+      "permission-denials",
+      "tool-use-lifecycle",
+      "state-synchronization"
+    ],
+    "technical_patterns": [
+      "async-generator-pipeline",
+      "event-emission-pattern",
+      "chunk-based-processing",
+      "dual-mode-architecture"
+    ],
+    "integration_points": [
+      "Claude-CLI-NDJSON-output",
+      "extension-UI-bridge-protocol",
+      "UIStateCoordinator-session-tracking"
+    ]
+  }
+}

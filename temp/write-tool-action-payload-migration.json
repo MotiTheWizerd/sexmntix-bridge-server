@@ -1,0 +1,149 @@
+{
+  "task": "write-tool-action-payload-migration",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-11-02",
+  "component": "tool-result-streaming-payload-architecture",
+
+  "temporal_context": {
+    "date_iso": "2025-11-02",
+    "year": 2025,
+    "month": 11,
+    "week_number": 44,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "2: Simple interface definition following established Read/Search pattern",
+    "business": "3: Enables UI to display structured Write tool results consistently",
+    "coordination": "1: Single-session implementation following proven pattern"
+  },
+
+  "files_modified": "2",
+  "files_touched": [
+    "src/shared/events/chat.ts",
+    "src/ext/modules/logic-manager/message-router/events/StreamEventEmitter.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "read-tool-filepath-streaming-params-fix",
+    "tool-result-metadata-complete-data-flow-fix"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - lightweight metadata only (no large content duplication)",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Write tool using legacy flat result structure with scattered metadata → Dedicated WriteActionPayload with structured result object matching Read/Search pattern",
+
+  "root_cause": "Write tool was never migrated from legacy flat structure when Read and Search tools were refactored to use action-specific payloads pulled from ToolMapRegistry",
+
+  "solution": {
+    "approach": "Follow exact pattern established by Read tool migration - create dedicated payload interface that pulls params from ToolMapRegistry and structures metadata in result object",
+    "key_changes": [
+      "chat.ts: Added WriteActionPayload interface with result object containing filePath, fileDisplayName, contentLength, lineCount, success, message",
+      "chat.ts: Updated ChatToolEndPayload to include write?: WriteActionPayload field",
+      "StreamEventEmitter.ts: Implemented writePayload builder pulling file_path and content from params (ToolMapRegistry)",
+      "StreamEventEmitter.ts: Updated hasActionPayload conditional to include writePayload, excluding Write from legacy fields",
+      "StreamEventEmitter.ts: Added write field to return payload alongside search and read"
+    ]
+  },
+
+  "validation": "Real Write tool execution verified - payload shows filePath, fileDisplayName, contentLength (264), lineCount (13), success true, message populated - NO legacy target/result fields present",
+
+  "gotchas": [
+    {
+      "issue": "Initial structure had metadata fields (filePath, fileDisplayName, contentLength, lineCount) at top level instead of inside result object",
+      "solution": "Moti caught this - restructured to match Read tool pattern with all fields inside result object for consistency",
+      "category": "architecture",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "When migrating tools to action-specific payloads, always verify the structure matches existing patterns (Read/Search) - consistent structure across all tools makes UI consumption easier and code more maintainable",
+
+  "tags": [
+    "write-tool",
+    "action-payload-migration",
+    "tool-result-structure",
+    "toolmapregistry",
+    "params-streaming",
+    "architectural-consistency",
+    "lightweight-metadata",
+    "COMPLETE"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "WriteActionPayload interface - Matches Read/Search pattern with result object containing all metadata",
+      "writePayload builder - Pulls file_path and content from toolInfo.params (ToolMapRegistry)",
+      "hasActionPayload conditional - Excludes migrated tools from legacy flat structure",
+      "extractFilename() - Extracts display name from full path",
+      "countLines() - Counts line count from content string"
+    ],
+    "api_surface": [
+      "WriteActionPayload.result.filePath: string - Full file path from params.file_path",
+      "WriteActionPayload.result.fileDisplayName: string - Extracted filename only",
+      "WriteActionPayload.result.contentLength: number - Character count from params.content.length",
+      "WriteActionPayload.result.lineCount: number - Line count from params.content",
+      "WriteActionPayload.result.success: boolean - Operation success status",
+      "WriteActionPayload.result.message?: string - Success/error message from tool result"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "Write tool no longer uses legacy target/result flat structure",
+      "UI code must check payload.write?.result instead of payload.result for Write tool metadata"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Migrate Edit tool to EditActionPayload following same pattern",
+      "Migrate Bash tool to BashActionPayload",
+      "Consider adding optional content field to WriteActionPayload if UI needs preview",
+      "Remove legacy target/result fields entirely once all tools migrated",
+      "Update UI components to consume write.result structure"
+    ],
+    "architecture_decisions": {
+      "lightweight_metadata_only": "Chose NOT to include full content in payload (only contentLength/lineCount) to avoid large payloads - content already visible in editor if streamed, can add later as optional field if needed",
+      "result_object_structure": "All metadata inside result object (not top-level) to match Read tool pattern for consistency",
+      "params_from_registry": "Pull file_path and content from params (ToolMapRegistry) instead of result/target for single source of truth"
+    },
+    "extension_points": [
+      "WriteActionPayload - Can add optional content?: string field for UI preview if needed",
+      "StreamEventEmitter.createToolEndPayload() - Add more action-specific payload builders for Edit/Bash tools",
+      "chat.ts ChatToolEndPayload - Uncomment edit?: EditActionPayload when ready to migrate Edit tool"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "tool-action-payload",
+      "streaming-params",
+      "registry-coordination",
+      "metadata-extraction"
+    ],
+    "technical_patterns": [
+      "action-specific-payload-pattern",
+      "params-from-registry-pattern",
+      "result-object-structure",
+      "backward-compatibility-pattern"
+    ],
+    "integration_points": [
+      "ToolMapRegistry",
+      "ToolParamStreamHandler",
+      "ToolEndEventCoordinator",
+      "UI-chat-components"
+    ]
+  }
+}

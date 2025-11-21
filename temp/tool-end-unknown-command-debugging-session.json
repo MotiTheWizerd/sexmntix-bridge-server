@@ -1,0 +1,158 @@
+{
+  "task": "tool-end-unknown-command-debugging-session",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-29",
+  "component": "tool-notification-debugging",
+
+  "temporal_context": {
+    "date_iso": "2025-10-29",
+    "year": 2025,
+    "month": 10,
+    "week_number": 44,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Deep debugging across multiple layers (backend registry, UI routing, chunk transformation)",
+    "business": "4: Critical UX issue - users see 'Unknown' instead of actual commands in tool_end notifications",
+    "coordination": "3: Traced through provider adapters, event processors, and UI transformers"
+  },
+
+  "files_modified": 4,
+  "files_touched": [
+    "src/ext/modules/logic-manager/message-router/streaming/processor/storage/ToolMapRegistry.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/ToolEventProcessor.ts",
+    "src/ext/modules/providers/implementations/claude-code-cli-adapter/message-processing/routing/ChunkRouter.ts",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/message-manager-router/transformers/ToolChunkTransformer.js"
+  ],
+  "tests_added": 0,
+  "related_tasks": [
+    "tool-name-display-unknown-command-fix",
+    "claude-cli-tool-display-fix-complete",
+    "universal-message-format"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "tool_end showing 'Bash Unknown' instead of 'Bash ls *.txt' → Added comprehensive debug logging and discovered backend registry works perfectly but UI ToolChunkTransformer intercepts chunks before backend processing → Need to remove UI fallback or change routing order",
+
+  "root_cause": "UI layer's ToolChunkTransformer intercepts tool_use_end chunks and applies fallback logic before backend ToolEventProcessor can populate action/target from registry. Backend registry lookup succeeds but UI never receives the enriched data.",
+
+  "solution": {
+    "approach": "Phase 1 (COMPLETE): Add comprehensive debug logging to trace data flow. Phase 2 (PENDING): Fix UI routing or remove fallback based on findings",
+    "key_changes": [
+      "ToolMapRegistry.ts: Added debug logging to set() and get() showing tool storage and retrieval with HIT/MISS indicators",
+      "ToolEventProcessor.ts: Added debug logging to show chunk.tool structure and registry size during lookup",
+      "ChunkRouter.ts: Added debug logging to show blockIndexToToolId mappings when creating tool_use_end chunks",
+      "ToolChunkTransformer.js: Previously removed fallback logic (earlier session) and added debug logging"
+    ]
+  },
+
+  "validation": "Debug logs confirmed: Backend registry stores and retrieves tools successfully (HIT for toolId), but tool_use_end chunks route to UI's 'TOOL transformer' instead of reaching backend's enrichment logic",
+
+  "gotchas": [
+    {
+      "issue": "Logger.getInstance() doesn't exist - ToolMapRegistry needs Logger injected via constructor",
+      "solution": "Changed ToolMapRegistry to accept Logger in constructor, updated ToolEventProcessor to pass logger when creating registry",
+      "category": "typing",
+      "severity": "low"
+    },
+    {
+      "issue": "Backend registry lookup succeeds but UI still shows 'Unknown' - data flow interruption",
+      "solution": "Discovered UI's StreamingChunkRouter sends tool_use_end to 'TOOL transformer' which applies fallback before backend enrichment completes",
+      "category": "integration",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "When debugging data transformation issues, add comprehensive logging at EVERY layer (provider → backend → UI) to identify where data is lost or transformed incorrectly. The issue may not be where you initially suspect - in this case backend was perfect but UI routing order caused the problem.",
+
+  "tags": [
+    "tool-visualization",
+    "unknown-command",
+    "debugging",
+    "registry-lookup",
+    "ui-routing",
+    "data-flow-tracing",
+    "tool_use_end",
+    "chunk-transformation",
+    "fallback-logic",
+    "debug-logging",
+    "INCOMPLETE"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "ToolMapRegistry.set(toolId, {action, target}) - Stores tool info when tool_use_start arrives",
+      "ToolMapRegistry.get(toolId) - Retrieves stored tool info when tool_use_end arrives, logs HIT/MISS",
+      "ToolEventProcessor.processUserChunk() - Looks up tool from registry to enrich tool_use_end payload",
+      "ChunkRouter handles content_block_stop - Creates tool_use_end chunk with only toolId",
+      "StreamingChunkRouter routes tool_use_end - Sends to 'TOOL transformer' in UI"
+    ],
+    "api_surface": [
+      "ToolMapRegistry(logger: Logger) - Constructor now requires logger injection",
+      "ToolMapRegistry.get(toolId: string): StoredToolInfo | null - Returns {action, target} or null with debug logging",
+      "ToolMapRegistry.set(toolId: string, toolInfo: StoredToolInfo): void - Stores tool info with debug logging"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "ToolMapRegistry constructor now requires Logger parameter - all instantiations must pass logger"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "CRITICAL: Fix UI routing so backend enrichment happens BEFORE UI ToolChunkTransformer processes chunks",
+      "OR: Remove ToolChunkTransformer fallback entirely and trust backend always provides complete data",
+      "Remove all debug logging once issue is resolved",
+      "Test with all tool types (Bash, Read, Write, Glob, Grep) across all providers",
+      "Verify tool_start and tool_end both display correctly"
+    ],
+    "architecture_decisions": {
+      "debug_logging_comprehensive": "Added logging at every layer (registry storage, retrieval, chunk routing) to trace complete data flow from provider to UI",
+      "registry_working_correctly": "Confirmed backend ToolMapRegistry and ToolEventProcessor work perfectly - issue is in UI layer routing/transformation order"
+    },
+    "extension_points": [
+      "StreamingChunkRouter.js - May need to change routing order so backend enrichment happens first",
+      "ToolChunkTransformer.js - Already has debug logging, may need to remove entirely or trust backend data",
+      "ChunkRouter.ts - Could potentially include action/target when creating tool_use_end chunk as backup"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "natural-conversational",
+    "architecture_philosophy": "event-driven",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "tool-registry",
+      "chunk-routing",
+      "data-enrichment-pipeline",
+      "universal-message-format",
+      "tool-notification-display"
+    ],
+    "technical_patterns": [
+      "registry-pattern",
+      "event-routing",
+      "debug-logging-chain",
+      "fallback-logic",
+      "data-flow-tracing"
+    ],
+    "integration_points": [
+      "ToolEventProcessor",
+      "ToolMapRegistry",
+      "StreamingChunkRouter",
+      "ToolChunkTransformer",
+      "ChunkRouter"
+    ]
+  }
+}

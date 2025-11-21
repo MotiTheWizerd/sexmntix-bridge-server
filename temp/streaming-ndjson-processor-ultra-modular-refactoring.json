@@ -1,0 +1,209 @@
+{
+  "task": "streaming-ndjson-processor-ultra-modular-refactoring",
+  "agent": "claude-sonnet-4",
+  "date": "2025-10-17",
+  "component": "streaming-ndjson-processor",
+
+  "temporal_context": {
+    "date_iso": "2025-10-17",
+    "year": 2025,
+    "month": 10,
+    "week_number": 42,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "5: Complex async generator streaming with NDJSON parsing, text chunking, code block detection, synthetic chunk generation, and buffer management",
+    "business": "4: Critical for streaming UX - typewriter effect, real-time markdown rendering, and smooth user experience during AI responses",
+    "coordination": "4: Refactored during active development - collaborated with Moti who implemented parts of the plan simultaneously"
+  },
+
+  "files_modified": "13",
+  "files_touched": [
+    "src/ext/modules/providers/anthropics/cli-wrapper/conversation/components/StreamingNDJSONProcessor.ts",
+    "src/ext/modules/providers/anthropics/cli-wrapper/conversation/components/streaming-ndjson-processor/StreamingNDJSONProcessorOrchestrator.ts",
+    "src/ext/modules/providers/anthropics/cli-wrapper/conversation/components/streaming-ndjson-processor/NDJSONParser.ts",
+    "src/ext/modules/providers/anthropics/cli-wrapper/conversation/components/streaming-ndjson-processor/buffer/BufferManager.ts",
+    "src/ext/modules/providers/anthropics/cli-wrapper/conversation/components/streaming-ndjson-processor/buffer/LineParser.ts",
+    "src/ext/modules/providers/anthropics/cli-wrapper/conversation/components/streaming-ndjson-processor/chunking/TextChunker.ts",
+    "src/ext/modules/providers/anthropics/cli-wrapper/conversation/components/streaming-ndjson-processor/chunking/CodeBlockDetector.ts",
+    "src/ext/modules/providers/anthropics/cli-wrapper/conversation/components/streaming-ndjson-processor/chunking/PlainTextSplitter.ts",
+    "src/ext/modules/providers/anthropics/cli-wrapper/conversation/components/streaming-ndjson-processor/chunking/ChunkConfig.ts",
+    "src/ext/modules/providers/anthropics/cli-wrapper/conversation/components/streaming-ndjson-processor/debug/ChunkDebugLogger.ts",
+    "src/ext/modules/providers/anthropics/cli-wrapper/conversation/components/streaming-ndjson-processor/chunk-generation/ChunkGeneratorFactory.ts",
+    "src/ext/modules/providers/anthropics/cli-wrapper/conversation/components/streaming-ndjson-processor/chunk-generation/ContentBlockDeltaGenerator.ts",
+    "src/ext/modules/providers/anthropics/cli-wrapper/conversation/components/streaming-ndjson-processor/chunk-generation/ResultTypeGenerator.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "stream-initializer-ultra-modular-refactoring",
+    "message-list-handlers-triple-ultra-modular-refactoring",
+    "user-input-controller-ultra-modular-refactoring",
+    "codex-provider-ultra-modular-refactoring"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No negative impact - same async generator performance, centralized debug logging reduces console.log overhead when disabled",
+    "test_coverage_delta": "0% - existing tests maintained, unit testing now possible for individual components",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "Monolithic 260-line StreamingNDJSONProcessor class with 7 mixed concerns (buffer management, NDJSON parsing, text chunking, code block detection, synthetic chunk generation, debug logging, 4x duplicated chunk processing logic) → Ultra-modular facade + orchestrator + 11 focused micro-components (avg 35-70 lines) organized in 4 subsystems (buffer, chunking, generation, debug) with eliminated duplication and centralized debug logging",
+
+  "root_cause": "Original implementation grew organically without separation of concerns, leading to massive code duplication (chunk processing logic repeated 4 times for different scenarios), scattered debug logging (console.log statements throughout), mixed responsibilities (parsing + chunking + generation in single methods), and inability to unit test individual concerns",
+
+  "solution": {
+    "approach": "Applied ultra-modular orchestrator pattern with 4-layer hierarchy: (1) Facade maintains backward compatibility, (2) Orchestrator coordinates high-level flow, (3) Subsystem coordinators (NDJSONParser, ChunkGeneratorFactory), (4) Focused micro-components handle single responsibilities. Used factory pattern to eliminate type detection duplication, dependency injection for testability, and centralized debug logging for easy toggling",
+    "key_changes": [
+      "StreamingNDJSONProcessor.ts: Converted to facade pattern - thin wrapper around StreamingNDJSONProcessorOrchestrator maintaining backward-compatible public API",
+      "StreamingNDJSONProcessorOrchestrator.ts: Created 80-line main orchestrator coordinating BufferManager, NDJSONParser, ChunkDebugLogger with clean async generator flow",
+      "buffer/BufferManager.ts: Extracted buffer accumulation and line splitting (49 lines) - single responsibility of managing incomplete NDJSON lines",
+      "buffer/LineParser.ts: Extracted JSON parsing with error handling (38 lines) - returns ParseResult with success/data structure",
+      "chunking/TextChunker.ts: Created orchestrator (74 lines) coordinating CodeBlockDetector, PlainTextSplitter, ChunkDebugLogger for intelligent text splitting",
+      "chunking/CodeBlockDetector.ts: Extracted code block detection (38 lines) - finds ``` and ~~~ blocks, returns CodeBlockMatch[] with startIndex/endIndex",
+      "chunking/PlainTextSplitter.ts: Extracted word boundary splitting (47 lines) - searches ±10 chars for natural break points",
+      "chunking/ChunkConfig.ts: Centralized constants (19 lines) - TEXT_CHUNK_SIZE=30, BOUNDARY_SEARCH_RANGE=10",
+      "debug/ChunkDebugLogger.ts: Centralized ALL console.log statements (126 lines) - single enabled=true flag toggles all debug output",
+      "NDJSONParser.ts: Created subsystem orchestrator (57 lines) coordinating LineParser and ChunkGeneratorFactory - thin coordination layer",
+      "chunk-generation/ChunkGeneratorFactory.ts: Created factory (60 lines) eliminating type detection duplication - routes to ContentBlockDeltaGenerator, ResultTypeGenerator, or PassThroughGenerator based on parsed.type",
+      "chunk-generation/ContentBlockDeltaGenerator.ts: Specialized generator for content_block_delta type with delta.text - eliminates duplication",
+      "chunk-generation/ResultTypeGenerator.ts: Specialized generator for result type with string content - eliminates duplication"
+    ]
+  },
+
+  "validation": "TypeScript compilation successful (pnpm build), all existing tests pass, streaming typewriter effect works correctly with code block preservation, debug logging centralized and toggleable via ChunkDebugLogger.enabled flag, backward compatibility maintained (facade pattern ensures no breaking changes to public API)",
+
+  "gotchas": [
+    {
+      "issue": "Collaboration conflict - Moti implemented ultra-modular plan in streaming-ndjson-processor/ directory while Claude worked on streaming/ directory simultaneously",
+      "solution": "Merged approaches by keeping Moti's complete ultra-modular implementation in streaming-ndjson-processor/ and deleting redundant streaming/ directory. Both implementations were architecturally identical following the same orchestrator pattern",
+      "category": "coordination",
+      "severity": "medium"
+    },
+    {
+      "issue": "Code duplication appeared in 4 places - main loop (lines 151-171, 172-189), final buffer (lines 210-229, 230-247) for both content_block_delta and result types",
+      "solution": "Created ChunkGeneratorFactory with 3 specialized generators (ContentBlockDeltaGenerator, ResultTypeGenerator, PassThroughGenerator) using factory pattern. Single entry point generateChunks() routes to appropriate generator, eliminating all duplication",
+      "category": "refactoring",
+      "severity": "high"
+    },
+    {
+      "issue": "Debug logging scattered across 5 locations making it impossible to toggle debug output without touching multiple files",
+      "solution": "Created ChunkDebugLogger with single enabled=true/false flag. All console.log statements moved to dedicated methods (logChunkingStart, logCodeBlocks, logTextChunking, etc). Change one flag to toggle all debug output",
+      "category": "maintainability",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "Ultra-modular refactoring with orchestrator pattern works beautifully for complex streaming logic. Key insight: Use factory pattern (ChunkGeneratorFactory) to eliminate type-based conditional duplication - instead of if/else blocks repeated everywhere, create specialized generators and route once. Centralized debug logging (ChunkDebugLogger) is essential for production code - makes it trivial to disable verbose logging. Facade pattern (StreamingNDJSONProcessor → StreamingNDJSONProcessorOrchestrator) enables deep refactoring while maintaining zero breaking changes. Collaboration success: When human and AI work on same plan simultaneously, merge results rather than starting over - architectural alignment matters more than perfect coordination",
+
+  "tags": [
+    "ultra-modular-refactoring",
+    "orchestrator-pattern",
+    "streaming-ndjson-processor",
+    "async-generator",
+    "buffer-management",
+    "text-chunking",
+    "code-block-detection",
+    "typewriter-effect",
+    "factory-pattern",
+    "facade-pattern",
+    "dependency-injection",
+    "single-responsibility",
+    "micro-components",
+    "debug-logging",
+    "backward-compatibility",
+    "zero-breaking-changes",
+    "duplication-elimination",
+    "chunk-generation",
+    "word-boundary-splitting",
+    "ndjson-parsing",
+    "synthetic-chunks",
+    "claude-streaming",
+    "codex-streaming"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "async *process() - Async generator pattern for streaming NDJSON processing, yields parsed chunks incrementally",
+      "BufferManager.addChunkAndExtractLines() - Accumulate streaming chunks and extract complete NDJSON lines, keeping incomplete line in buffer",
+      "TextChunker.split() - Split text into 30-char chunks preserving code blocks (``` or ~~~) as atomic units for syntax highlighting",
+      "CodeBlockDetector.detect() - Find code blocks with regex /(```[\\s\\S]*?```|~~~[\\s\\S]*?~~~)/g, return CodeBlockMatch[] with startIndex/endIndex",
+      "PlainTextSplitter.split() - Split plain text at word boundaries searching ±10 chars for /[\\s\\n,.;!?]/ natural break points",
+      "ChunkGeneratorFactory.generateChunks() - Factory pattern routing parsed objects to specialized generators (ContentBlockDelta, ResultType, PassThrough) based on type",
+      "LineParser.parse() - Parse NDJSON line with JSON.parse, return ParseResult {success: boolean, data?: Record<string, unknown>}",
+      "ChunkDebugLogger.enabled - Single flag to toggle all debug logging throughout streaming pipeline"
+    ],
+    "api_surface": [
+      "process(streamGenerator: AsyncGenerator<string>): AsyncGenerator<Record<string, unknown>> - Main entry point, processes streaming NDJSON chunks",
+      "BufferManager.addChunkAndExtractLines(chunk: string): string[] - Accumulate chunk and return complete lines",
+      "TextChunker.split(text: string): string[] - Split text into chunks preserving code blocks",
+      "CodeBlockDetector.detect(text: string): CodeBlockMatch[] - Find code blocks in text",
+      "PlainTextSplitter.split(text: string): string[] - Split plain text at word boundaries",
+      "LineParser.parse(line: string, isFinal: boolean): ParseResult - Parse NDJSON line to JSON",
+      "ChunkGeneratorFactory.generateChunks(parsed: Record<string, unknown>, chunkIndex: number, isFinal: boolean): Record<string, unknown>[] - Generate chunks from parsed object",
+      "ChunkDebugLogger.logChunkingStart(text: string): void - Log chunking operation start",
+      "ChunkDebugLogger.logTextChunking(originalLength: number, chunkCount: number, originalText: string, type: 'content_block_delta' | 'result'): void - Log text chunking details"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Add unit tests for each micro-component (CodeBlockDetector, PlainTextSplitter, BufferManager, etc) now that they're independently testable",
+      "Consider configurable chunk size via ChunkConfig - allow users to adjust TEXT_CHUNK_SIZE for faster/slower typewriter effect",
+      "Extract ChunkDebugLogger to shared debug/ directory - could be reused across other streaming components",
+      "Add metrics/telemetry - track average chunk size, code block frequency, buffer overflow events",
+      "Consider streaming optimization - batch multiple small chunks together if they arrive rapidly to reduce UI update overhead"
+    ],
+    "architecture_decisions": {
+      "facade_pattern": "Used facade (StreamingNDJSONProcessor) wrapping orchestrator (StreamingNDJSONProcessorOrchestrator) to maintain backward compatibility while enabling deep refactoring without breaking changes",
+      "factory_pattern": "ChunkGeneratorFactory eliminates type-based conditional duplication by routing to specialized generators (ContentBlockDelta, ResultType, PassThrough) - single routing decision instead of repeated if/else blocks",
+      "dependency_injection": "TextChunker receives CodeBlockDetector, PlainTextSplitter, ChunkDebugLogger via constructor for testability and flexibility - easy to mock or replace implementations",
+      "centralized_debug_logging": "ChunkDebugLogger with enabled flag consolidates all console.log statements - production code can disable verbose logging with single flag change"
+    },
+    "extension_points": [
+      "chunk-generation/ - To add new chunk types (e.g., tool_use, thinking_block), create new generator implementing canHandle() and generate() methods, register in ChunkGeneratorFactory",
+      "chunking/ - To customize chunking strategy, replace PlainTextSplitter with different implementation (e.g., sentence-boundary splitting, fixed-size chunks) via dependency injection",
+      "debug/ - To add new debug output, extend ChunkDebugLogger with new log methods following pattern log<Event>(params): void with if (!this.enabled) return guard",
+      "buffer/ - To support different line delimiters (e.g., \\r\\n, custom separators), modify BufferManager.addChunkAndExtractLines() split logic"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "natural-conversational",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "streaming-ndjson",
+      "typewriter-effect",
+      "code-block-preservation",
+      "synthetic-chunks",
+      "buffer-accumulation",
+      "incomplete-line-handling",
+      "word-boundary-splitting"
+    ],
+    "technical_patterns": [
+      "async-generator-pattern",
+      "orchestrator-pattern",
+      "facade-pattern",
+      "factory-pattern",
+      "dependency-injection",
+      "single-responsibility-principle",
+      "ultra-modular-architecture"
+    ],
+    "integration_points": [
+      "ConversationLogger",
+      "Claude-streaming-API",
+      "Codex-streaming-API",
+      "StreamingMessageHandler",
+      "MessageDisplayHandler"
+    ]
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "task": "editor-streaming-save-dialog-fix",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-31",
+  "component": "editor-streaming-service",
+
+  "temporal_context": {
+    "date_iso": "2025-10-31",
+    "year": 2025,
+    "month": 10,
+    "week_number": 44,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Complex VS Code API limitation requiring workaround - no programmatic way to mark documents as clean, must use undocumented command patterns",
+    "business": "5: Critical UX issue - save dialogs appearing for already-saved files breaks user trust and interrupts workflow during live code streaming",
+    "coordination": "2: Self-contained fix within EditorStreamingService, no external API changes"
+  },
+
+  "files_modified": "1",
+  "files_touched": [
+    "src/ext/ui-host-components/editor/EditorStreamingService.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "live-code-streaming-to-editor",
+    "input-json-delta-backend-foundation",
+    "tool-param-stream-handler-ultra-modular-refactoring"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No performance impact - adds single command execution during finalization (once per file stream)",
+    "test_coverage_delta": "No change - manual testing required due to VS Code UI interaction",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "Temp documents showing save dialog on close despite content being saved to real file → Implemented saveAndDeleteTemp() method using VS Code's revertAndCloseActiveEditor command to close temp files silently, matching behavior of Cursor/Windsurf",
+
+  "root_cause": "VS Code Extension API has NO method to programmatically mark documents as clean (not dirty). When editor.edit() streams content to untitled temp document, VS Code marks it dirty. Calling tabGroups.close(tab, true) should suppress save dialog but fails for dirty untitled documents. This is a known VS Code limitation documented in GitHub issues #50969 and #97348. Providers control file creation timing (not us), so we must use temp documents and can't pre-create real files",
+
+  "solution": {
+    "approach": "Created dedicated saveAndDeleteTemp() method implementing two-strategy approach: (1) Primary: Use VS Code's revertAndCloseActiveEditor command to close without prompting, (2) Fallback: Hide temp by showing real file instead of closing. Command-based approach bypasses dirty state check entirely",
+    "key_changes": [
+      "EditorStreamingService.ts (lines 218-293): Added saveAndDeleteTemp() private method with 60 lines implementing two-strategy temp file closing. Strategy 1: Find temp tab, make it active, execute revertAndCloseActiveEditor command (no save dialog). Strategy 2: If tab not found, just show real file to hide temp (non-fatal fallback). Well-documented with VS Code API limitation explanation",
+      "EditorStreamingService.ts (lines 155-174): Refactored finalizeEditor() untitled document path. Removed 47 lines of complex temp closing logic with tabGroups.close(). Replaced with single saveAndDeleteTemp() call after writing real file. Opens real file after temp is closed/hidden. Cleaner, more maintainable flow"
+    ]
+  },
+
+  "validation": "Build succeeded with zero TypeScript errors. Manual testing confirmed temp documents close without save dialog when using revertAndCloseActiveEditor command. Logs show Strategy 1 executes successfully. Real files appear with clean state (no dirty indicator)",
+
+  "gotchas": [
+    {
+      "issue": "VS Code Extension API has NO method to mark documents as clean - this is fundamental API limitation, not a bug in our code",
+      "solution": "Research revealed GitHub issues #50969 and #97348 documenting this limitation. Solution: Use VS Code's built-in revertAndCloseActiveEditor command which reverts to clean state before closing (by design, never prompts)",
+      "category": "environment",
+      "severity": "high"
+    },
+    {
+      "issue": "tabGroups.close(tab, true) parameter supposed to suppress save dialog but doesn't work reliably for dirty untitled documents",
+      "solution": "Documented VS Code bug/limitation. Workaround: Don't rely on tabGroups.close() - use command-based approach (revertAndCloseActiveEditor) instead which bypasses the problematic code path",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Must make temp tab active before executing revertAndCloseActiveEditor command - command works on active editor only",
+      "solution": "Added showTextDocument(tempDoc) call before command execution (lines 265-269). Command requires active editor context to work properly",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "Can't pre-create real files because providers (Claude, Gemini) control file creation timing via Write tool - we can only react",
+      "solution": "Constraint accepted: Must use temp document pattern. This is why saveAndDeleteTemp() method is necessary - we can't avoid temp documents in provider-driven architecture",
+      "category": "architecture",
+      "severity": "low"
+    },
+    {
+      "issue": "realFilePath parameter in saveAndDeleteTemp() unused (IDE warning) but kept for API clarity and future use",
+      "solution": "Kept parameter for explicit API documentation and potential future logging/debugging needs. Minor unused variable acceptable for API completeness",
+      "category": "typing",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "When VS Code Extension API lacks needed functionality (marking docs clean), look for command-based workarounds - VS Code's built-in commands often have special privileges that extensions don't. The revertAndCloseActiveEditor command bypasses dirty state checks entirely, solving the unsolvable API limitation. Always research GitHub issues for known platform limitations before building complex workarounds. Sometimes the answer is a single command execution, not architectural gymnastics",
+
+  "tags": [
+    "vscode-api-limitation",
+    "dirty-state-management",
+    "save-dialog-suppression",
+    "editor-streaming",
+    "untitled-documents",
+    "command-based-workaround",
+    "revertAndCloseActiveEditor",
+    "temp-file-cleanup",
+    "ux-improvement",
+    "pair-programming-ux",
+    "cursor-windsurf-parity",
+    "github-issue-50969",
+    "github-issue-97348"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "saveAndDeleteTemp() - Two-strategy approach for closing temp documents: (1) revertAndCloseActiveEditor command, (2) hide via showTextDocument",
+      "vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor') - VS Code command that reverts document to clean state and closes without save dialog",
+      "tabGroups.close(tab, true) - UNRELIABLE for dirty untitled documents despite true parameter - don't use for temp files",
+      "showTextDocument() before command - Required to make tab active so revertAndCloseActiveEditor works on correct document"
+    ],
+    "api_surface": [
+      "saveAndDeleteTemp(tempEditor: vscode.TextEditor, realFilePath: string, realFileUri: vscode.Uri): Promise<void> - Close temp document without save dialog using command-based approach",
+      "finalizeEditor(editor: vscode.TextEditor, filePath: string): Promise<void> - Updated to call saveAndDeleteTemp() for untitled documents after writing real file",
+      "revertAndCloseActiveEditor command - VS Code built-in command that closes active editor without save prompt (requires active editor context)"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Monitor VS Code GitHub issues #50969 and #97348 for official API to mark documents clean - if added, replace command workaround",
+      "Add telemetry/logging to track Strategy 1 vs Strategy 2 usage in production - measure command success rate",
+      "Consider extracting command patterns to shared VS Code utilities if other components need similar workarounds",
+      "Test with different VS Code versions to ensure revertAndCloseActiveEditor command availability and behavior consistency"
+    ],
+    "architecture_decisions": {
+      "command_based_workaround": "Chose VS Code command execution (revertAndCloseActiveEditor) over API-based approaches because commands have special privileges that extensions lack. Command bypasses dirty state checks entirely, solving API limitation that has no programmatic solution",
+      "two_strategy_fallback": "Implemented fallback strategy (hide temp instead of close) to ensure non-fatal degradation if command fails. Real file is always saved regardless of temp closing success - temp cleanup is nice-to-have, not critical",
+      "dedicated_method": "Extracted saveAndDeleteTemp() as explicit method rather than inline in finalizeEditor() to document the workaround clearly and provide single point of maintenance when VS Code eventually adds proper API",
+      "temp_document_pattern": "Accepted temp document pattern as necessary constraint due to provider-controlled file creation timing. Can't pre-create real files, so must stream to temp first"
+    },
+    "extension_points": [
+      "saveAndDeleteTemp() - If VS Code adds clean state API, update this method implementation while keeping same interface",
+      "Add Strategy 3 if revertAndCloseActiveEditor becomes unavailable in future VS Code versions",
+      "Consider making saveAndDeleteTemp() public if other services need temp file cleanup with same behavior"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "research-driven-problem-solving-with-platform-limitation-workarounds",
+    "naming_preferences": "technical-precise-with-explicit-intent-documentation",
+    "architecture_philosophy": "command-based-solutions-when-api-insufficient",
+    "quality_standards": "ux-first-with-fallback-safety"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "editor-streaming",
+      "live-code-streaming",
+      "temp-document-lifecycle",
+      "dirty-state-management",
+      "save-dialog-suppression",
+      "pair-programming-ux"
+    ],
+    "technical_patterns": [
+      "command-based-workaround",
+      "two-strategy-fallback",
+      "non-fatal-degradation",
+      "platform-limitation-bypass",
+      "active-editor-context-requirement"
+    ],
+    "integration_points": [
+      "VS Code Extension API",
+      "VS Code Commands API",
+      "VS Code TabGroups API",
+      "VS Code Workspace API",
+      "EditorStreamingService",
+      "ToolParamStreamHandler"
+    ]
+  }
+}

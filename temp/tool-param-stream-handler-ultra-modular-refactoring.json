@@ -1,0 +1,171 @@
+{
+  "task": "tool-param-stream-handler-ultra-modular-refactoring",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-31",
+  "component": "tool-param-streaming",
+
+  "temporal_context": {
+    "date_iso": "2025-10-31",
+    "year": 2025,
+    "month": 10,
+    "week_number": 44,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Complex streaming architecture with incremental JSON parsing, multiple recovery strategies, and VS Code editor integration requiring careful state management",
+    "business": "5: Critical feature enabling real-time code streaming to editor - core differentiator for pair programming UX",
+    "coordination": "3: Moderate coordination with EditorStreamingService and StreamingResponseHandler integration"
+  },
+
+  "files_modified": "6",
+  "files_touched": [
+    "src/ext/modules/logic-manager/message-router/streaming/ToolParamStreamHandler.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/StreamingResponseHandler.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/tool-param-streaming/session/StreamingSessionRegistry.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/tool-param-streaming/json-parsing/JsonRecoveryEngine.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/tool-param-streaming/content/ContentDiffCalculator.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/tool-param-streaming/editor-coordination/EditorStreamCoordinator.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "live-code-streaming-to-editor",
+    "streaming-response-handler-ultra-modular-refactoring",
+    "input-json-delta-backend-foundation"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No performance impact - pure refactoring with zero behavioral changes",
+    "test_coverage_delta": "Enabled testability: JSON recovery strategies now unit-testable in isolation",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "Monolithic 230-line ToolParamStreamHandler with internal dependencies, brittle inline JSON healing (4 fallback strategies), and mixed concerns → Right-sized orchestrator (146 lines) + 4 focused micro-components with full DI, testable JSON recovery engine, and clean single responsibilities",
+
+  "root_cause": "Original implementation mixed session tracking, JSON recovery heuristics, content diffing, and editor streaming in single class with internal dependency construction (new Logger(), new EditorStreamingService()) preventing testability and reuse",
+
+  "solution": {
+    "approach": "Right-sized ultra-modular refactoring pattern: Extract substantial responsibilities into focused micro-components (~35-103 lines each) with orchestrator coordinating via dependency injection. Balance modularity with pragmatism - avoid over-abstraction of trivial operations",
+    "key_changes": [
+      "JsonRecoveryEngine.ts: Extracted 4 JSON healing strategies (as-is, +brace, +quote+brace, truncate-to-last-field) into testable micro-component with clear fallback chain - MOST CRITICAL extraction for brittleness reduction",
+      "StreamingSessionRegistry.ts: Extracted session management (Map CRUD, lazy initialization, getOrCreate pattern) into focused component with clean interface",
+      "ContentDiffCalculator.ts: Extracted content diffing logic (substring delta calculation) with stats helper for debugging/logging",
+      "EditorStreamCoordinator.ts: Extracted editor operation wrapper with error handling, acting as adapter between handler and EditorStreamingService",
+      "ToolParamStreamHandler.ts: Refactored to thin orchestrator (146 lines) accepting all dependencies via constructor, delegating to micro-components with clear separation of concerns",
+      "StreamingResponseHandler.ts: Updated to construct and inject ToolParamStreamHandler dependencies instead of handler creating them internally"
+    ]
+  },
+
+  "validation": "Build succeeded with zero TypeScript errors. Verified line counts: orchestrator 146 lines (from 230), total with components 480 lines (well-documented). Confirmed DI pattern working via StreamingResponseHandler integration",
+
+  "gotchas": [
+    {
+      "issue": "Initial refactoring plan called for StreamingSessionRegistry to be ~40 lines but implemented at 101 lines due to comprehensive documentation and helper methods",
+      "solution": "Accepted right-sizing principle - comprehensive documentation is valuable, 101 lines still focused and single-responsibility",
+      "category": "architecture",
+      "severity": "low"
+    },
+    {
+      "issue": "StreamingResponseHandler was instantiating ToolParamStreamHandler internally despite our DI refactoring",
+      "solution": "Moved all dependency construction (SessionRegistry, JsonRecovery, ContentDiff, EditorCoordinator) to StreamingResponseHandler constructor, then passed constructed ToolParamStreamHandler via DI",
+      "category": "integration",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "Right-sizing beats ultra-modular: Don't over-abstract trivial operations. JsonRecoveryEngine (103 lines) was the critical extraction for testability - focus effort on brittle, high-value components. Balance modularity with pragmatic line counts (~30-103 lines per component is sweet spot)",
+
+  "tags": [
+    "ultra-modular-refactoring",
+    "orchestrator-pattern",
+    "right-sizing-refactoring",
+    "json-recovery",
+    "streaming-architecture",
+    "tool-param-streaming",
+    "input-json-delta",
+    "editor-streaming",
+    "dependency-injection",
+    "single-responsibility",
+    "testability-refactoring",
+    "session-management",
+    "content-diffing",
+    "code-streaming",
+    "technical-debt-reduction"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "JsonRecoveryEngine.tryParse() - 4-strategy fallback chain for incomplete JSON: as-is → +brace → +quote+brace → truncate-to-last-field",
+      "StreamingSessionRegistry.getOrCreate() - Lazy initialization pattern for auto-creating sessions on first access",
+      "ContentDiffCalculator.calculateDiff() - Substring-based delta calculation for incremental content streaming",
+      "EditorStreamCoordinator.initEditor() - Adapter pattern wrapping EditorStreamingService with error handling"
+    ],
+    "api_surface": [
+      "ToolParamStreamHandler.initStream(toolId: string, toolName: string, index: number): void - Initialize streaming session for tool",
+      "ToolParamStreamHandler.processChunk(toolId: string, partialJson: string): Promise<void> - Process partial JSON chunk with recovery",
+      "ToolParamStreamHandler.finalizeStream(toolId: string): Promise<void> - Finalize streaming session and editor",
+      "JsonRecoveryEngine.tryParse(jsonStr: string): Record<string, unknown> | null - Parse incomplete JSON with 4 fallback strategies",
+      "StreamingSessionRegistry.getOrCreate(toolId: string): StreamingToolContext - Get or auto-create session (lazy init)",
+      "ContentDiffCalculator.calculateDiff(currentContent: string, lastContent: string): string - Calculate new content delta",
+      "EditorStreamCoordinator.initEditor(filePath: string): Promise<vscode.TextEditor | null> - Initialize editor with error handling"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "ToolParamStreamHandler constructor signature changed: no-args constructor → constructor(sessionRegistry, jsonRecovery, contentDiff, editorCoordinator, logger) requiring DI setup at construction site"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Add unit tests for JsonRecoveryEngine - each strategy individually testable now",
+      "Implement Edit tool streaming support (currently only Write tool works)",
+      "Add cursor tracking and file management improvements from polish roadmap",
+      "Consider extracting StreamingSessionRegistry.getOrCreate() lazy init pattern to reusable utility"
+    ],
+    "architecture_decisions": {
+      "right_sizing_over_ultra_modular": "Chose 4 components (~35-103 lines each) instead of 7+ micro-components. Learned from stream-completer over-abstraction - inline trivial operations, extract substantial logic only",
+      "json_recovery_as_priority": "Prioritized JsonRecoveryEngine extraction as most brittle/critical component. 4 healing strategies were hardest to test inline, biggest testability win",
+      "editor_coordinator_as_adapter": "Created EditorStreamCoordinator as thin adapter around EditorStreamingService rather than calling service directly - enables future editor abstraction"
+    },
+    "extension_points": [
+      "JsonRecoveryEngine - Add new healing strategies as private methods following existing pattern (tryParseX format)",
+      "ContentDiffCalculator - Add more sophisticated diffing algorithms (word-boundary, semantic diffing) while maintaining simple interface",
+      "StreamingSessionRegistry - Add session timeout/cleanup for long-running streams",
+      "EditorStreamCoordinator - Add support for Edit tool (currently Write-only), will need diff-based text replacement"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-refactoring-with-verification",
+    "naming_preferences": "technical-precise-with-domain-context",
+    "architecture_philosophy": "right-sized-single-responsibility",
+    "quality_standards": "testability-focus-with-pragmatic-line-counts"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "input_json_delta",
+      "tool-param-streaming",
+      "incremental-json-parsing",
+      "editor-streaming",
+      "lazy-initialization",
+      "content-diffing",
+      "streaming-session"
+    ],
+    "technical_patterns": [
+      "orchestrator-pattern",
+      "dependency-injection",
+      "adapter-pattern",
+      "fallback-chain",
+      "lazy-initialization",
+      "right-sizing-refactoring"
+    ],
+    "integration_points": [
+      "EditorStreamingService",
+      "StreamingResponseHandler",
+      "VS Code TextEditor API"
+    ]
+  }
+}

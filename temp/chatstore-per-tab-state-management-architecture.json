@@ -1,0 +1,355 @@
+{
+  "task": "chatstore-per-tab-state-management-architecture",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-27",
+  "component": "chat-tabs-chatstore",
+
+  "temporal_context": {
+    "date_iso": "2025-10-27",
+    "year": 2025,
+    "month": 10,
+    "week_number": 43,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: Map-based state management with atomic operations, multi-tenant isolation patterns, reference preservation during transitions",
+    "business": "5: Core state management for entire multi-chat system - all conversation data flows through this component",
+    "coordination": "4: Coordinates with ChatSwitcher, MessageCoordinator, PlaceholderTransitionCoordinator, DOMStateManager"
+  },
+
+  "files_modified": "0",
+  "files_touched": [
+    "src/ui/modules/ui-logic/chat-tabs/chat-tab-manager/ChatStore.js",
+    "src/ui/modules/ui-logic/chat-tabs/chat-tab-manager/ChatSwitcher.js",
+    "src/ui/modules/ui-logic/chat-tabs/chat-tab-manager/coordinators/MessageCoordinator.js",
+    "src/ui/modules/ui-logic/chat-tabs/chat-tab-manager/coordinators/ChatOperationsCoordinator.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "tabs-system-improvement-areas-analysis",
+    "tab-id-duplication-waiting-for-id-fix",
+    "sessionid-multi-chat-routing-phase-1-partial",
+    "multi-chat-instance-architecture"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - documentation only",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "none",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "User requested detailed explanation of ChatStore per-tab state management → Comprehensive architectural documentation of Map-based multi-tenant storage system with complete isolation, atomic operations, and state preservation mechanics",
+
+  "root_cause": "Need to understand how ChatStore provides per-tab isolation, manages state during transitions, and coordinates with other tab system components before implementing improvements",
+
+  "solution": {
+    "approach": "Deep architectural analysis through code reading, tracing complete lifecycle from tab creation through message storage to tab switching, documenting data structures and isolation mechanisms",
+    "key_changes": [
+      "Documented: Map<chatId, ChatData> structure providing O(1) lookup and complete per-tab isolation",
+      "Documented: ChatData structure with 8 fields (id, title, messages[], sessionId, providerId, agentState, isStreaming, timestamps)",
+      "Documented: Atomic renameChatId() operation preserving all state during placeholder→UUID transition",
+      "Documented: State preservation during tab switches via ChatSwitcher save/restore pattern",
+      "Documented: Memory model showing unbounded growth across all tabs (162KB after 80 messages)"
+    ]
+  },
+
+  "validation": "Explanation validated through code reading, lifecycle tracing from tab creation through multiple messages and switches, confirming state isolation and preservation mechanisms",
+
+  "gotchas": [
+    {
+      "issue": "Each chat has separate messages[] array but ALL arrays stay in memory forever - no cleanup or pagination",
+      "solution": "Understanding documented: each tab's messages array grows independently but cumulatively affects total memory",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "renameChatId() uses atomic delete-update-set pattern to prevent race conditions during placeholder transition",
+      "solution": "Critical pattern: (1) validate old exists and new doesn't exist, (2) delete old key, (3) update chat.id, (4) set new key",
+      "category": "concurrency",
+      "severity": "medium"
+    },
+    {
+      "issue": "ChatSwitcher saves button state to ChatStore BEFORE switching, restores AFTER switching - prevents state loss",
+      "solution": "Pattern: save current agentState → update activeChatId → switch DOM → restore new agentState",
+      "category": "state-management",
+      "severity": "medium"
+    },
+    {
+      "issue": "ChatStore only stores messages[] references - actual message content lives in chat.messages array, not separate storage",
+      "solution": "Each message pushed directly to chat.messages[] - no separate message store, simple but causes unbounded growth",
+      "category": "architecture",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "Map-based multi-tenant state storage provides perfect per-tab isolation with O(1) access, but requires careful atomic operations during key renames and explicit state preservation patterns during tab switches to prevent data loss",
+
+  "tags": [
+    "chatstore-architecture",
+    "per-tab-isolation",
+    "map-based-storage",
+    "state-management",
+    "multi-tenant-pattern",
+    "atomic-operations",
+    "tab-switching",
+    "message-storage",
+    "placeholder-transition",
+    "state-preservation",
+    "memory-model",
+    "unbounded-growth",
+    "DOCUMENTATION",
+    "ARCHITECTURE-EXPLANATION"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "ChatStore.create(chatId, title) - Creates new chat with empty messages[] and default state",
+      "ChatStore.renameChatId(oldId, newId) - Atomic rename during placeholder→UUID transition",
+      "ChatStore.get(chatId).messages - Direct array access for per-chat message isolation",
+      "ChatSwitcher.switchTo(chatId) - Save old state → switch → restore new state pattern",
+      "MessageCoordinator.addMessage(message) - Push to active chat's messages[] array"
+    ],
+    "api_surface": [
+      "ChatStore.create(chatId: string, title: string): ChatData - Create chat with isolated state",
+      "ChatStore.get(chatId: string): ChatData | undefined - O(1) lookup by chatId",
+      "ChatStore.renameChatId(oldId: string, newId: string): boolean - Atomic key rename",
+      "ChatStore.updateAgentState(chatId: string, agentState: 'active'|'busy'): void - Save button state",
+      "ChatStore.setIsStreaming(chatId: string, isStreaming: boolean): void - Track streaming status",
+      "ChatStore.updateProviderId(chatId: string, providerId: string): boolean - Set provider per chat",
+      "ChatStore.getAll(): ChatData[] - Get all chats for rendering",
+      "MessageCoordinator.addMessage(message: Message): void - Add to active chat's messages[]",
+      "ChatSwitcher.switchTo(chatId: string): {success, previousChatId, currentChatId} - Switch with state save/restore"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Add pagination to messages[] array (slice to keep last 100 rendered)",
+      "Implement message archival for old messages beyond threshold",
+      "Add virtual scrolling to DOM rendering layer",
+      "Add ChatStore.getMessageCount(chatId) for statistics",
+      "Add ChatStore.clearOldMessages(chatId, keepLast: number) for cleanup"
+    ],
+    "architecture_decisions": {
+      "map_over_object": "Map chosen over plain object for O(1) guaranteed lookup, maintains insertion order, native key-value API",
+      "direct_array_storage": "messages[] stored directly in chat object (not separate store) for simplicity and reference locality",
+      "atomic_rename": "renameChatId() uses validate-delete-update-set pattern to prevent race conditions during placeholder transition",
+      "state_save_restore": "ChatSwitcher explicitly saves/restores agentState preventing loss during rapid switches"
+    },
+    "extension_points": [
+      "ChatStore.messages[] - Add pagination by slicing array: chat.messages.slice(-100)",
+      "ChatStore.create() - Add messageLimit parameter for bounded storage",
+      "ChatSwitcher.switchTo() - Hook point for save/restore additional per-tab UI state",
+      "MessageCoordinator.addMessage() - Intercept point for message validation or transformation"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "thorough-documentation-and-analysis",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "single-responsibility-with-coordinator-orchestration",
+    "quality_standards": "deep-understanding-before-modification"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "multi-tab-state-isolation",
+      "per-chat-message-storage",
+      "placeholder-to-uuid-transition",
+      "tab-switching-state-preservation",
+      "provider-context-per-chat",
+      "button-state-persistence",
+      "streaming-status-tracking"
+    ],
+    "technical_patterns": [
+      "map-based-multi-tenant-storage",
+      "atomic-key-rename-operations",
+      "save-restore-state-pattern",
+      "o1-lookup-by-id",
+      "unbounded-array-growth",
+      "reference-preservation-during-mutation"
+    ],
+    "integration_points": [
+      "ChatStore-to-ChatSwitcher-state-preservation",
+      "ChatStore-to-MessageCoordinator-message-appending",
+      "ChatStore-to-PlaceholderTransitionCoordinator-atomic-rename",
+      "ChatStore-to-ChatOperationsCoordinator-crud-operations"
+    ]
+  },
+
+  "architecture_deep_dive": {
+    "data_structure": {
+      "storage": "Map<chatId: string, ChatData: object>",
+      "chatData_schema": {
+        "id": "string - chatId (UUID or 'waiting_for_id')",
+        "title": "string - Display name ('Chat 1', 'Chat 2')",
+        "messages": "Message[] - Unbounded array of all messages",
+        "sessionId": "string | null - Provider's session ID for continuity",
+        "providerId": "string | null - Which provider (claude/openai/codex)",
+        "agentState": "'active' | 'busy' - Button state for this chat",
+        "isStreaming": "boolean - Currently receiving chunks",
+        "createdAt": "number - Timestamp of creation",
+        "lastActivityAt": "number - Last message/interaction timestamp"
+      },
+      "auxiliary_state": {
+        "chatCounter": "number - Auto-increment for unique chat titles"
+      }
+    },
+    "lifecycle_stages": {
+      "stage_1_creation": {
+        "trigger": "User clicks 'New Chat' button",
+        "flow": [
+          "ChatOperationsCoordinator.createNewChat()",
+          "ChatStore.create('waiting_for_id', 'Chat N')",
+          "Chat object initialized with empty messages[]",
+          "MessageListFactory creates DOM element",
+          "Tab rendered in UI"
+        ],
+        "result": "New entry in Map with placeholder key"
+      },
+      "stage_2_first_message": {
+        "trigger": "User sends first message",
+        "flow": [
+          "MessageCoordinator.addMessage(message)",
+          "Get active chat from ChatSwitcher",
+          "chat.messages.push(message)",
+          "updateActivity(chatId) updates lastActivityAt"
+        ],
+        "result": "Message stored in chat's isolated messages[] array"
+      },
+      "stage_3_placeholder_transition": {
+        "trigger": "First stream chunk arrives with real UUID",
+        "flow": [
+          "AutoTabCreator detects new chatId",
+          "PlaceholderTransitionCoordinator.transition(realChatId)",
+          "ChatStore.renameChatId('waiting_for_id', realUUID)",
+          "Atomic: delete old key → update chat.id → set new key",
+          "ALL state (messages, provider, etc.) preserved"
+        ],
+        "result": "Chat moves to permanent UUID key, all data intact"
+      },
+      "stage_4_streaming_response": {
+        "trigger": "Assistant streams response",
+        "flow": [
+          "Stream chunks processed by AgentMessagesManager",
+          "When stream completes: MessageCoordinator.addMessage()",
+          "chat.messages.push(assistantMessage)",
+          "setIsStreaming(chatId, false)"
+        ],
+        "result": "Second message added to same chat's messages[]"
+      },
+      "stage_5_tab_switching": {
+        "trigger": "User clicks different tab",
+        "flow": [
+          "ChatSwitcher.switchTo(newChatId)",
+          "Save: updateAgentState(oldChatId, currentButtonState)",
+          "Update: activeChatId = newChatId",
+          "Switch: DOMStateManager toggles CSS visibility",
+          "Restore: applyState(newChat.agentState)",
+          "Emit: provider.active.v1 with newChat.providerId"
+        ],
+        "result": "UI switches to new tab, all state preserved for both"
+      }
+    },
+    "isolation_mechanisms": {
+      "message_isolation": "Each chat.messages[] is separate array - no shared references",
+      "provider_isolation": "Each chat tracks own providerId and sessionId",
+      "button_state_isolation": "agentState saved per-chat during switch",
+      "streaming_state_isolation": "isStreaming tracked independently per-chat",
+      "temporal_isolation": "lastActivityAt tracks per-chat activity"
+    },
+    "atomic_operations": {
+      "renameChatId": {
+        "steps": [
+          "Validate: old key exists in Map",
+          "Validate: new key does NOT exist in Map",
+          "Delete: this.chats.delete(oldId)",
+          "Update: chat.id = newId",
+          "Set: this.chats.set(newId, chat)"
+        ],
+        "guarantees": "No race condition - either complete success or complete failure",
+        "edge_case_handling": "Returns false if old missing or new already exists"
+      }
+    },
+    "state_preservation_patterns": {
+      "during_switch": {
+        "save_phase": "Extract current state (buttonStateManager.getCurrentState()) and store in ChatStore",
+        "restore_phase": "Load new chat's state from ChatStore and apply to UI",
+        "protected_state": [
+          "agentState (button enabled/disabled)",
+          "providerId (which provider active)",
+          "messages[] (all conversation history)",
+          "isStreaming (streaming status)",
+          "sessionId (provider session)"
+        ]
+      },
+      "during_transition": {
+        "preservation_method": "Atomic renameChatId() moves entire chat object to new key",
+        "preserved_fields": "ALL 8 fields preserved - no data loss",
+        "reference_handling": "messages[] array reference preserved (same array, new key)"
+      }
+    },
+    "memory_characteristics": {
+      "growth_pattern": "Linear growth with total message count across all tabs",
+      "no_cleanup": "No automatic message removal or archival",
+      "no_limits": "No max messages per chat or max total memory",
+      "example_growth": {
+        "1_hour_2_tabs": "80 messages × 2KB = 160KB",
+        "2_hours_2_tabs": "270 messages × 2KB = 540KB",
+        "4_hours_4_tabs": "750 messages × 2KB = 1.5MB",
+        "8_hours_4_tabs": "1500 messages × 2KB = 3MB"
+      }
+    }
+  },
+
+  "api_usage_examples": {
+    "create_new_chat": {
+      "code": "chatStore.create('waiting_for_id', 'Chat 1')",
+      "result": "New chat with empty messages[], all state initialized to defaults"
+    },
+    "add_message_to_active_chat": {
+      "code": "const chat = chatSwitcher.getActiveChat(); chat.messages.push(message);",
+      "result": "Message appended to active chat's isolated messages[] array"
+    },
+    "switch_tabs": {
+      "code": "chatSwitcher.switchTo('abc-123'); // saves old state, restores new state",
+      "result": "Active chat changes, button state and provider context restored"
+    },
+    "transition_placeholder": {
+      "code": "chatStore.renameChatId('waiting_for_id', 'abc-123-def-456')",
+      "result": "Chat moved to new key, all messages and state preserved"
+    },
+    "get_chat_messages": {
+      "code": "const messages = chatStore.get('abc-123').messages",
+      "result": "Direct access to chat's message array (O(1) lookup)"
+    },
+    "update_provider_per_chat": {
+      "code": "chatStore.updateProviderId('abc-123', 'claude')",
+      "result": "Provider tracked per-chat for context restoration on switch"
+    }
+  },
+
+  "performance_characteristics": {
+    "lookup_complexity": "O(1) - Map.get() is constant time",
+    "insert_complexity": "O(1) - Map.set() is constant time",
+    "message_append_complexity": "O(1) - Array.push() is constant time (amortized)",
+    "rename_complexity": "O(1) - Delete old key + set new key = 2 operations",
+    "switch_complexity": "O(1) - Save state + restore state = fixed operations",
+    "memory_complexity": "O(n) where n = total messages across all chats",
+    "no_pagination_impact": "All messages stay in memory regardless of visibility"
+  },
+
+  "critical_dependencies": {
+    "ChatSwitcher": "Provides activeChatId, coordinates state save/restore during switch",
+    "MessageCoordinator": "Adds messages to active chat's messages[] array",
+    "ChatOperationsCoordinator": "Orchestrates create/delete/rename operations with factory and renderer",
+    "PlaceholderTransitionCoordinator": "Calls renameChatId() during placeholder→UUID transition",
+    "DOMStateManager": "Handles CSS visibility switching of message-list DOM elements",
+    "MessageListFactory": "Creates/removes per-chat DOM elements matching chatId"
+  }
+}

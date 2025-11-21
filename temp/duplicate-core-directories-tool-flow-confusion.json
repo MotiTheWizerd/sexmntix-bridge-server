@@ -1,0 +1,181 @@
+{
+  "task": "duplicate-core-directories-tool-flow-confusion",
+  "agent": "claude-sonnet-4",
+  "date": "2025-11-04",
+  "component": "tool-notification-rendering-pipeline",
+
+  "temporal_context": {
+    "date_iso": "2025-11-04",
+    "year": 2025,
+    "month": 11,
+    "week_number": 45,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "5: Tool event flow spans backend → BridgeHandler → EventBus → ChatStreamMappers → ToolEventHandler → ToolRenderer across BOTH core directories",
+    "business": "4: Directly impacts debugging efficiency and developer ability to understand tool notification system",
+    "coordination": "3: Confusion caused hours of investigation across multiple sessions"
+  },
+
+  "files_modified": "0",
+  "files_touched": [
+    "src/ui/modules/core/events/bridge-handler/mapping/event-mapper/incoming/ChatStreamMappers.js",
+    "src/ui/modules/ui-logic/core/events/bridge-handler/mapping/event-mapper/incoming/ChatStreamMappers.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/formatter/SearchFormatter.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/ToolEventHandler.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/renderer/ToolRenderer.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "search-tool-end-display-done-text-fix",
+    "duplicate-core-directories-investigation-documentation",
+    "ui-core-architecture-duplicate-directories-explained"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Tool notification debugging confused by duplicate ChatStreamMappers files with different implementations → Understanding that BOTH ChatStreamMappers are in the execution path depending on which import chain triggers them",
+
+  "root_cause": "Tool event flow crosses BOTH core directories: Backend emits tool_start/tool_end → BridgeHandler (can be from EITHER core/) → ChatStreamMappers (can be from EITHER core/) → EventBus → ToolEventHandler → ToolRenderer → SearchFormatter. The duplication means we had to add debug logs and remove them from TWO places, causing confusion about which file is actually executing.",
+
+  "solution": {
+    "approach": "Map complete tool notification flow from backend event emission through all transformation layers to final DOM rendering, identifying where each core/ directory's files are used",
+    "key_changes": [
+      "Understanding established: Tool flow uses ui-logic/core/ChatStreamMappers because DIBootstrap creates BridgeHandler from ui-logic/core/",
+      "Understanding established: modules/core/ChatStreamMappers was being loaded by main.js via events.js import",
+      "Understanding established: Both files needed debug log cleanup because BOTH could be in execution path",
+      "Documentation created: Complete flow diagram in investigation notes showing dual paths"
+    ]
+  },
+
+  "validation": "Previous session: Added debug logs to ChatStreamMappers, saw them in console, confirming file is executing. This session: Had to clean logs from BOTH ChatStreamMappers files to fully remove console spam",
+
+  "gotchas": [
+    {
+      "issue": "Last session we edited ui-logic/ChatStreamMappers thinking it was the ONLY one, saw tool_start working. This session discovered core/ChatStreamMappers also exists with different constructor signature",
+      "solution": "Check for duplicates BEFORE making changes. Search 'ChatStreamMappers' across entire project to find all instances",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "ChatStreamMappers in ui-logic has constructor(logger, eventBus), but core version has constructor(logger) only. This divergence means one is clearly outdated",
+      "solution": "Always compare file implementations when duplicates found. Newer version (ui-logic) has additional eventBus parameter added for feature enhancement",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Tool event flow diagram was incomplete because we didn't know BridgeHandler existed in TWO locations, so we couldn't trace which ChatStreamMappers was being called",
+      "solution": "When debugging event flows, grep for ALL instances of class names, not just assumed single instance. Use 'find . -name ClassName.js' to find all files",
+      "category": "debugging",
+      "severity": "medium"
+    },
+    {
+      "issue": "SearchFormatter only exists in ONE location (ui-logic) but we suspected it might have duplicate too based on ChatStreamMappers pattern",
+      "solution": "Verified with glob search that SearchFormatter has no duplicate. Not all files are duplicated, only core/ infrastructure files",
+      "category": "debugging",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "Tool event flows are EXTREMELY sensitive to duplicate file confusion because events traverse multiple architectural layers (bridge → mappers → event bus → handlers → renderers → formatters). When debugging tool issues, ALWAYS check for file duplicates first. A bug in the wrong file won't manifest because different import chain is active. The confusion multiplies debugging time by factor of files duplicated.",
+
+  "tags": [
+    "tool-notifications",
+    "event-flow",
+    "ChatStreamMappers",
+    "BridgeHandler",
+    "EventBus",
+    "ToolEventHandler",
+    "ToolRenderer",
+    "SearchFormatter",
+    "duplicate-confusion",
+    "debugging-complexity",
+    "import-chain-debugging",
+    "tool_start",
+    "tool_end",
+    "search-tool"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "Backend → BridgeHandler.handleIncomingMessage() - Entry point for tool events from extension",
+      "BridgeHandler → ChatStreamMappers.mapToolStart/mapToolEnd() - Transforms bridge events to UI events",
+      "ChatStreamMappers → EventBus.emit(UI_EVENTS.TOOL_USE_START) - Publishes to event bus",
+      "EventBus → ToolEventHandler.handleToolStart() - Subscribes to tool events",
+      "ToolEventHandler → ToolRenderer.createToolElement() - Creates DOM for tool notification",
+      "ToolRenderer → SearchFormatter.formatTarget() - Formats search-specific display text",
+      "SearchFormatter returns {minimal: 'Done. pattern', full: 'Done. pattern'} for tool_end"
+    ],
+    "api_surface": [
+      "ChatStreamMappers.mapToolStart(payload): {uiEvent, uiPayload} - Maps tool_start from backend",
+      "ChatStreamMappers.mapToolEnd(payload): {uiEvent, uiPayload} - Maps tool_end from backend",
+      "SearchFormatter.formatTarget(searchPayload): {minimal, full} - Returns display strings for search tool",
+      "ToolRenderer.updateToolElement(toolId, payload) - Updates DOM when tool state changes",
+      "ToolEventHandler.handleToolEnd(payload) - Handles tool completion events"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "ChatStreamMappers constructor: (logger) → (logger, eventBus) in ui-logic version only",
+      "This breaking change exists in ONE file but not its duplicate, proving version divergence"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "When debugging tool issues, FIRST check for file duplicates before adding debug logs",
+      "Create tool event flow diagram with BOTH core/ paths marked to show which is active",
+      "Add automated test that verifies ChatStreamMappers in BOTH locations produce same output",
+      "Consider adding ESLint rule that fails build if duplicate files have different content",
+      "Consolidate core/ directories to eliminate this entire class of debugging confusion"
+    ],
+    "architecture_decisions": {
+      "tool_event_flow_path": "Backend → ui-logic/core/BridgeHandler → ui-logic/core/ChatStreamMappers → EventBus → ui-logic/ToolEventHandler → ui-logic/ToolRenderer → ui-logic/SearchFormatter. This is PRIMARY path.",
+      "modules_core_usage": "modules/core/ is loaded by main.js for UI_EVENTS constants but BridgeHandler instance comes from ui-logic/core/. This creates SPLIT usage pattern.",
+      "duplicate_sync_requirement": "Until consolidation, ChatStreamMappers changes MUST be applied to BOTH files or tool events will break depending on import path"
+    },
+    "extension_points": [
+      "ToolEventHandler.js - Central hub for all tool event types (start, end, error, progress)",
+      "SearchFormatter.js - Action-specific formatter, add new tool actions here",
+      "ChatStreamMappers.js - Add new bridge event types here, but apply to BOTH locations!"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "thorough-investigation",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "event-driven",
+    "quality_standards": "correctness-over-convenience"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "tool-notifications",
+      "event-driven-architecture",
+      "bridge-pattern",
+      "event-transformation",
+      "state-synchronization"
+    ],
+    "technical_patterns": [
+      "event-bus-pattern",
+      "mapper-pattern",
+      "renderer-pattern",
+      "formatter-pattern",
+      "handler-pattern",
+      "duplicate-file-debugging",
+      "import-chain-tracing"
+    ],
+    "integration_points": [
+      "vscode-extension-backend",
+      "webview-frontend",
+      "bridge-message-protocol",
+      "dom-rendering-pipeline"
+    ]
+  }
+}

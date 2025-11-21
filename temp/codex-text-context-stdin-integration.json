@@ -1,0 +1,150 @@
+{
+  "task": "codex-text-context-stdin-integration",
+  "agent": "claude-sonnet-4.5",
+  "date": "2025-10-27",
+  "component": "codex-cli-text-context-integration",
+
+  "temporal_context": {
+    "date_iso": "2025-10-27",
+    "year": 2025,
+    "month": 10,
+    "week_number": 43,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: Multi-layer context passing, stdin handling, shell escaping",
+    "business": "4: Critical for clipboard widget functionality, user expects context to work",
+    "coordination": "2: Traced through 4-layer call chain to find where contexts were dropped"
+  },
+
+  "files_modified": "2",
+  "files_touched": [
+    "src/ext/modules/providers/codex/components/api/StreamingApiHandler.ts",
+    "src/ext/modules/providers/codex/components/cli/CodexCLIExecutor.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "clipboard-widget-system-implementation",
+    "clipboard-text-context-api-integration",
+    "multi-modal-json-stdin-cli-migration"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - stdin write is fast, same process spawning overhead",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Text contexts from clipboard widget displayed in UI but not sent to Codex CLI → Full stdin-based context integration using '-' placeholder and prompt piping (same pattern as Claude)",
+
+  "root_cause": "Contexts parameter was passed through entire call chain (CodexService → StreamingApiOrchestrator → StreamingApiHandler) but never passed to CodexCLIExecutor. Additionally, initial attempt to pass contexts via CLI argument failed because newlines in context text broke shell parsing",
+
+  "solution": {
+    "approach": "Mirror Claude's stdin approach - pass '-' as prompt argument and pipe full prompt with contexts to stdin, avoiding shell escaping issues with newlines",
+    "key_changes": [
+      "StreamingApiHandler.ts:88: Added contexts parameter when calling executor.executeStreaming()",
+      "CodexCLIExecutor.ts:37: Added contexts to options interface signature",
+      "CodexCLIExecutor.ts:50-60: Append text contexts to prompt with '## USER EXTRA CONTEXT:' header, set useStdin flag",
+      "CodexCLIExecutor.ts:64-66: Pass '-' placeholder instead of full prompt when stdin mode enabled",
+      "CodexCLIExecutor.ts:88-92: Write fullPrompt to child.stdin and close stream after spawn"
+    ]
+  },
+
+  "validation": "User tested by pasting clipboard text 'this is extrea context' and sending to Codex. Codex response confirmed: 'I can see the extra context you included: \"this is extrea context.\" Let me know if you want me to do anything with it.'",
+
+  "gotchas": [
+    {
+      "issue": "Initial implementation passed context-enriched prompt as CLI argument, causing newlines to break shell parsing",
+      "solution": "Switched to stdin mode - pass '-' as prompt argument to CLI, write full prompt (with newlines) to stdin after process spawn",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Contexts parameter existed in call chain but was never actually used - silently ignored at executor level",
+      "solution": "Traced through 4-layer call stack (Service → Orchestrator → Handler → Executor) to find where parameter was dropped",
+      "category": "integration",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "When dealing with multi-line user input in CLI tools, always prefer stdin over argument passing. Check if CLI supports stdin mode (Codex uses '-' placeholder, Claude uses JSON stdin). This avoids all shell escaping nightmares with quotes, newlines, and special characters.",
+
+  "tags": [
+    "codex-cli",
+    "stdin-input",
+    "text-context",
+    "clipboard-integration",
+    "multi-line-handling",
+    "shell-escaping",
+    "context-passing",
+    "user-extra-context",
+    "parameter-tracing",
+    "provider-integration"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "useStdin flag - conditional stdin mode when contexts present",
+      "child.stdin.write() + child.stdin.end() - standard Node.js stdin pattern",
+      "CodexCommandFactory.createResumeCommand() - accepts '-' placeholder for stdin mode",
+      "## USER EXTRA CONTEXT: header - consistent with Claude provider pattern"
+    ],
+    "api_surface": [
+      "CodexCLIExecutor.executeStreaming(prompt, options): AsyncGenerator<string> - options.contexts added",
+      "StreamingApiHandler.streamConversation(prompt, sessionId, mode, codex, thread, path, folder, contexts) - contexts now passed to executor",
+      "child.stdin.write(fullPrompt) - writes prompt to process stdin",
+      "child.stdin.end() - closes stdin stream after write"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Add image context support using Codex CLI's '-i, --image <FILE>' flag",
+      "Convert clipboard image data URLs to temp files and pass file paths",
+      "Consider always using stdin mode for consistency, even without contexts",
+      "Add error handling for stdin write failures"
+    ],
+    "architecture_decisions": {
+      "stdin_vs_argument": "Use stdin when contexts exist to handle multi-line text properly, avoiding shell escaping complexity",
+      "mirror_claude_pattern": "Use same '## USER EXTRA CONTEXT:' header as Claude provider for consistency",
+      "conditional_stdin": "Only use stdin when contexts present to maintain backward compatibility with simple prompts"
+    },
+    "extension_points": [
+      "CodexCLIExecutor.ts:54-60 - Add image context handling logic here (convert data URLs to temp files)",
+      "CodexCommandBuilder.ts - Add methods for --image flag handling",
+      "StreamingApiHandler.ts:32-34 - Already logs image count, ready for image integration"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "natural-conversational",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "clipboard-widget",
+      "text-context",
+      "stdin-piping",
+      "multi-modal-messaging"
+    ],
+    "technical_patterns": [
+      "stdin-mode",
+      "process-spawning",
+      "context-propagation",
+      "orchestrator-pattern"
+    ],
+    "integration_points": [
+      "codex-cli",
+      "clipboard-widget-system",
+      "streaming-response-handler"
+    ]
+  }
+}

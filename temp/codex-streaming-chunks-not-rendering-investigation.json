@@ -1,0 +1,188 @@
+{
+  "task": "codex-streaming-chunks-not-rendering-investigation",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-23",
+  "component": "codex-streaming-pipeline",
+
+  "temporal_context": {
+    "date_iso": "2025-10-23",
+    "year": 2025,
+    "month": 10,
+    "week_number": 43,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Complex streaming pipeline investigation spanning provider adapters, event transformers, and UI rendering",
+    "business": "5: Critical blocker - Codex streaming completely non-functional, no text appearing in UI",
+    "coordination": "2: Single developer investigation, minimal coordination needed"
+  },
+
+  "files_modified": "0",
+  "files_touched": [
+    "docs/codex-cli-output-format.md",
+    "docs/codex-cli-event-types.md",
+    "docs/codex-cli-essential-flags.md",
+    "src/ext/modules/providers/base/ExtensionTypes.ts",
+    "src/ext/modules/providers/codex/CodexEventTransformer.ts",
+    "src/ext/modules/providers/codex/transformers/AgentMessageTransformer.ts",
+    "src/ext/modules/providers/codex/transformers/ReasoningTransformer.ts",
+    "src/ext/modules/providers/codex/utils/BaseMessageBuilder.ts",
+    "src/ext/modules/providers/codex/routing/ItemRouter.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/StreamingResponseHandler.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/text-chunking/ConversationMessageChunker.ts",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/ChunkProcessor.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/parsers/chunk-content-extractor/extractors/ReasoningContentExtractor.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "codex-cli-integration",
+    "universal-message-format-implementation",
+    "reasoning-extractor-live-streaming-break",
+    "conversation-history-ui-display-failed-attempt"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No changes made yet - investigation phase only",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "none",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Codex streaming shows thinking indicator but no text chunks render → Investigating event transformation pipeline and item.updated handling discrepancy between docs and code",
+
+  "root_cause": "SUSPECTED: ItemRouter.routeUpdated() returns empty array for agent_message and reasoning types, potentially ignoring streaming item.updated events. Docs claim 'only item.completed sent' but actual Codex behavior needs live verification.",
+
+  "solution": {
+    "approach": "Systematic investigation: Read Codex CLI docs → Trace event transformation pipeline → Identify item.updated event handling gap → Wait for live Codex streaming example to verify actual behavior",
+    "key_changes": [
+      "NO CHANGES YET - Investigation in progress",
+      "Identified potential issue in ItemRouter.routeUpdated() returning [] for streaming message types",
+      "Documented Codex CLI event structure: item.text field → ConversationMessage.content field mapping",
+      "Confirmed transformation chain works correctly for item.completed events"
+    ]
+  },
+
+  "validation": "Waiting for live Codex streaming example from user to confirm actual event sequence",
+
+  "gotchas": [
+    {
+      "issue": "Codex CLI documentation says 'No item.started or item.updated - Only item.completed in this flow' but code has item.updated handlers",
+      "solution": "Need live streaming test to confirm if docs are outdated or if Codex truly only sends completed events (would explain why chunks don't render)",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Codex uses item.text field while ConversationMessage expects content field",
+      "solution": "AgentMessageTransformer and ReasoningTransformer correctly map item.text → content via BaseMessageBuilder",
+      "category": "integration",
+      "severity": "low"
+    },
+    {
+      "issue": "Provider-specific thinking display broken across multiple sessions (Claude pink vs Codex green)",
+      "solution": "Not addressed in this investigation - separate issue for styling/theming",
+      "category": "configuration",
+      "severity": "medium"
+    },
+    {
+      "issue": "Tool calls and thinking blocks missing when restoring chat from history",
+      "solution": "Not addressed in this investigation - separate AgentMessageBuilder filtering issue",
+      "category": "integration",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "Always verify live behavior vs documentation. Event-driven streaming systems require tracing the full pipeline: provider output → transformer → chunker → UI processor. The gap between expected (item.updated streaming) and documented (item.completed only) behavior is critical.",
+
+  "tags": [
+    "codex",
+    "streaming",
+    "NDJSON",
+    "event-transformation",
+    "item-updated",
+    "item-completed",
+    "ConversationMessage",
+    "universal-message-format",
+    "chunk-rendering",
+    "thinking-indicator",
+    "investigation",
+    "pipeline-tracing",
+    "provider-adapter"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "CodexEventTransformer.transformEvent() - Orchestrator delegating to EventRouter → ItemRouter → Transformers",
+      "ItemRouter.routeUpdated() - Returns empty array for agent_message/reasoning (potential issue)",
+      "ItemRouter.routeCompleted() - Correctly transforms agent_message and reasoning via transformers",
+      "BaseMessageBuilder.createWithTimestamp() - Maps item.text → ConversationMessage.content",
+      "ConversationMessageChunker.chunkMessage() - Splits content for typewriter effect (only chunks agent_message/final_result)",
+      "ChunkProcessor.append() - UI rendering orchestrator for streaming chunks"
+    ],
+    "api_surface": [
+      "CodexEventTransformer.transformEvent(event: ThreadEvent, sessionId?: string): ConversationMessage[] - Main transformation entry point",
+      "AgentMessageTransformer.transform(item: AgentMessageItem, messageId, timestamp, sessionId): ConversationMessage - Maps item.text to content",
+      "ReasoningTransformer.transform(item: ReasoningItem, messageId, timestamp, sessionId): ConversationMessage - Creates thinking structure",
+      "ItemRouter.routeUpdated(item: ThreadItem, messageId, timestamp, sessionId): ConversationMessage[] - RETURNS [] FOR MOST TYPES",
+      "ConversationMessageChunker.chunkMessage(message: ConversationMessage): Generator<ConversationMessage> - Yields text chunks"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Watch live Codex streaming example to capture actual NDJSON event sequence",
+      "Determine if item.updated events are sent or only item.completed",
+      "If item.updated exists: Add agent_message and reasoning cases to ItemRouter.routeUpdated()",
+      "If only item.completed: Investigate why thinking indicator appears before content (async timing issue?)",
+      "Test ConversationMessageChunker with actual Codex output to verify chunking works",
+      "Fix provider-specific thinking display styling (separate task)",
+      "Fix tool calls missing in history restore (separate task)"
+    ],
+    "architecture_decisions": {
+      "universal-message-format": "All providers transform to ConversationMessage format with standardized fields (type, content, thinking, tool, provider)",
+      "item-text-to-content-mapping": "Codex item.text → ConversationMessage.content happens in transformer layer via BaseMessageBuilder",
+      "streaming-chunk-generation": "ConversationMessageChunker splits long content AFTER transformation, provider-agnostic",
+      "event-routing-pattern": "EventRouter (thread events) → ItemRouter (item events) → Specialized Transformers (type-specific)"
+    },
+    "extension_points": [
+      "ItemRouter.routeUpdated() - Add streaming support for agent_message/reasoning if item.updated events exist",
+      "ReasoningContentExtractor.js - Add provider-specific filtering/styling when rendering thinking indicators",
+      "ChunkFilter.js - Add Codex-specific metadata filtering patterns if needed"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "rapid-prototype with thorough investigation before changes",
+    "naming_preferences": "natural-conversational with clear descriptive names",
+    "architecture_philosophy": "ultra-modular single-responsibility with dependency-injection orchestrators",
+    "quality_standards": "maintainability-focus with comprehensive documentation and memory preservation"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "NDJSON streaming",
+      "provider adapter pattern",
+      "universal message format",
+      "thinking indicators",
+      "typewriter effect chunking",
+      "event transformation pipeline",
+      "session continuity via thread_id"
+    ],
+    "technical_patterns": [
+      "orchestrator-delegate pattern",
+      "event-driven architecture",
+      "streaming generator functions",
+      "micro-component dependency injection",
+      "provider-agnostic transformation layer"
+    ],
+    "integration_points": [
+      "Codex CLI NDJSON output",
+      "StreamingResponseHandler (backend)",
+      "ChunkProcessor (UI frontend)",
+      "ConversationMessageChunker (middleware)"
+    ]
+  }
+}

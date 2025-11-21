@@ -1,0 +1,369 @@
+{
+  "timestamp": "2025-10-06T18:45:00.000Z",
+  "type": "technical-achievement",
+  "task": "multi-modal-stdin-migration-complete",
+  "component": "claude-cli-integration",
+  "status": "completed",
+  "tags": [
+    "multi-modal-messaging",
+    "json-stdin-piping",
+    "claude-cli-migration",
+    "content-blocks",
+    "image-support",
+    "ndjson-parsing",
+    "debugging-journey",
+    "cross-layer-architecture",
+    "ui-extension-bridge",
+    "production-ready"
+  ],
+
+  "summary": {
+    "problem": "CLI flag-based message sending (-p, -r) with text-only support → Unified JSON stdin approach supporting multi-modal content (text + images) via Claude API content blocks",
+    "solution": "Complete migration to --input-format stream-json with proper message envelope, NDJSON parsing, and image content blocks",
+    "impact": "Production-ready multi-modal support - users can paste images and Claude analyzes them in real-time",
+    "complexity": "High - touched 9+ files across UI and Extension layers with multiple debugging iterations"
+  },
+
+  "context": {
+    "motivation": "Enable native image support in Sementix VSCode extension for true multi-modal conversations with Claude",
+    "constraints": [
+      "Must maintain session continuity with -c flag",
+      "Must preserve existing permission system",
+      "Must keep backward compatibility for text-only messages",
+      "Must follow Claude CLI stdin format specification"
+    ],
+    "previous_state": "Using separate code paths: -p for prompts, -r for resume, text-only support",
+    "desired_state": "Single unified stdin JSON path for all messages (text + images) with session continuity"
+  },
+
+  "technical_solution": {
+    "architecture": {
+      "overview": "UI enrichment pipeline → Extension → ContentBlockBuilder → JSON stdin → Claude CLI → NDJSON parser → UI",
+      "layers": [
+        {
+          "name": "UI Layer",
+          "components": [
+            "UserWidgetClipboardImage - Manages pasted images gallery",
+            "ImageContextPlugin - Enriches messages with image data",
+            "EventMapper - Maps UI events to bridge protocol"
+          ],
+          "responsibility": "Capture images from clipboard and send with proper structure"
+        },
+        {
+          "name": "Bridge Layer",
+          "components": [
+            "OutgoingProcessor - Processes UI → Extension events",
+            "MessageValidator - Validates and converts payloads"
+          ],
+          "responsibility": "Transport contexts from UI to Extension"
+        },
+        {
+          "name": "Extension Layer",
+          "components": [
+            "ContentBlockBuilder - Builds Claude API content blocks",
+            "CLIExecutor - Handles stdin/stdout with Claude CLI",
+            "ClaudeCodeService - Orchestrates message flow"
+          ],
+          "responsibility": "Build proper JSON format and parse responses"
+        }
+      ]
+    },
+
+    "key_components": {
+      "ContentBlockBuilder": {
+        "file": "src/ext/modules/providers/anthropics/cli-wrapper/utils/ContentBlockBuilder.ts",
+        "purpose": "Build Claude API-compliant content blocks from text and images",
+        "interfaces": {
+          "MessageContexts": {
+            "text": "string[] (optional)",
+            "images": "Array<{dataUrl: string}> (optional)"
+          },
+          "ClaudeMessage": {
+            "role": "user",
+            "content": "ContentBlock[]"
+          },
+          "ClaudeStdinMessage": {
+            "type": "user",
+            "message": "ClaudeMessage",
+            "session_id": "string",
+            "parent_tool_use_id": "null"
+          }
+        },
+        "methods": {
+          "parseDataUrl": "Extracts media_type and base64 data from data URL",
+          "buildContentBlocks": "Creates array of text and image content blocks",
+          "buildJsonMessage": "Builds complete stdin JSON with session_id"
+        }
+      },
+
+      "CLIExecutor": {
+        "file": "src/ext/modules/providers/anthropics/cli-wrapper/cli-executor/CLIExecutor.ts",
+        "changes": [
+          "Added executeWithStdin() method for JSON message piping",
+          "Rewrote claudeMessage() to use stdin for all messages",
+          "Updated claudeResumeWithTools() to pass sessionId to ContentBlockBuilder"
+        ],
+        "cli_args": "--input-format stream-json --output-format stream-json --verbose [-c]"
+      },
+
+      "ClaudeCodeService": {
+        "file": "src/ext/modules/providers/anthropics/cli-wrapper/ClaudeCodeService.ts",
+        "changes": [
+          "Added NDJSON parsing: split by newlines, map each line to JSON.parse()",
+          "Added contexts parameter to askClaudeAsConversation()",
+          "Added logging for multi-modal message detection"
+        ]
+      }
+    },
+
+    "message_format": {
+      "stdin_json": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Your message here"
+            },
+            {
+              "type": "image",
+              "source": {
+                "type": "base64",
+                "media_type": "image/png",
+                "data": "iVBORw0KG..."
+              }
+            }
+          ]
+        },
+        "session_id": "64aac332-d540-454e-99cc-4eb0c299c73e",
+        "parent_tool_use_id": null
+      },
+      "stdout_ndjson": [
+        "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"...\"}",
+        "{\"type\":\"assistant\",\"message\":{\"content\":[...]}}",
+        "{\"type\":\"result\",\"subtype\":\"success\",\"session_id\":\"...\"}"
+      ]
+    }
+  },
+
+  "debugging_journey": {
+    "iteration_1": {
+      "error": "Expected message type 'user' or 'control', got 'undefined'",
+      "cause": "Used 'role: user' instead of 'type: user' at top level",
+      "fix": "Changed ClaudeMessage interface to use 'role', created ClaudeStdinMessage with 'type'",
+      "lesson": "Claude CLI expects specific envelope format with both type and nested message"
+    },
+
+    "iteration_2": {
+      "error": "Cannot read properties of undefined (reading 'role')",
+      "cause": "Changed to 'type: user' but removed 'role' from nested message",
+      "fix": "Added proper nesting: type at top level, role in nested message object",
+      "lesson": "BOTH fields required - researched actual CLI format from web search"
+    },
+
+    "iteration_3": {
+      "error": "Unexpected non-whitespace character after JSON at position 666",
+      "cause": "CLI outputs NDJSON (newline-delimited JSON), parser expected single JSON",
+      "fix": "Split stdout by newlines, map each line to JSON.parse()",
+      "lesson": "stream-json format outputs multiple JSON objects, one per line"
+    },
+
+    "iteration_4": {
+      "error": "contexts field undefined in extension",
+      "cause": "EventMapper.mapChatMessageSend() was not passing contexts through",
+      "fix": "Added 'contexts: payload.contexts' to bridgePayload in EventMapper",
+      "lesson": "UI → Extension bridge requires explicit field mapping"
+    },
+
+    "iteration_5": {
+      "error": "Cannot read properties of undefined (reading 'match')",
+      "cause": "UI sent images: ['data:...'] but backend expected images: [{dataUrl: '...'}]",
+      "fix": "Changed UserWidgetClipboardImage.getImageContents() to map strings to objects",
+      "lesson": "Type contract must match across UI/Extension boundary - fix at source (UI) not workaround in backend"
+    }
+  },
+
+  "files_modified": [
+    {
+      "path": "src/ext/modules/providers/anthropics/cli-wrapper/utils/ContentBlockBuilder.ts",
+      "status": "NEW FILE",
+      "lines_added": 115,
+      "description": "Utility for building Claude API content blocks from text and images"
+    },
+    {
+      "path": "src/ext/modules/providers/anthropics/cli-wrapper/types.ts",
+      "changes": ["Added MessageContexts interface for text and image contexts"],
+      "lines_modified": 5
+    },
+    {
+      "path": "src/ext/modules/providers/base/ExtensionTypes.ts",
+      "changes": ["Added contexts?: MessageContexts to ExtensionMessage interface"],
+      "lines_modified": 3
+    },
+    {
+      "path": "src/ext/modules/providers/anthropics/cli-wrapper/cli-executor/CLIExecutor.ts",
+      "changes": [
+        "Added executeWithStdin() method for JSON piping",
+        "Rewrote claudeMessage() to use stdin with ContentBlockBuilder",
+        "Updated claudeResumeWithTools() to pass sessionId"
+      ],
+      "lines_modified": 50
+    },
+    {
+      "path": "src/ext/modules/providers/anthropics/cli-wrapper/ClaudeCodeService.ts",
+      "changes": [
+        "Added NDJSON parsing (split + map)",
+        "Added contexts parameter to askClaudeAsConversation()",
+        "Added logging for multi-modal detection"
+      ],
+      "lines_modified": 15
+    },
+    {
+      "path": "src/ext/modules/providers/implementations/ClaudeCodeCLIAdapter.ts",
+      "changes": ["Pass contexts through to ClaudeCodeService"],
+      "lines_modified": 3
+    },
+    {
+      "path": "src/ext/modules/logic-manager/message-router/MessageValidator.ts",
+      "changes": ["Preserve contexts field in convertToExtensionMessage()"],
+      "lines_modified": 2
+    },
+    {
+      "path": "src/shared/events/chat.ts",
+      "changes": ["Added contexts field to ChatUserMessagePayload interface"],
+      "lines_modified": 5
+    },
+    {
+      "path": "src/ui/modules/core/events/bridge-handler/mapping/EventMapper.js",
+      "changes": ["Added contexts: payload.contexts to mapChatMessageSend()"],
+      "lines_modified": 1
+    },
+    {
+      "path": "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/user-input-widget/user-widget-clipboard-image/UserWidgetClipboardImage.js",
+      "changes": ["Changed getImageContents() to return objects with dataUrl property"],
+      "lines_modified": 3
+    }
+  ],
+
+  "gotchas": [
+    {
+      "issue": "Claude CLI stdin format is NOT standard Anthropic API format",
+      "detail": "Requires top-level 'type' field AND nested 'message' object with 'role', plus session_id and parent_tool_use_id",
+      "solution": "Research actual CLI format via web search and --help documentation"
+    },
+    {
+      "issue": "stream-json output is NDJSON, not single JSON",
+      "detail": "Each event (system, assistant, result) is a separate JSON object on its own line",
+      "solution": "Split by \\n and parse each line individually"
+    },
+    {
+      "issue": "UI sends image arrays as strings, not objects",
+      "detail": "Clipboard widget stores data URLs as strings for internal use",
+      "solution": "Transform at getter boundary: map(dataUrl => ({dataUrl})) to maintain type contract"
+    },
+    {
+      "issue": "TypeScript strict typing on image object structure",
+      "detail": "Can't access img.data or img.url if interface only defines img.dataUrl",
+      "solution": "Don't guess alternative properties - fix the data structure at source"
+    },
+    {
+      "issue": "Contexts field dropped during event mapping",
+      "detail": "EventMapper must explicitly pass through new fields",
+      "solution": "Add explicit mapping in mapChatMessageSend() method"
+    }
+  ],
+
+  "best_practices": [
+    "Research format specifications before implementing (web search, docs, --help)",
+    "Add defensive logging at each layer boundary to track data flow",
+    "Fix data structure issues at source (UI), not with workarounds in backend",
+    "Use NDJSON for streaming multi-event responses from CLI tools",
+    "Validate type contracts across UI/Extension bridge explicitly",
+    "Ask when uncertain rather than guessing - saves debugging time",
+    "Build incrementally: get basic flow working before adding complexity"
+  ],
+
+  "testing": {
+    "test_cases": [
+      {
+        "scenario": "Text-only message",
+        "expected": "Works unchanged with empty contexts",
+        "result": "✅ PASS - Session continuity maintained"
+      },
+      {
+        "scenario": "Message with single pasted image",
+        "expected": "Image sent as content block, Claude analyzes it",
+        "result": "✅ PASS - Claude confirmed 'image sending is working perfectly!'"
+      },
+      {
+        "scenario": "Session continuation with image",
+        "expected": "Previous context preserved, new image added",
+        "result": "✅ PASS - Session ID maintained with -c flag"
+      }
+    ],
+    "validation": {
+      "build": "✅ pnpm compile successful",
+      "runtime": "✅ End-to-end image flow working",
+      "user_feedback": "✅ Moti confirmed success with live test"
+    }
+  },
+
+  "impact_and_future": {
+    "immediate_benefits": [
+      "Users can paste images directly into chat",
+      "Claude can analyze screenshots, diagrams, code images",
+      "True multi-modal conversations in VSCode",
+      "Clean, maintainable architecture for future enhancements"
+    ],
+    "future_possibilities": [
+      "Multiple images per message (already supported structurally)",
+      "Text context enrichment (commented code ready)",
+      "File attachments via content blocks",
+      "Voice/audio content blocks (API supports it)",
+      "Image metadata (alt text, captions, dimensions)"
+    ],
+    "architectural_win": "Single unified code path for all message types - easier to maintain, test, and extend"
+  },
+
+  "lessons_learned": {
+    "technical": [
+      "Always validate actual CLI output format, not assumptions",
+      "NDJSON is the standard for streaming multi-event responses",
+      "Content blocks are extensible - plan for future media types",
+      "Type safety across process boundaries requires explicit contracts"
+    ],
+    "process": [
+      "Stop and research when uncertain - saves hours of debugging",
+      "Ask questions rather than guessing - Moti's guidance was key",
+      "Incremental changes with validation at each step",
+      "Comprehensive logging makes debugging 10x faster"
+    ],
+    "collaboration": [
+      "Memory system enabled picking up exactly where we left off",
+      "Clear error logs from both UI and Extension were crucial",
+      "User feedback loop (Moti testing) validated each fix",
+      "Discipline in planning before coding prevented rework"
+    ]
+  },
+
+  "quotes": {
+    "moti": "I thought 'Oh fuck. this is scary!' But you blazed through it like Tasmanian Devil 🫡🏆",
+    "claude_response": "The image sending is working perfectly!",
+    "success_moment": "Multi-modal VSCode extension - production ready! 🚀"
+  },
+
+  "metrics": {
+    "files_modified": 10,
+    "lines_changed": "~200",
+    "debugging_iterations": 5,
+    "total_session_time": "~2 hours",
+    "final_status": "✅ PRODUCTION READY"
+  },
+
+  "related_memories": [
+    "multi-modal-json-stdin-cli-migration",
+    "dual-ui-architecture-comprehensive-research-and-planning",
+    "plugin-based-dashboard-architecture-implementation"
+  ]
+}

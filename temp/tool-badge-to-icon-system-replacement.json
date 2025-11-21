@@ -1,0 +1,185 @@
+{
+  "task": "tool-badge-to-icon-system-replacement",
+  "agent": "claude-sonnet-4",
+  "date": "2025-11-04",
+  "component": "tool-notification-ui-system",
+
+  "temporal_context": {
+    "date_iso": "2025-11-04",
+    "year": 2025,
+    "month": 11,
+    "week_number": 45,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: Multi-layer system requiring formatter changes, template updates, renderer modifications, and CSS styling",
+    "business": "2: Visual improvement enhancing user experience with cleaner tool display",
+    "coordination": "3: Required coordinating changes across 6 formatters, templates, renderer, updater, and CSS files"
+  },
+
+  "files_modified": "10",
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/formatter/ReadFormatter.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/formatter/EditFormatter.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/formatter/ToolFormatter.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/renderer/templates/ToolTemplates.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/renderer/ToolRenderer.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/renderer/updater/ToolElementUpdater.js",
+    "src/ui/templates/css/ui-messages-tool-use/components/tool-info.css",
+    "src/ui/templates/css/ui-messages-tool-use/components/notification-card.css",
+    "src/ui/templates/css/ui-messages-tool-use/utilities/interactions.css",
+    "src/ui/templates/css/message-list/message-tools.css"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "tool-notification-spinner-redesign-cleanup",
+    "context-indicator-icons-recursive-loading-fix",
+    "ui-action-specific-formatter-migration"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - icon loading uses existing IconLoader infrastructure",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "Text badges ('15 lines', 'Edited') in tool notifications → Clean SVG icon system with flexible container allowing easy icon additions",
+  "root_cause": "Text badges were cluttering the tool notification UI and inconsistent with modern design patterns using icons",
+
+  "solution": {
+    "approach": "Replace formatResult() badge HTML generation with getIcons() method returning icon name arrays, create flex container in templates, integrate IconLoader for automatic icon population",
+    "key_changes": [
+      "ReadFormatter.js: Removed '15 lines' badge generation, added getIcons() returning ['ui-icons/files']",
+      "EditFormatter.js: Removed 'Edited' badge generation, added getIcons() returning ['ui-icons/diff', 'ui-icons/files']",
+      "ToolFormatter.js: Added getIcons() orchestrator method delegating to action-specific formatters",
+      "ToolTemplates.js: Added icons parameter generating <div class='tool-icons'> with <img data-icon='name'> elements",
+      "ToolRenderer.js: Updated createToolElement() and updateToolElement() to call formatter.getIcons() and pass to templates",
+      "ToolElementUpdater.js: Added IconLoader.init() call after content update to populate icon src attributes",
+      "tool-info.css: Added .tool-icons flex container (gap: 6px, margin-left: auto) and .tool-icon-img styling (16px, white filter)",
+      "notification-card.css: Changed cursor from pointer to default (removed hover interactivity)",
+      "interactions.css: Removed all :hover pseudo-classes and tooltips for static appearance",
+      "message-tools.css: Removed transition property and :hover state"
+    ]
+  },
+
+  "validation": "Tested with Read and Edit tools in live chat - icons displayed correctly on right side, files icon in consistent position across both tools",
+
+  "gotchas": [
+    {
+      "issue": "Icons not loading initially - window.ICONS lookup failing with simple 'files' and 'diff' names",
+      "solution": "Icons in subfolders require full path as key: changed 'files' → 'ui-icons/files' and 'diff' → 'ui-icons/diff' because IconUriLoader recursively scans subdirectories and uses 'folder/filename' pattern",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Icons displayed as black instead of white against dark background",
+      "solution": "Added CSS filter: brightness(0) invert(1) to convert any color to white (brightness(0) makes black, invert(1) inverts to white)",
+      "category": "styling",
+      "severity": "low"
+    },
+    {
+      "issue": "Files icon position inconsistent between Read and Edit tools",
+      "solution": "Reversed Edit tool icon order from ['ui-icons/files', 'ui-icons/diff'] to ['ui-icons/diff', 'ui-icons/files'] so files icon appears in same column for visual alignment",
+      "category": "ux",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "When implementing icon systems with subfolder-organized assets, always remember that IconUriLoader registers icons with their full path ('folder/name') not just filename - this was same issue encountered with context indicator icons previously. Using semantic memory search prevented 30+ minute debugging session by instantly recalling the solution.",
+  "tags": [
+    "tool-notifications",
+    "icon-system",
+    "badge-removal",
+    "ui-redesign",
+    "svg-icons",
+    "flexible-container",
+    "icon-loading",
+    "subfolder-paths",
+    "window-ICONS",
+    "formatter-system",
+    "action-specific-icons",
+    "visual-alignment",
+    "css-filters",
+    "white-icons",
+    "hover-removal",
+    "static-ui",
+    "COMPLETE"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "getIcons(payload) - Action-specific formatter method returning array of icon names for tool display",
+      "IconLoader.init() - Automatically populates img src from window.ICONS based on data-icon attribute",
+      "filter: brightness(0) invert(1) - CSS technique to convert any icon color to white",
+      "data-icon='folder/filename' - Icon naming convention for subfolder-organized assets"
+    ],
+    "api_surface": [
+      "ReadFormatter.getIcons(readPayload): string[] - Returns ['ui-icons/files'] for successful reads",
+      "EditFormatter.getIcons(editPayload): string[] - Returns ['ui-icons/diff', 'ui-icons/files'] for successful edits",
+      "ToolFormatter.getIcons(payload): string[] - Orchestrator delegating to action-specific formatter getIcons()",
+      "ToolTemplates.getToolContentTemplate(action, target, details, isEnd, isSuccess, icons): string - Generates HTML with icon container"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "formatResult() now returns empty string instead of badge HTML - icons handled separately through getIcons()",
+      "Tool notifications no longer interactive - removed hover states and cursor: pointer for static appearance"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Add icons for Write tool (could show save icon)",
+      "Add icons for Search tool (could show magnifying glass)",
+      "Add icons for Bash tool (could show terminal icon)",
+      "Consider adding icon tooltips on hover for accessibility",
+      "Explore adding error state icons (red warning icon when tool fails)"
+    ],
+    "architecture_decisions": {
+      "separate-getIcons-method": "Chose separate getIcons() over extending formatResult() to maintain single responsibility - result formatting vs icon selection are distinct concerns",
+      "flex-container-approach": "Used dedicated .tool-icons container rather than inline icons to enable easy addition/removal of multiple icons with consistent spacing",
+      "IconLoader-integration": "Leveraged existing IconLoader infrastructure rather than manual icon URI injection to maintain consistency with rest of UI icon system",
+      "subfolder-path-keys": "Accepted 'ui-icons/files' verbose naming to work with existing IconUriLoader recursive scanning behavior rather than refactoring the loader"
+    },
+    "extension_points": [
+      "ReadFormatter.js getIcons() - Add more icons by returning additional icon names in array",
+      "EditFormatter.js getIcons() - Modify icon order or add new icons for different edit states",
+      "WriteFormatter.js - Add getIcons() method following same pattern as Read/Edit formatters",
+      "SearchFormatter.js - Add getIcons() method to show search-related icons",
+      "tool-info.css .tool-icon-img - Adjust icon size, opacity, or filter for different visual effects"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "rapid-prototype with immediate testing",
+    "naming_preferences": "technical-precise with clear intent",
+    "architecture_philosophy": "single-responsibility with delegation pattern",
+    "quality_standards": "maintainability-focus with extensibility"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "tool-notifications",
+      "badge-vs-icon-display",
+      "visual-consistency",
+      "ui-minimalism",
+      "action-specific-formatting"
+    ],
+    "technical_patterns": [
+      "orchestrator-pattern",
+      "delegation-pattern",
+      "flexible-container-design",
+      "data-attribute-based-loading",
+      "css-filter-color-inversion"
+    ],
+    "integration_points": [
+      "IconLoader",
+      "IconUriLoader",
+      "window.ICONS",
+      "ToolFormatter-system",
+      "action-specific-formatters"
+    ]
+  }
+}

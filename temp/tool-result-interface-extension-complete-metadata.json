@@ -1,0 +1,186 @@
+{
+  "task": "tool-result-interface-extension-complete-metadata",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-11-02",
+  "component": "universal-message-tool-result-interface",
+
+  "temporal_context": {
+    "date_iso": "2025-11-02",
+    "year": 2025,
+    "month": 11,
+    "week_number": 44,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: Interface extension with backward compatibility analysis across 15+ consumers",
+    "business": "4: Critical - captures all Edit tool metadata that was previously lost, enables future diff view features",
+    "coordination": "2: Requires synchronization between ExtensionTypes and ChatToolEndPayload, minimal integration points"
+  },
+
+  "files_modified": "1",
+  "files_touched": [
+    "src/ext/modules/providers/base/ExtensionTypes.ts",
+    "src/shared/events/chat.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "tool-result-processing-complete-implementation",
+    "universal-message-tool-architecture-analysis",
+    "streaming-conversation-strategy-ultra-modular-refactoring"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - optional fields are memory-efficient",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "ToolResult interface missing Edit tool metadata (old/new text, file paths, line numbers) → Extended with 5 optional fields to capture complete tool metadata while maintaining backward compatibility",
+
+  "root_cause": "Original ToolResult interface was designed minimally (success, data, error) before Edit tool streaming was implemented. Tool params (old_string, new_string) are captured at tool_use_start but never merged into tool_result, causing data loss. FileToolMapper only captures new_string, completely discarding old_string.",
+
+  "solution": {
+    "approach": "Extend ToolResult interface with optional fields to capture tool-specific metadata without breaking existing consumers",
+    "key_changes": [
+      "ExtensionTypes.ts: Added filePath?: string field for Edit/Write tool file paths from tool params",
+      "ExtensionTypes.ts: Added oldText?: string field for Edit tool old_string parameter (currently LOST)",
+      "ExtensionTypes.ts: Added newText?: string field for Edit/Write tool new_string/content parameters",
+      "ExtensionTypes.ts: Added fileEdits?: Array<{file_path, old_str, new_str}> for multi-file Edit support",
+      "ExtensionTypes.ts: Added lineNumbers?: {start, end, changedLine} for future diff view line highlighting",
+      "chat.ts: Extended ChatToolEndPayload.result to match ToolResult schema (IN PROGRESS - blocked by file watcher)"
+    ]
+  },
+
+  "validation": "TypeScript compilation successful for ExtensionTypes.ts extension. ChatToolEndPayload update blocked by file watcher. Next: verify backward compatibility with existing UI consumers (ToolFormatter.js, ToolRenderer.js).",
+
+  "gotchas": [
+    {
+      "issue": "Edit tool's old_string parameter is completely LOST - FileToolMapper only captures new_string in params.content",
+      "solution": "Need to update FileToolMapper.ts to capture both: params.oldContent = input.old_string and params.newContent = input.new_string",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Tool params are captured at tool_use_start and stored in registry, but never merged into tool_result when tool_use_end emits",
+      "solution": "ToolResultProcessor needs to lookup originalTool from registry and merge params (filePath, oldText, newText) into result object",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "ChatToolEndPayload.result schema must be kept in sync with ToolResult interface, otherwise event consumers will have type mismatches",
+      "solution": "Always extend both interfaces together when adding new ToolResult fields",
+      "category": "typing",
+      "severity": "medium"
+    },
+    {
+      "issue": "File watcher (TypeScript compiler or linter) keeps locking chat.ts file during edits, causing 'File has been unexpectedly modified' errors",
+      "solution": "Close build processes, wait for file watcher to settle, then retry edit. Consider using Write tool instead of Edit for stubborn files.",
+      "category": "environment",
+      "severity": "medium"
+    },
+    {
+      "issue": "Claude sends Edit tool metadata in formatted text (cat -n snippet with line numbers) in result.data, but we don't parse it",
+      "solution": "Optional future enhancement: parse result.data to extract line numbers using regex, populate lineNumbers field automatically",
+      "category": "integration",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "When extending interfaces with optional fields, verify the ENTIRE data flow: capture → storage → retrieval → emission → consumption. In our case, we extended the interface but discovered two critical gaps: (1) FileToolMapper doesn't capture old_string, (2) ToolResultProcessor doesn't merge params into result. Interface extension is only useful if the data actually flows through all layers.",
+
+  "tags": [
+    "tool-result-interface",
+    "edit-tool-metadata",
+    "backward-compatibility",
+    "optional-fields",
+    "data-loss-prevention",
+    "file-tool-mapper",
+    "tool-result-processor",
+    "chat-tool-end-payload",
+    "diff-view-preparation",
+    "line-numbers",
+    "old-new-text",
+    "multi-file-edit",
+    "INCOMPLETE"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "ToolResult interface - Universal format for all tool execution results",
+      "ChatToolEndPayload.result - Event payload that must match ToolResult schema",
+      "Optional fields pattern - Backward compatible interface extension",
+      "Tool params merging - ToolResultProcessor retrieves params from registry to enrich result",
+      "FileToolMapper.map() - Transforms Claude tool_use input to universal ToolInfo format"
+    ],
+    "api_surface": [
+      "ToolResult.filePath?: string - File path from tool params (target.path)",
+      "ToolResult.oldText?: string - Edit tool old_string parameter",
+      "ToolResult.newText?: string - Edit/Write tool new_string/content parameter",
+      "ToolResult.fileEdits?: Array<{file_path, old_str, new_str}> - Multi-file Edit operations",
+      "ToolResult.lineNumbers?: {start?, end?, changedLine?} - Line metadata for diff view",
+      "ChatToolEndPayload.result - Extended to match ToolResult with all optional fields"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "None - all extensions use optional fields for backward compatibility"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Close TypeScript build watcher and retry chat.ts edit to extend ChatToolEndPayload.result",
+      "Update FileToolMapper.ts to capture old_string parameter: params.oldContent = input.old_string",
+      "Enhance ToolResultProcessor.ts to merge params from registry: filePath, oldText, newText, files",
+      "Test with actual Edit tool execution to verify metadata capture end-to-end",
+      "Update ToolFormatter.js to display oldText → newText diff in tooltips (UI enhancement - future)",
+      "Add parser to extract line numbers from Claude's cat -n formatted result.data (optional enhancement)",
+      "Implement diff view UI component using oldText/newText/lineNumbers fields (major feature - future)"
+    ],
+    "architecture_decisions": {
+      "optional-fields-not-union-types": "Chose ToolResult with optional fields over discriminated union (EditToolResult | WriteToolResult) for simplicity, backward compatibility, and UI flexibility",
+      "merge-params-at-result-time": "Decided to merge tool params into result in ToolResultProcessor (not at tool_start) because result is the final complete data structure sent to UI",
+      "chat-payload-schema-sync": "ChatToolEndPayload.result must always mirror ToolResult schema to prevent type mismatches in event consumers",
+      "preserve-raw-data": "Keep result.data as raw Claude output, add structured fields separately (filePath, oldText, newText) for dual access pattern"
+    },
+    "extension_points": [
+      "ToolResult interface - Add more optional fields for Bash (exitCode, stdout, stderr), Read (fileSize), etc.",
+      "ToolResultProcessor.enrichResultWithParams() - Extract into helper method for capturing tool-specific metadata",
+      "lineNumbers extraction - Add regex parser to extract line numbers from Claude's cat -n formatted output",
+      "UI ToolFormatter - Use new fields (oldText, newText, lineNumbers) to show inline diff in notifications"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-implementation-with-research-phase",
+    "naming_preferences": "technical-precise-with-universal-prefix",
+    "architecture_philosophy": "backward-compatible-extensions-with-optional-fields-and-progressive-enhancement",
+    "quality_standards": "maintainability-focus-with-comprehensive-data-flow-analysis"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "tool-result-metadata",
+      "edit-tool-diff-data",
+      "file-operation-tracking",
+      "line-number-mapping",
+      "multi-file-edits"
+    ],
+    "technical_patterns": [
+      "optional-fields-pattern",
+      "backward-compatible-interface-extension",
+      "schema-synchronization",
+      "params-merging-pattern",
+      "progressive-enhancement"
+    ],
+    "integration_points": [
+      "claude-code-cli",
+      "file-tool-mapper",
+      "tool-result-processor",
+      "chat-event-system",
+      "ui-tool-formatter"
+    ]
+  }
+}

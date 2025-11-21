@@ -1,0 +1,206 @@
+{
+  "task": "streaming-ui-improvements-prism-theme-animation-removal",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-31",
+  "component": "streaming-ui-formatter",
+
+  "temporal_context": {
+    "date_iso": "2025-10-31",
+    "year": 2025,
+    "month": 10,
+    "week_number": 44,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: Multi-file CSS refactoring with cascading effects across 9 files, theme CDN integration, and opacity/animation removal",
+    "business": "4: High user impact - improved visual experience, reduced eye strain, better code readability for developers using Sementix",
+    "coordination": "2: Single-session changes, no cross-team dependencies, all CSS and HTML template modifications"
+  },
+
+  "files_modified": "9",
+  "files_touched": [
+    "src/ui/templates/base.html",
+    "src/ui/templates/css/ui-code-highlighting/base.css",
+    "src/ui/templates/css/ui-streaming.css",
+    "src/ui/templates/css/stream-formatter/states/streaming.css",
+    "src/ui/templates/css/stream-formatter/utilities/animations.css",
+    "src/ui/templates/css/stream-formatter/components/incomplete-markers.css",
+    "src/ui/templates/css/stream-formatter/variables/formatting-variables.css",
+    "src/ui/templates/css/stream-formatter/components/italic-text.css",
+    "src/ui/templates/css/stream-formatter/components/strikethrough.css"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "chunk-processor-ultra-modular-refactoring",
+    "streaming-logger-service-creation",
+    "prism-syntax-highlighting-integration"
+  ],
+
+  "outcomes": {
+    "performance_impact": "Reduced CSS animation overhead, removed continuous cursor blink animations (1s infinite), eliminated incompletePulse animations (1.5s infinite) on all incomplete chunks",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "Flashy streaming animations (cursor blink, pulsing incomplete chunks) and dark opacity overlays (60% opacity on streaming text) causing visual distraction and reduced readability → Changed Prism theme to Tomorrow Night, removed all blinking/pulsing animations, set all incomplete chunk opacity to 100%, eliminated gray code block backgrounds",
+
+  "root_cause": "Default streaming UI used aggressive visual feedback (blinking cursors, pulsing animations, low opacity) to indicate active streaming state, and Prism theme was lighter 'Tomorrow' variant with VSCode-style gray background overlay conflicting with dark UI",
+
+  "solution": {
+    "approach": "Three-pronged approach: (1) Upgrade Prism CDN theme from Tomorrow to Tomorrow Night for better dark UI contrast, (2) Remove all CSS keyframe animations for cursor blink and incomplete pulse effects, (3) Change all opacity values from 0.6-0.95 to 1.0 across all streaming text components",
+    "key_changes": [
+      "base.html:13 - Changed Prism CDN from prism-tomorrow.min.css to prism-tomorrow-night.min.css for darker theme",
+      "ui-code-highlighting/base.css:29-31 - Added .code-content .prism-highlighted { background-color: transparent !important; } to remove gray VSCode background",
+      "ui-streaming.css - Removed @keyframes cursorBlink (lines 6-13) and .stream-cursor class (lines 46-53) with animation and text-shadow glow",
+      "streaming.css - Removed .stream-text[data-streaming='true']::after pseudo-element cursor (lines 22-31) and @keyframes streamCursorBlink (lines 34-37)",
+      "animations.css - Removed @keyframes incompletePulse (lines 7-14) that pulsed opacity from 0.6 to 0.78",
+      "incomplete-markers.css - Changed opacity from var(--stream-incomplete-opacity) to 1.0, removed animation: incompletePulse on span[data-incomplete='true']",
+      "formatting-variables.css:33 - Changed --stream-incomplete-opacity from 0.6 to 1.0",
+      "italic-text.css - Changed em opacity from 0.95 to 1.0, changed em[data-incomplete] opacity to 1.0, removed incompletePulse animation",
+      "strikethrough.css - Changed del/s opacity from 0.8 to 1.0, changed incomplete opacity to 1.0, removed incompletePulse animation"
+    ]
+  },
+
+  "validation": "User confirmed visual improvements via screenshot showing Tomorrow Night theme with clean syntax highlighting (orange keywords, purple JSX tags, blue functions), no gray background overlay, and distraction-free streaming without cursor blink or pulsing effects",
+
+  "gotchas": [
+    {
+      "issue": "Prism theme CDN URL needed exact filename 'prism-tomorrow-night.min.css' not just 'tomorrow-night' - easy to get wrong",
+      "solution": "Verified correct CDN path via Prism.js documentation at prismjs.com/#basic-usage-cdn and cdnjs.cloudflare.com structure",
+      "category": "configuration",
+      "severity": "low"
+    },
+    {
+      "issue": "Gray background came from inline styles with var(--vscode-textPreformat-background) but variable didn't exist in our CSS - was phantom style",
+      "solution": "Created new CSS rule .code-content .prism-highlighted { background-color: transparent !important; } to override any inline or inherited backgrounds",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "Incomplete opacity was defined in THREE places: --stream-incomplete-opacity variable (0.6), direct opacity rules in components (0.95, 0.8), and inline on [data-incomplete] elements",
+      "solution": "Changed all three: variable to 1.0, component-specific opacities to 1.0, and [data-incomplete] opacity to 1.0 for consistency",
+      "category": "configuration",
+      "severity": "medium"
+    },
+    {
+      "issue": "Cursor blink animations existed in TWO separate files (ui-streaming.css and streaming.css) with slightly different implementations",
+      "solution": "Removed both: @keyframes cursorBlink + .stream-cursor class from ui-streaming.css, AND ::after pseudo-element + @keyframes streamCursorBlink from streaming.css",
+      "category": "configuration",
+      "severity": "low"
+    },
+    {
+      "issue": "incompletePulse animation was defined in animations.css AND duplicated in incomplete-markers.css",
+      "solution": "Removed @keyframes from animations.css (primary location) which eliminated references in all components since they used the shared animation name",
+      "category": "configuration",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "Visual feedback in streaming UIs should be subtle and non-distracting - aggressive animations (blinking, pulsing) and low opacity (60%) create eye strain. Users prefer clean, high-contrast, distraction-free streaming with 100% opacity on current chunks. Dark themes (Tomorrow Night) work better than light themes (Tomorrow) for developer tools with long reading sessions. Always use !important for override rules when dealing with potential inline styles or third-party CSS conflicts.",
+
+  "tags": [
+    "streaming-ui",
+    "prism-syntax-highlighting",
+    "css-animations",
+    "opacity-fixes",
+    "theme-upgrade",
+    "tomorrow-night-theme",
+    "cursor-blink-removal",
+    "incomplete-chunk-visibility",
+    "code-highlighting",
+    "user-experience",
+    "visual-polish",
+    "accessibility",
+    "reduced-motion",
+    "css-refactoring",
+    "cdnjs",
+    "prismjs"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "[data-incomplete='true'] - Marks streaming text chunks that haven't completed yet",
+      "[data-streaming='true'] - Attribute on .stream-text container during active streaming",
+      "var(--stream-incomplete-opacity) - CSS variable controlling opacity of incomplete chunks",
+      "@keyframes incompletePulse - Animation that pulsed incomplete chunk opacity (removed)",
+      "@keyframes cursorBlink - Animation that blinked streaming cursor (removed)",
+      ".stream-text::after - Pseudo-element that created inline cursor (removed)",
+      ".code-content .prism-highlighted - Prism-applied class after syntax highlighting"
+    ],
+    "api_surface": [
+      "Prism CDN: https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow-night.min.css",
+      "CSS Variable: --stream-incomplete-opacity: 1.0 (was 0.6)",
+      "CSS Variable: --stream-incomplete-animation-duration: 1.5s (no longer used)",
+      "CSS Class: .prism-highlighted - Applied by Prism.js after highlightElement() call",
+      "CSS Class: [data-incomplete='true'] - Applied by IncompleteBufferRenderer during streaming"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "Removed .stream-cursor class - Any JS that targeted this class will no longer find elements",
+      "Removed @keyframes incompletePulse - Any custom CSS animations referencing this will break",
+      "Changed --stream-incomplete-opacity from 0.6 to 1.0 - Custom overrides expecting 60% opacity will now be 100%"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Continue ChunkProcessor refactoring Phase 1 - Refactor remaining files (LineBufferManager, IncompleteBufferRenderer, AutoCompletionDetector) to use StreamingLogger",
+      "Phase 2: Create PerChatStateManager base class to eliminate 50+ lines of boilerplate across 5 state managers",
+      "Phase 3: Create ContentExtractor base class to consolidate 5 nearly-identical extractor files (200+ lines)",
+      "Phase 4: Remove unused components (TextAccumulator, MatrixGridFader NO-OP), unify HTML escaping, extract IncompleteElementCleaner utility",
+      "Consider adding user preference toggle for 'reduced motion' that respects prefers-reduced-motion media query"
+    ],
+    "architecture_decisions": {
+      "prism-theme-choice": "Tomorrow Night chosen over other dark themes (Okaidia, Twilight, Dark) because it has best contrast ratios and matches our existing dark UI aesthetic with complementary color palette",
+      "opacity-standardization": "All streaming text set to 100% opacity (1.0) instead of partial transparency to maximize readability - incomplete state indicated by positioning/flow rather than visual dimming",
+      "animation-removal-strategy": "Complete removal of cursor blink and pulse animations rather than just slowing them down - cleaner UX for professional developer tool",
+      "css-override-approach": "Used !important flag on .code-content .prism-highlighted background override because we don't control Prism's CSS specificity or potential inline styles from future Prism versions"
+    },
+    "extension_points": [
+      "base.html - Change Prism theme by modifying CDN URL on line 13 (other themes: prism-okaidia, prism-twilight, prism-dark, prism-funky)",
+      "formatting-variables.css - Add new CSS variables here following --stream-* naming convention for consistent theming",
+      "animations.css - Add new streaming animations here (but prefer subtle, non-distracting effects)",
+      "ui-code-highlighting/base.css - Add language-specific code block styling here (currently generic)",
+      "stream-formatter/components/ - Add new markdown component styles here (currently has bold, italic, strikethrough, inline-code, headers, incomplete-markers)"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "rapid-prototype with user-driven iteration - user provided visual feedback via screenshots, immediate adjustments based on 'it looks great except...' feedback",
+    "naming_preferences": "technical-precise with semantic meaning - prefers descriptive component names (ChunkProcessor, StreamingLogger, IncompleteBufferRenderer) over abbreviations",
+    "architecture_philosophy": "ultra-modular single-responsibility - established pattern of breaking monolithic classes into orchestrator + micro-components (20+ successful refactorings documented)",
+    "quality_standards": "maintainability-focus with backward-compatibility - zero breaking changes to external APIs, extensive use of CSS variables for theming flexibility"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "streaming-text-rendering",
+      "incomplete-chunk-buffering",
+      "real-time-markdown-formatting",
+      "syntax-highlighting",
+      "code-block-rendering",
+      "streaming-state-management",
+      "visual-feedback-design",
+      "developer-tool-ux"
+    ],
+    "technical_patterns": [
+      "css-variable-theming",
+      "cdn-based-library-integration",
+      "pseudo-element-visual-indicators",
+      "keyframe-animation-management",
+      "opacity-based-state-indication",
+      "data-attribute-styling",
+      "progressive-enhancement"
+    ],
+    "integration_points": [
+      "prismjs-cdn-v1.29.0",
+      "cdnjs-cloudflare-delivery",
+      "vscode-theme-variables",
+      "streaming-ndjson-processor",
+      "markdown-renderer-pipeline"
+    ]
+  }
+}

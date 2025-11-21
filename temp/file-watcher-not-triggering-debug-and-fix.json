@@ -1,0 +1,157 @@
+{
+  "task": "file-watcher-not-triggering-debug-and-fix",
+  "agent": "claude-sonnet-4.5",
+  "date": "2025-10-08",
+  "component": "file-watcher-system",
+
+  "temporal_context": {
+    "date_iso": "2025-10-08",
+    "year": 2025,
+    "month": 10,
+    "week_number": 41,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Cross-service debugging requiring understanding of FileWatcherService lifecycle, JobManager initialization flow, and fs.watch() behavior",
+    "business": "5: Critical bug preventing core file monitoring feature from working - would have blocked all file-watching functionality",
+    "coordination": "2: Single file change but required understanding interaction between multiple services"
+  },
+
+  "files_modified": "1",
+  "files_touched": [
+    "src/ext/modules/memory-search/bridges/registry/DependencyContainer.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "browse-button-ui-host-components-refactoring",
+    "filemonitor-complete-ultra-modular-refactoring-session"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "File watcher not triggering on new file creation → FileWatcherService.start() never called, so fs.watch() never set up → Added fileWatcher.start() before jobManager.initialize() in DependencyContainer",
+
+  "root_cause": "FileWatcherService lifecycle management issue - service was created but never started. JobManager.initialize() called watch() which registered watchers, but FileWatcherService checks if (this.running) before actually starting fs.watch(). Since start() was never called, this.running remained false and watchers were registered but never activated.",
+
+  "solution": {
+    "approach": "Systematic debugging through the initialization flow - traced from JobManager registration through FileWatcherService to identify missing start() call, then added it before JobManager initialization",
+    "key_changes": [
+      "DependencyContainer.ts:48: Added fileWatcher.start() before creating JobManager",
+      "DependencyContainer.ts:46-48: Added explanatory comments about why start() must be called before initialize()",
+      "DependencyContainer.ts:52-53: Enhanced comment explaining that initialize() loads saved jobs and starts watching"
+    ]
+  },
+
+  "validation": "User confirmed file watcher now triggers in console - sees events when adding new files to watched folder",
+
+  "gotchas": [
+    {
+      "issue": "FileWatcherService has subtle lifecycle: created → registered → started. Registration alone doesn't activate fs.watch()",
+      "solution": "Must call start() explicitly after creating FileWatcherService but before any watch() calls that expect immediate activation",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Watch registration vs activation - FileWatcherService.watch() can be called when service is not running, watchers are registered but deferred until start() is called",
+      "solution": "For immediate activation, call start() before watch(). For deferred activation, call start() after all watch() registrations.",
+      "category": "configuration",
+      "severity": "medium"
+    },
+    {
+      "issue": "JobManager.initialize() loads jobs from disk and immediately starts watching active ones - requires FileWatcherService to already be started",
+      "solution": "Call fileWatcher.start() before jobManager.initialize() to ensure jobs can immediately begin watching",
+      "category": "integration",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "When debugging service integration issues, trace the complete lifecycle flow - don't assume services auto-start on creation. Look for explicit start()/initialize()/activate() methods and verify they're called in the correct order. In this case, the deferred activation pattern (register now, start later) was causing the bug.",
+
+  "tags": [
+    "file-watcher",
+    "lifecycle-management",
+    "service-initialization",
+    "debugging",
+    "fs-watch",
+    "job-manager",
+    "critical-bug-fix",
+    "integration-issue",
+    "deferred-activation",
+    "startup-sequence"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "FileWatcherService.start() - Must be called to activate registered watchers",
+      "FileWatcherService.watch() - Registers watchers, starts immediately if service is running",
+      "JobManager.initialize() - Loads jobs and calls startActiveJobs() which triggers watch()",
+      "DependencyContainer.getJobManager() - Lazy initialization pattern for JobManager and dependencies"
+    ],
+    "api_surface": [
+      "FileWatcherService.start(): void - Activates all registered watchers and sets this.running = true",
+      "FileWatcherService.watch(path, callbacks, config): WatchHandle - Registers watcher, starts immediately if running",
+      "JobManager.initialize(context): void - Loads saved jobs and starts watching active ones",
+      "JobManager.startActiveJobs(): void - Internal method that starts watchers for all active jobs"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Add lifecycle logging to FileWatcherService (created/started/stopped) for better debugging",
+      "Consider auto-starting FileWatcherService on creation or throwing error if watch() called before start()",
+      "Add integration tests for FileWatcherService lifecycle scenarios",
+      "Document the deferred activation pattern in FileWatcherService comments",
+      "Consider extracting service lifecycle management to dedicated ServiceManager class"
+    ],
+    "architecture_decisions": {
+      "deferred-activation-pattern": "FileWatcherService uses deferred activation (create → register → start) for flexibility, but requires explicit start() call",
+      "start-before-initialize": "FileWatcher must start before JobManager initializes to ensure immediate watcher activation for loaded jobs",
+      "lazy-jobmanager-creation": "JobManager created on-demand by DependencyContainer, includes full dependency setup and initialization"
+    },
+    "extension_points": [
+      "FileWatcherService - Consider adding isRunning() check in watch() with helpful error message if not started",
+      "JobManager - Could add isInitialized flag to prevent double-initialization",
+      "DependencyContainer - Pattern established for other service lifecycle management"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "thorough-documentation",
+    "naming_preferences": "natural-conversational",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "file-watcher",
+      "service-lifecycle",
+      "job-manager",
+      "watcher-registration",
+      "deferred-activation"
+    ],
+    "technical_patterns": [
+      "lazy-initialization",
+      "deferred-activation-pattern",
+      "service-lifecycle-management",
+      "dependency-injection",
+      "registration-activation-split"
+    ],
+    "integration_points": [
+      "fs.watch",
+      "vscode.ExtensionContext",
+      "FileWatcherService",
+      "JobManager",
+      "JobConfigService"
+    ]
+  }
+}

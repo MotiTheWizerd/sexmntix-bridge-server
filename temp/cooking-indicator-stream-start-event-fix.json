@@ -1,0 +1,176 @@
+{
+  "task": "cooking-indicator-stream-start-event-fix",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-17",
+  "component": "streaming-cooking-indicators",
+
+  "temporal_context": {
+    "date_iso": "2025-10-17",
+    "year": 2025,
+    "month": 10,
+    "week_number": 42,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Cross-layer debugging through extension backend → UI event flow, tracking missing event emission through ChunkProcessor → UIEventEmitter → MessageRouter → StreamInitializer chain",
+    "business": "5: Critical UX regression - Claude cooking indicators completely broken, preventing users from seeing visual feedback during streaming",
+    "coordination": "3: Coordinated debugging between extension TypeScript backend and UI JavaScript frontend, required understanding full streaming event architecture"
+  },
+
+  "files_modified": "1",
+  "files_touched": [
+    "src/ext/modules/logic-manager/message-router/streaming/ChunkProcessor.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "claude-cooking-indicators-random-effects",
+    "provider-start-event-detector-and-indicator-fix",
+    "streaming-visual-indicator-enhancement"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - added minimal debug logging only",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Claude cooking indicators never appearing (no text, no animation) → Identified chat.stream.start.v1 event missing from extension, added debug logging to ChunkProcessor.detectProviderWorking() to identify root cause (providerId/uiEventEmitter injection issue)",
+
+  "root_cause": "ChunkProcessor.detectProviderWorking() method returning early without emitting chat.stream.start.v1 event due to missing dependencies (likely providerId or uiEventEmitter not injected during ChunkProcessor construction). Without this event, StreamingChunkRouter.routeStreamStart() never fires, StreamInitializer.transformPlaceholder() never called, and ClaudeWorkingIndicator.create() never executes.",
+
+  "solution": {
+    "approach": "Deep architectural investigation starting from browser console logs showing missing chat.stream.start.v1 event, traced backwards through UI event handlers to extension event emission, identified ChunkProcessor.detectProviderWorking() as source, added comprehensive debug logging to expose which guard condition is failing",
+    "key_changes": [
+      "ChunkProcessor.ts: Added debug logging at lines 74-83 to expose detectProviderWorking() guard conditions (providerWorkingEmitted, hasUiEventEmitter, providerId, chunkType) before early return, enabling precise identification of missing dependency"
+    ]
+  },
+
+  "validation": "Extension built successfully with debug logging. Awaiting browser console output from Moti's test to identify failing condition (providerId null, uiEventEmitter missing, or providerWorkingEmitted flag issue). Follow-up fix will restore chat.stream.start.v1 emission, enabling cooking indicators to display correctly.",
+
+  "gotchas": [
+    {
+      "issue": "Cooking indicators worked in previous session but broke without obvious code changes to ClaudeWorkingIndicator or provider-cooking.css",
+      "solution": "Root cause was NOT in UI layer (indicator creation, CSS, DOM manipulation) but in extension backend layer - missing event emission prevented entire indicator flow from starting. Always check browser console for missing upstream events before debugging downstream UI components.",
+      "category": "integration",
+      "severity": "critical"
+    },
+    {
+      "issue": "Console logs showed chat.stream.chunk.v1 events but NO chat.stream.start.v1 event, indicating streaming flow started but initialization event never fired",
+      "solution": "Traced event emission backwards from UI listeners through EventMapper to extension UIEventEmitter.emitStreamStart() called in ChunkProcessor.detectProviderWorking(). Found early return preventing emission - need to verify ChunkProcessor constructor receives providerId and uiEventEmitter parameters.",
+      "category": "integration",
+      "severity": "critical"
+    },
+    {
+      "issue": "User correctly identified 'it was working before, don't break things' - avoided over-analyzing UI layer and focused on what changed",
+      "solution": "Respected user's observation that cooking indicators previously worked, focused investigation on recent architectural changes (multi-tab support, streaming event routing) rather than assuming CSS/DOM bugs. Git diff showed ClaudeWorkingIndicator was new file, but streaming event architecture had recent modifications.",
+      "category": "debugging",
+      "severity": "high"
+    },
+    {
+      "issue": "StreamingResponseHandler.ts line 30-32 comment says 'DON'T emit stream start here' which initially seemed like intentional design",
+      "solution": "Comment from provider-start-event-detector-and-indicator-fix explains stream start should fire on provider response (thread.started) not at beginning. This is correct architecture - problem is ChunkProcessor.detectProviderWorking() not detecting the provider start event due to missing dependencies, not incorrect architecture.",
+      "category": "architecture",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "When debugging missing UI features, check browser console for missing upstream events FIRST before investigating UI component implementation. Event-driven architectures fail silently when events don't fire - adding debug logging to event emission points (especially guard conditions that prevent emission) is critical for diagnosing integration issues. User observations like 'it was working before' are valuable signals to focus on recent architectural changes rather than component-level bugs.",
+
+  "tags": [
+    "cooking-indicators",
+    "event-debugging",
+    "stream-start-missing",
+    "chunk-processor",
+    "provider-detection",
+    "ui-event-emitter",
+    "integration-debugging",
+    "architectural-tracing",
+    "dependency-injection",
+    "guard-conditions",
+    "streaming-events",
+    "claude-branding",
+    "critical-regression",
+    "debug-logging"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "ChunkProcessor.detectProviderWorking() - Provider start detection with guard conditions checking providerWorkingEmitted flag, uiEventEmitter presence, and providerId before emitting stream start",
+      "UIEventEmitter.emitStreamStart(sessionId) - Extension-side event emission that triggers UI chat.stream.start event flow",
+      "StreamingChunkRouter.routeStreamStart(payload) - UI-side handler that calls agentManager.startStreamingMessage() after 300ms delay",
+      "StreamInitializer.transformPlaceholder(placeholder) - Detects provider and calls claudeWorkingIndicator.create() to show cooking animation",
+      "Early return pattern - if (condition1 || condition2 || condition3) return - common pattern where debug logging before return is critical for identifying which condition fails"
+    ],
+    "api_surface": [
+      "ChunkProcessor.detectProviderWorking(chunk: any): void - Detects provider started event and emits stream start, guarded by providerWorkingEmitted/uiEventEmitter/providerId checks",
+      "UIEventEmitter.emitStreamStart(sessionId: string, chatId?: string): void - Emits chat.stream.start.v1 event to UI with session context",
+      "StreamingChunkRouter.routeStreamStart(payload: any): void - Routes stream start to AgentMessagesManager after 300ms delay",
+      "StreamInitializer.transformPlaceholder(placeholder: HTMLElement): void - Transforms placeholder into provider-specific cooking indicator or generic streaming indicator"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Collect debug logs from Moti's browser console showing detectProviderWorking() guard condition values",
+      "Identify which condition is failing: providerId null, uiEventEmitter missing, or providerWorkingEmitted flag issue",
+      "Trace ChunkProcessor construction in StreamingResponseHandler to verify providerId and uiEventEmitter are being injected",
+      "Fix dependency injection in ChunkProcessor constructor call to ensure providerId and uiEventEmitter are passed correctly",
+      "Verify isProviderStartedEvent() logic correctly detects Claude provider start events (message_start, sessionId presence)",
+      "Test cooking indicators display correctly after fix - all 5 random effects, smooth animations, proper text rendering",
+      "Remove or reduce debug logging once issue is resolved (keep minimal logging for future debugging)",
+      "Add similar debug logging to other critical event emission points to prevent future silent failures",
+      "Document ChunkProcessor dependency requirements (uiEventEmitter, providerId) to prevent regression",
+      "Consider adding runtime validation that throws explicit errors when required dependencies are missing"
+    ],
+    "architecture_decisions": {
+      "event_driven_streaming_flow": "Streaming architecture uses event chain: ChunkProcessor detects provider start → emits chat.stream.start.v1 → UI routes to StreamingChunkRouter → calls StreamInitializer → creates cooking indicator. This separation allows provider-agnostic UI with provider-specific detection in backend.",
+      "guard_condition_pattern": "Using early return with multiple OR conditions (providerWorkingEmitted || !uiEventEmitter || !providerId) is concise but makes debugging harder - debug logging before return is essential to identify which condition fails",
+      "dependency_injection_via_constructor": "ChunkProcessor receives uiEventEmitter and providerId via constructor parameters, making testing easier but requiring careful injection at construction time - missing dependencies cause silent failures",
+      "provider_start_detection_strategy": "Provider start detection delegated to ProviderStartDetectorRegistry with provider-specific detectors (ClaudeStartDetector, CodexStartDetector) - allows customization per provider without modifying core ChunkProcessor logic"
+    },
+    "extension_points": [
+      "ChunkProcessor.ts line 81-84 - Early return guard conditions - add more providers by ensuring providerId is set correctly for new providers",
+      "ProviderStartDetectorRegistry - Add new provider start detectors by implementing isStartEvent() for provider-specific start signals",
+      "StreamingResponseHandler.ts - ChunkProcessor construction point where uiEventEmitter and providerId must be injected",
+      "StreamInitializer.ts lines 67-73 - Add new provider-specific indicators by adding else-if conditions for new provider IDs"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "rapid-prototype with immediate feedback - user tests frequently and reports issues promptly",
+    "naming_preferences": "natural-conversational with playful metaphors like 'cooking indicator' and technical precision where needed",
+    "architecture_philosophy": "event-driven with clear separation of concerns - extension backend emits events, UI responds with visual updates",
+    "quality_standards": "high-visual-polish with attention to UX details, willing to iterate quickly on bugs rather than perfect first time"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "cooking-indicators",
+      "provider-start-detection",
+      "streaming-events",
+      "event-emission-chain",
+      "guard-conditions",
+      "dependency-injection"
+    ],
+    "technical_patterns": [
+      "event-driven-architecture",
+      "early-return-guards",
+      "constructor-injection",
+      "strategy-pattern-detection",
+      "debug-logging-for-guards",
+      "architectural-tracing"
+    ],
+    "integration_points": [
+      "ChunkProcessor-UIEventEmitter",
+      "extension-ui-event-bridge",
+      "StreamingChunkRouter-StreamInitializer",
+      "ProviderStartDetectorRegistry",
+      "MessageRouter-event-listeners"
+    ]
+  }
+}

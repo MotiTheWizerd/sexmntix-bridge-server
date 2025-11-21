@@ -1,0 +1,141 @@
+{
+  "task": "complexity-display-bug-metadata-structure-fix",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-09-30",
+  "temporal_context": {
+    "date_iso": "2025-09-30",
+    "year": 2025,
+    "month": 9,
+    "week_number": 40,
+    "quarter": "2025-Q3",
+    "time_period": "recent"
+  },
+  "component": "memory-search-ui",
+  "complexity": {
+    "technical": "3: Data structure mapping bug across search result pipeline requiring changes in multiple return points and display components",
+    "business": "2: User-visible bug preventing complexity filtering and sorting, degrading search experience but not blocking core functionality",
+    "coordination": "2: Required coordinated changes across search engine, result builders, and UI components with consistent fallback handling"
+  },
+  "files_modified": "5",
+  "files_touched": [
+    "src/ext/modules/memory-search/ui-dashboard/search/SemanticSearchEngine.js",
+    "src/ext/modules/memory-search/ui-dashboard/controllers/results/ResultElementBuilder.js",
+    "src/ext/modules/memory-search/ui-dashboard/controllers/DisplayController.js",
+    "src/ext/modules/memory-search/ui-dashboard/components/search/SearchResultItem.html",
+    "src/ext/modules/memory-search/ui-dashboard/controllers/results/ResultSorter.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "semantic-search-engine-implementation",
+    "ultra-modular-search-page-controller-refactoring"
+  ],
+  "outcomes": {
+    "performance_impact": "No impact - structural fix with no performance overhead",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "false"
+  },
+  "summary": "Complexity displaying as undefined in search results → Fixed data structure to preserve metadata nesting across all search paths",
+  "root_cause": "SemanticSearchEngine spreading result.memory object which flattened nested metadata structure, while UI components expected metadata.technical_complexity path",
+  "solution": {
+    "approach": "Restructure search result objects to maintain consistent metadata nesting and add defensive fallback values throughout display components",
+    "key_changes": [
+      "SemanticSearchEngine.js: Restructured 3 return points (searchMemories, fallbackToTextSearch, findSimilar) to explicitly map fields and preserve metadata nesting instead of spreading result.memory",
+      "ResultElementBuilder.js: Added optional chaining (?.) and nullish coalescing (??) for all metadata fields with 'N/A' fallbacks",
+      "DisplayController.js: Added same defensive fallbacks for dashboard log display",
+      "SearchResultItem.html: Updated template with fallback syntax for missing complexity values",
+      "ResultSorter.js: Added || 0 fallbacks in all sort methods to handle missing complexity values gracefully"
+    ]
+  },
+  "validation": "Verified search results now display T:4 B:3 instead of T:undefined B:undefined, confirmed metadata structure preserved across semantic, text, hybrid, and similarity search paths",
+  "gotchas": [
+    {
+      "issue": "Object spread operator (...result.memory) flattened nested metadata structure causing undefined values in UI",
+      "solution": "Replace spread with explicit field mapping to control exact output structure and maintain metadata nesting",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "Three different return points in SemanticSearchEngine needed identical structural fixes (semantic, text, similarity)",
+      "solution": "Applied same restructuring pattern to all three return statements to ensure consistency across all search types",
+      "category": "configuration",
+      "severity": "low"
+    },
+    {
+      "issue": "Sorting by complexity crashed when metadata fields were undefined",
+      "solution": "Added || 0 fallbacks in sort comparison functions and optional chaining in all metadata access",
+      "category": "integration",
+      "severity": "medium"
+    }
+  ],
+  "lesson": "When refactoring data structures, maintain consistent nesting expectations between data producers (search engine) and consumers (UI components). Object spread can silently break expected structure - explicit field mapping provides better control and clarity.",
+  "tags": [
+    "bug-fix",
+    "data-structure",
+    "metadata-nesting",
+    "search-results",
+    "complexity-display",
+    "optional-chaining",
+    "defensive-programming"
+  ],
+  "code_context": {
+    "key_patterns": [
+      "result.metadata?.field ?? 'fallback' - Defensive metadata access with fallback",
+      "Explicit object mapping over spread - Control output structure precisely",
+      "Optional chaining throughout UI - Prevent undefined errors in templates"
+    ],
+    "api_surface": [
+      "SemanticSearchEngine.searchMemories(): Promise<Array> - Returns structured results with nested metadata",
+      "ResultElementBuilder.build(result): HTMLElement - Expects result.metadata.technical_complexity path",
+      "ResultSorter.sortByComplexity(results): Array - Safely sorts by complexity with fallbacks"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "SemanticSearchEngine return structure changed from flat to nested metadata object",
+      "All search result consumers must access complexity via metadata.technical_complexity path"
+    ]
+  },
+  "future_planning": {
+    "next_logical_steps": [
+      "Build memory detail view modal for expanded memory inspection",
+      "Add memory management UI (create/edit/delete operations)",
+      "Implement 'find similar' functionality in UI with proper result display"
+    ],
+    "architecture_decisions": {
+      "explicit_structure_mapping": "Choose explicit field mapping over object spread to maintain architectural consistency and prevent silent structure breaks",
+      "defensive_fallbacks": "Use optional chaining and nullish coalescing throughout UI layer to gracefully handle missing data without crashes"
+    },
+    "extension_points": [
+      "SemanticSearchEngine.js - Add more search result metadata fields by extending the explicit mapping object",
+      "ResultElementBuilder.js - Customize result display by modifying template with additional fallback-protected fields",
+      "ResultSorter.js - Add new sort strategies following pattern of defensive fallback handling"
+    ]
+  },
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "natural-conversational",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+  "semantic_context": {
+    "domain_concepts": [
+      "complexity-scoring",
+      "search-results",
+      "metadata-structure",
+      "data-nesting"
+    ],
+    "technical_patterns": [
+      "optional-chaining",
+      "nullish-coalescing",
+      "explicit-mapping",
+      "defensive-programming",
+      "structure-preservation"
+    ],
+    "integration_points": [
+      "semantic-search-engine",
+      "result-builder",
+      "display-controller",
+      "result-sorter"
+    ]
+  }
+}

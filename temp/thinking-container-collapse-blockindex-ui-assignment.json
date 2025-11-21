@@ -1,0 +1,174 @@
+{
+  "task": "thinking-container-collapse-blockindex-ui-assignment",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-11-10",
+  "component": "thinking-container-collapse-system",
+
+  "temporal_context": {
+    "date_iso": "2025-11-10",
+    "year": 2025,
+    "month": 11,
+    "week_number": 45,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Complex state management across multiple layers with auto-increment counter, stream lifecycle integration, and smart block detection logic",
+    "business": "3: Critical UX bug - users couldn't collapse correct thinking blocks, causing frustration and poor user experience",
+    "coordination": "3: Required changes across 4 files spanning state management, dependency injection, and rendering layers"
+  },
+
+  "files_modified": 4,
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/stream-initializer/coordinators/StreamStateManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/StreamInitializer.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/factories/ComponentFactory.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/parsers/ReasoningChunkHandler.js"
+  ],
+  "tests_added": 0,
+  "related_tasks": [
+    "thinking-collapse-multiple-messages-blockindex-bug-fix",
+    "thinking-collapse-after-completion-css-fix-attempt",
+    "thinking-collapse-during-streaming-fix"
+  ],
+
+  "outcomes": {
+    "performance_impact": "Minimal - replaced parameter read with counter access",
+    "test_coverage_delta": "0% - no automated tests added, manual testing required",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": true
+  },
+
+  "summary": "Thinking container collapse targeting wrong element due to duplicate blockIndex values (all 0) from Claude CLI → Implemented UI-side counter in StreamStateManager that auto-increments per chat and auto-resets per message, with smart new-vs-continuing block detection",
+
+  "root_cause": "Claude Code CLI sends event.index=0 for ALL thinking blocks within a response instead of incrementing (0, 1, 2...). This caused multiple thinking containers to have identical data-block-index='0' attributes, making querySelector always find the first container instead of the clicked one.",
+
+  "solution": {
+    "approach": "Create UI-side auto-incrementing counter in existing StreamStateManager that assigns unique blockIndex values during rendering, with automatic reset on new messages through existing lifecycle hooks",
+    "key_changes": [
+      "StreamStateManager.js: Added thinkingBlockCounter: 0 to initial state and getNextThinkingBlockIndex(chatId) method that returns current index then increments",
+      "StreamInitializer.js: Exposed getNextThinkingBlockIndex(chatId) public API that delegates to StreamStateManager",
+      "ComponentFactory.js: Injected streamInitializer as 4th parameter into ReasoningChunkHandler constructor",
+      "ReasoningChunkHandler.js: Added smart block detection - reuses last container if empty text (continuing same block), creates new container with UI blockIndex if text exists (new block starting)"
+    ]
+  },
+
+  "validation": "CODE IMPLEMENTED, TESTING PENDING - Next session: Reload extension, test with multiple thinking blocks, verify unique indices (0, 1, 2), test collapse/expand on all containers, verify counter resets between messages",
+
+  "gotchas": [
+    {
+      "issue": "Initial implementation called getNextThinkingBlockIndex() before checking if container exists, causing counter to increment on EVERY chunk instead of only new containers",
+      "solution": "Restructured logic to query existing containers first, check if last container has empty text (reuse if empty, create new if has content), only call getNextThinkingBlockIndex() when creating NEW container",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Claude CLI architectural assumption violated - expected Claude API to send unique indices per thinking block but it always sends index=0",
+      "solution": "Don't rely on backend indices - implement UI-side assignment instead. This makes system resilient to backend API quirks.",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "Need to detect when new thinking block starts vs continuing existing block, but backend blockIndex is unreliable",
+      "solution": "Use heuristic: if last thinking container has empty .thinking-text content, it's the first chunk of that block (reuse container). If it has content, this is a new block (create new container).",
+      "category": "integration",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "When integrating with external APIs (like Claude CLI), don't blindly trust index values - validate assumptions with debug logging. Backend may have limitations or bugs. Implementing defensive UI-side logic (like our counter) makes the system more robust and resilient to API quirks. Smart heuristics (like checking text content) can compensate for missing/unreliable backend signals.",
+
+  "tags": [
+    "thinking-indicator",
+    "collapse-bug",
+    "blockIndex",
+    "ui-counter",
+    "auto-increment",
+    "stream-state-management",
+    "claude-cli-api-quirk",
+    "data-attribute-assignment",
+    "querySelector-ambiguity",
+    "smart-block-detection",
+    "dependency-injection",
+    "lifecycle-integration",
+    "auto-reset",
+    "INCOMPLETE",
+    "TESTING-REQUIRED"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "StreamStateManager._createInitialState() - Creates fresh state with counter=0, automatically called by reset()",
+      "StreamStateManager.getNextThinkingBlockIndex(chatId) - Returns current counter value then increments (0→1→2...)",
+      "StreamInitializer.reset(chatId) - Called on new message start, triggers state reset which zeros counter",
+      "ReasoningChunkHandler.handle() - Smart detection: checks last container text content to determine reuse vs create new"
+    ],
+    "api_surface": [
+      "StreamStateManager.getNextThinkingBlockIndex(chatId: string): number - Returns auto-incrementing index (0, 1, 2...) per chat",
+      "StreamInitializer.getNextThinkingBlockIndex(chatId: string): number - Public facade, delegates to StreamStateManager",
+      "ReasoningChunkHandler.constructor(scrollManager, domReferences, thinkingCollapseHandler, streamInitializer) - Added streamInitializer as 4th param"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "ReasoningChunkHandler constructor signature changed: added streamInitializer as 4th parameter (backward compatible via ComponentFactory injection)",
+      "ReasoningChunkHandler.handle() now ignores backend blockIndex parameter (kept for compatibility but unused)"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "IMMEDIATE: Reload extension and test with multiple thinking blocks to verify fix works",
+      "Verify console logs show correct blockIndex values (0, 1, 2...) being assigned",
+      "Test collapse/expand on first, second, third thinking containers individually",
+      "Verify counter resets to 0 on new message start",
+      "Remove debug logging from StreamCompleter.js and AgentMessagesManager.js after successful test",
+      "Remove debug logging from ChunkRouter.ts (backend) after confirming index values",
+      "Consider adding automated tests for counter increment and reset logic"
+    ],
+    "architecture_decisions": {
+      "counter_location": "Placed in StreamStateManager because it already manages all per-chat streaming state (streamedText, isFirstChunk). Counter auto-resets via existing reset() lifecycle hook.",
+      "public_api_layer": "Exposed through StreamInitializer public API to maintain encapsulation and follow existing pattern where StreamInitializer provides facade for state management",
+      "block_detection_heuristic": "Check last container's text content - if empty, reuse (continuing same block); if has text, create new (new block). This works because thinking_delta chunks arrive sequentially per block.",
+      "backend_param_kept": "Kept blockIndex parameter in handle() signature for backward compatibility even though we ignore it and use UI counter instead"
+    },
+    "extension_points": [
+      "StreamStateManager._createInitialState() - Add new per-chat state fields here (automatically reset on new messages)",
+      "StreamInitializer - Add public API methods here to expose state management to other components",
+      "ReasoningChunkHandler.handle() - Modify block detection logic here if heuristic needs refinement"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing with comprehensive planning phase before implementation",
+    "naming_preferences": "technical-precise with clear semantic meaning (e.g., uiBlockIndex, getNextThinkingBlockIndex)",
+    "architecture_philosophy": "single-responsibility with clean separation between state management, public API, and rendering layers. Dependency injection for testability.",
+    "quality_standards": "maintainability-focus with detailed inline documentation, backward compatibility, and defensive programming against API quirks"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "thinking-block",
+      "blockIndex",
+      "stream-lifecycle",
+      "per-chat-state",
+      "auto-increment-counter",
+      "collapse-expand-ui"
+    ],
+    "technical_patterns": [
+      "auto-incrementing-counter",
+      "auto-reset-on-lifecycle-event",
+      "smart-heuristic-detection",
+      "dependency-injection",
+      "facade-pattern",
+      "state-manager-pattern"
+    ],
+    "integration_points": [
+      "claude-cli-api",
+      "stream-state-manager",
+      "stream-initializer",
+      "reasoning-chunk-handler",
+      "component-factory"
+    ]
+  }
+}

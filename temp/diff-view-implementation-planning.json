@@ -1,0 +1,273 @@
+{
+  "task": "diff-view-implementation-planning",
+  "agent": "claude-sonnet-4.5",
+  "date": "2025-10-16",
+  "component": "diff-view-file-operations",
+
+  "temporal_context": {
+    "date_iso": "2025-10-16",
+    "year": 2025,
+    "month": 10,
+    "week_number": 42,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Multi-layer data preservation from provider through universal conversation to UI, VSCode diff API integration with virtual document providers",
+    "business": "4: Critical UX enhancement - showing exact Edit tool changes helps users understand and verify AI modifications",
+    "coordination": "2: Planning phase only - no implementation yet, comprehensive architecture design"
+  },
+
+  "files_modified": "0",
+  "files_touched": [
+    "src/ext/modules/providers/base/ExtensionTypes.ts",
+    "src/ext/modules/providers/shared/parsers/ConversationBuilder.ts",
+    "src/shared/events/chat.ts",
+    "src/shared/contracts/transport.json",
+    "src/shared/events/bridge.ts",
+    "src/ext/ui-host-components/editor/index.ts",
+    "src/ext/modules/logic-manager/handlers/UIEventHandlers.ts",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/renderer/dom/ToolDOMBuilder.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/handlers/ToolClickHandler.js",
+    "src/ui/modules/core/events/bridge-handler/mapping/EventMapper.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "file-click-to-editor-opening-wiring",
+    "smart-target-formatting-and-file-parsing-system"
+  ],
+
+  "outcomes": {
+    "performance_impact": "Planning phase - implementation will have minimal impact (diff view is on-demand)",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Planning phase: Need to show VSCode diff view when clicking Edit tool files → Comprehensive plan using universal conversation format to preserve old_string/new_string without modifying provider-specific code",
+
+  "root_cause": "Edit tool provides old_string and new_string in tool_use input, but this data is discarded by ClaudeToolMapper which only keeps new_string. Need to preserve original tool input data through entire pipeline to UI without breaking provider abstraction.",
+
+  "solution": {
+    "approach": "Use universal conversation format (ConversationBuilder) to preserve Edit tool's original input data, flow through ChatToolStartPayload to UI, store in DOM attributes, detect on click, and use VSCode diff API with virtual document providers",
+    "key_changes": [
+      "ExtensionTypes.ts: Add oldContent/newContent/toolName fields to ToolParams interface for diff data preservation",
+      "ConversationBuilder.ts (processToolUse): Detect Edit tool by name, preserve content.input.old_string and content.input.new_string in toolInfo.params, store params in toolMap for later tool_result matching",
+      "ConversationBuilder.ts (processToolResult): Include params from toolMap in tool_use_end message so diff data flows to UI",
+      "ChatToolStartPayload interface: Add optional oldContent/newContent/toolName in params for streaming events",
+      "DiffService.ts (NEW): Create service with showDiff(filePath, oldContent, newContent, title) using vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, title)",
+      "VirtualDocumentProvider.ts (NEW): Implement vscode.TextDocumentContentProvider for in-memory diff documents",
+      "FileOpenRequestedPayload: Add optional oldContent/newContent/showDiff fields to bridge contract",
+      "UIEventHandlers.setupOpenFileHandler(): Detect showDiff flag, call DiffService.showDiff() for Edit tools, EditorService.openFile() otherwise",
+      "ToolDOMBuilder.assembleToolElement(): Store data-old-content, data-new-content, data-tool-name attributes when params contain diff data",
+      "ToolClickHandler.handleFileToolClick(): Read diff data attributes, detect Edit tool, set showDiff=true, include oldContent/newContent in file.open.requested.v1 payload"
+    ]
+  },
+
+  "validation": "Planning phase complete - implementation pending user approval. Validation will be: Click Edit tool file → VSCode shows side-by-side diff (Before | After)",
+
+  "gotchas": [
+    {
+      "issue": "Initial plan tried to modify ClaudeToolMapper in provider-specific code, violating universal conversation architecture principle",
+      "solution": "Moti corrected: Use ConversationBuilder (universal conversation format) instead - processToolUse() already receives full content.input object with old_string/new_string, just need to preserve it in params",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "Tool data flows through multiple transformation layers (provider → conversation → streaming events → UI events → DOM) - easy to lose data",
+      "solution": "Trace complete pipeline: ConversationBuilder.processToolUse() stores in params → ToolEventProcessor includes params in ChatToolStartPayload → EventMapper passes through → ToolDOMBuilder stores in DOM attributes → ToolClickHandler reads attributes",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "ToolParams currently only has content field, no structure for preserving original tool inputs",
+      "solution": "Extend ToolParams interface with oldContent/newContent/toolName as optional fields, maintain backward compatibility with existing code",
+      "category": "typing",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "When adding features across multi-layer architectures, always work WITH existing patterns (universal conversation) rather than fighting them (provider-specific modifications). The data we need already exists in the system - we just need to preserve it through the transformation pipeline. Provider abstraction is critical: ConversationBuilder is THE place for universal tool data handling.",
+
+  "tags": [
+    "diff-view",
+    "vscode-api",
+    "edit-tool",
+    "universal-conversation",
+    "conversation-builder",
+    "file-operations",
+    "planning",
+    "architecture-design",
+    "tool-params-preservation",
+    "virtual-documents",
+    "diff-api",
+    "provider-agnostic",
+    "data-flow-pipeline",
+    "dom-attributes",
+    "event-driven-architecture"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "ConversationBuilder.processToolUse(content, messages, toolMap, ...) - Universal place to handle ALL tool_use blocks from ANY provider",
+      "toolMap.set(content.id, {action, target, params}) - Store tool info for matching with tool_result later",
+      "ClaudeToolMapper.mapClaudeToolToUniversal(content) - Provider-specific → Universal format conversion",
+      "toolInfo.params = {...params, oldContent, newContent, toolName} - Preserve original tool input for diff",
+      "vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, title) - VSCode built-in diff command",
+      "vscode.TextDocumentContentProvider - Interface for virtual in-memory documents",
+      "data-* attributes on DOM - Store diff data for click handler retrieval"
+    ],
+    "api_surface": [
+      "DiffService.showDiff(filePath: string, oldContent: string, newContent: string, title?: string): Promise<void> - Main diff display method",
+      "DiffService.showInMemoryDiff(leftContent: string, rightContent: string, leftLabel: string, rightLabel: string): Promise<void> - Virtual document diff",
+      "VirtualDocumentProvider.provideTextDocumentContent(uri: vscode.Uri): string - Returns content for virtual URIs",
+      "ConversationBuilder.processToolUse(content: any, messages: ConversationMessage[], toolMap: Map<string, any>, baseId: string, timestamp: number, sessionId?: string): void - Enhanced to preserve Edit tool input",
+      "ToolClickHandler.handleFileToolClick(fullPath: string, action: string, toolId: string, toolElement: HTMLElement): void - Enhanced to detect and send diff data"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Implement Phase 1: Enhance ToolParams interface and ConversationBuilder to preserve Edit tool old_string/new_string",
+      "Implement Phase 2: Create DiffService and VirtualDocumentProvider in ui-host-components/editor/",
+      "Implement Phase 3: Update bridge contracts to support diff-related fields (oldContent, newContent, showDiff)",
+      "Implement Phase 4: Enhance UIEventHandlers to detect showDiff flag and route to DiffService vs EditorService",
+      "Implement Phase 5: Update UI to store diff data in DOM attributes and detect Edit tool clicks",
+      "Test complete flow: Use Edit tool → Click file → Verify diff view shows",
+      "Add keyboard modifiers: Ctrl+Click for diff, regular click for normal open (future enhancement)",
+      "Add right-click context menu: 'Show Diff', 'Open File', 'Copy Path' (future enhancement)"
+    ],
+    "architecture_decisions": {
+      "universal_conversation_approach": "Use ConversationBuilder to preserve tool data instead of modifying provider-specific ClaudeToolMapper. This keeps code provider-agnostic and maintains single source of truth for tool data processing.",
+      "virtual_documents_vs_temp_files": "Use VSCode VirtualDocumentProvider for in-memory diffs instead of creating temp files. Cleaner, faster, no file system I/O, automatic cleanup.",
+      "params_extension_pattern": "Add optional fields to existing ToolParams interface rather than creating new DiffToolParams. Maintains backward compatibility and simplifies type checking.",
+      "dom_attributes_for_diff_data": "Store diff data in data-* attributes on tool notification DOM elements. Follows existing pattern (data-full-path, data-action, data-tool-id) and allows click handler to access data without querying conversation history.",
+      "default_diff_for_edit": "Show diff by default for Edit tool clicks (showDiff=true automatically). More useful than opening file - users can see exactly what changed. Fallback to normal open if diff data missing."
+    },
+    "extension_points": [
+      "ConversationBuilder.processToolUse() - Add similar diff data preservation for other tools if needed (e.g., MultiEdit)",
+      "DiffService - Add methods for git-based diffs, file history diffs, or multi-file diffs",
+      "VirtualDocumentProvider - Extend to support syntax highlighting, read-only enforcement, or custom decorations",
+      "ToolClickHandler - Add keyboard modifiers (Ctrl+Click, Shift+Click) for different open modes",
+      "FileOpenRequestedPayload - Add fields for line numbers, selections, view columns for advanced file opening"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "thorough-documentation",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "event-driven",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "diff-view",
+      "edit-tool-changes",
+      "before-after-comparison",
+      "file-operations",
+      "tool-transparency"
+    ],
+    "technical_patterns": [
+      "universal-conversation-format",
+      "virtual-document-provider",
+      "event-driven-pipeline",
+      "provider-abstraction",
+      "data-attribute-storage"
+    ],
+    "integration_points": [
+      "vscode-diff-api",
+      "conversation-builder",
+      "tool-event-processor",
+      "ui-bridge-communication"
+    ]
+  },
+
+  "detailed_context_for_next_session": {
+    "current_status": "Planning phase complete. User requested detailed memory for next session to continue with implementation. Plan approved by user but implementation deferred.",
+
+    "critical_understanding": {
+      "why_universal_conversation": "The Edit tool's input data (old_string/new_string) already flows through the system in the tool_use content block. ConversationBuilder.processToolUse() receives this as 'content' parameter with content.input.old_string and content.input.new_string. We DON'T need to modify provider code - just preserve this data in the universal ToolInfo.params field.",
+
+      "data_flow_chain": "Provider → content.input{old_string, new_string} → ConversationBuilder.processToolUse() → toolInfo.params{oldContent, newContent} → toolMap storage → tool_use_end includes params → ChatToolStartPayload.params → UI EventMapper → ToolDOMBuilder stores data-* attributes → ToolClickHandler reads attributes → file.open.requested.v1{oldContent, newContent, showDiff} → UIEventHandlers detects → DiffService.showDiff()",
+
+      "key_files_to_modify": {
+        "phase1_backend_preservation": [
+          "src/ext/modules/providers/base/ExtensionTypes.ts - Add oldContent/newContent/toolName to ToolParams interface",
+          "src/ext/modules/providers/shared/parsers/ConversationBuilder.ts - processToolUse() detects Edit tool and preserves input data",
+          "src/ext/modules/providers/shared/parsers/ConversationBuilder.ts - processToolResult() includes params from toolMap"
+        ],
+        "phase2_diff_service": [
+          "src/ext/ui-host-components/editor/DiffService.ts - NEW file with showDiff() method",
+          "src/ext/ui-host-components/editor/VirtualDocumentProvider.ts - NEW file implementing vscode.TextDocumentContentProvider",
+          "src/ext/ui-host-components/editor/index.ts - Export new services"
+        ],
+        "phase3_contracts": [
+          "src/shared/events/chat.ts - Add diff fields to ChatToolStartPayload.params",
+          "src/shared/contracts/transport.json - Add oldContent/newContent/showDiff to file.open.requested.v1",
+          "src/shared/events/bridge.ts - Add diff fields to FileOpenRequestedPayload interface"
+        ],
+        "phase4_extension_handler": [
+          "src/ext/modules/logic-manager/handlers/UIEventHandlers.ts - setupOpenFileHandler() detects showDiff and routes to DiffService"
+        ],
+        "phase5_ui_detection": [
+          "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/renderer/dom/ToolDOMBuilder.js - Store data-old-content, data-new-content attributes",
+          "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/handlers/ToolClickHandler.js - Read attributes, detect Edit tool, send showDiff=true",
+          "src/ui/modules/core/events/bridge-handler/mapping/EventMapper.js - Pass through diff fields"
+        ]
+      }
+    },
+
+    "implementation_sequence": {
+      "step1": "Start with ExtensionTypes.ts - add optional fields to ToolParams (backward compatible)",
+      "step2": "Modify ConversationBuilder.processToolUse() - detect Edit tool, preserve content.input data",
+      "step3": "Modify ConversationBuilder.processToolResult() - include params in tool_use_end message",
+      "step4": "Create DiffService.ts - implement showDiff() using vscode.diff command",
+      "step5": "Create VirtualDocumentProvider.ts - provide in-memory content for diff URIs",
+      "step6": "Update bridge contracts - add diff fields to existing interfaces",
+      "step7": "Update UIEventHandlers - detect showDiff, call DiffService",
+      "step8": "Update ToolDOMBuilder - store diff data in DOM",
+      "step9": "Update ToolClickHandler - read DOM, send diff request",
+      "step10": "Test end-to-end: Edit tool → click file → verify diff shows"
+    },
+
+    "code_snippets_reference": {
+      "conversationbuilder_edit_detection": "if (content.name === 'Edit' && content.input) { toolInfo.params = {...toolInfo.params, oldContent: content.input.old_string, newContent: content.input.new_string, toolName: content.name}; }",
+
+      "vscode_diff_command": "await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, title);",
+
+      "dom_attribute_storage": "if (payload.params?.oldContent && payload.params?.newContent) { toolNotification.setAttribute('data-old-content', payload.params.oldContent); toolNotification.setAttribute('data-new-content', payload.params.newContent); }",
+
+      "click_handler_detection": "const oldContent = toolElement?.getAttribute('data-old-content'); const newContent = toolElement?.getAttribute('data-new-content'); const showDiff = toolName === 'Edit' && oldContent && newContent;",
+
+      "uieventhandlers_routing": "if (showDiff && oldContent && newContent) { await DiffService.showDiff(filePath, oldContent, newContent); } else { await EditorService.openFile(filePath); }"
+    },
+
+    "testing_checklist": [
+      "Use Edit tool to modify a file",
+      "Verify tool notification appears in UI with file name",
+      "Click on file name in tool notification",
+      "Verify VSCode diff view opens (not regular file open)",
+      "Verify left pane shows old_string content (before)",
+      "Verify right pane shows new_string content (after)",
+      "Verify title shows 'filename.txt - Edit Changes'",
+      "Test fallback: Click Write tool file → should open normally (no diff)",
+      "Test fallback: Click Read tool file → should open normally (no diff)",
+      "Test error handling: If diff fails, should fall back to normal file open",
+      "Verify success toast shows 'Opening diff for filename.txt...' for Edit tools",
+      "Verify success toast shows 'Opening filename.txt...' for Write/Read tools"
+    ],
+
+    "architecture_principles_to_maintain": [
+      "Provider-agnostic: Don't modify ClaudeToolMapper or provider-specific code",
+      "Universal conversation: Use ConversationBuilder as single source of truth for tool data",
+      "Single responsibility: DiffService only handles diffs, EditorService only handles files",
+      "Backward compatible: All changes are additive (optional fields, fallback behavior)",
+      "Event-driven: Use existing event pipeline, don't create new communication channels",
+      "Graceful degradation: If diff data missing or diff fails, fall back to normal file open"
+    ]
+  }
+}

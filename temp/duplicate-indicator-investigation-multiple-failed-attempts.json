@@ -1,0 +1,209 @@
+{
+  "task": "duplicate-indicator-investigation-multiple-failed-attempts",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-26",
+  "component": "placeholder-indicator-system",
+
+  "temporal_context": {
+    "date_iso": "2025-10-26",
+    "year": 2025,
+    "month": 10,
+    "week_number": 43,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Multi-layered event-driven architecture with placeholder lifecycle, state management, and dual creation paths requiring deep system understanding",
+    "business": "5: CRITICAL UX bug - duplicate indicators appearing during streaming confuses users and breaks user experience",
+    "coordination": "2: Single codebase investigation requiring understanding of event flow across Extension→UI bridge"
+  },
+
+  "files_modified": "2",
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/placeholder/placeholder-creator/PlaceholderCreator.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/message-manager-router/routers/StreamingChunkRouter.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "provider-start-event-detector-and-indicator-fix",
+    "status-provider-working-complete-removal",
+    "claude-cli-tool-display-fix-complete",
+    "tool-notifications-streaming-position-fix"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Duplicate placeholder indicators appearing during streaming (tools trigger re-creation) → FAILED - Not only didn't fix duplicate indicators, but created REGRESSION BUG breaking Codex tool info boxes completely",
+
+  "root_cause": "TWO SEPARATE paths creating placeholders: (1) StateChangeRouter when agent.state.change='busy' (triggered by both initial thinking AND tool execution), (2) StreamingChunkRouter when chat.stream.start.v1 arrives. Agent removed StreamingChunkRouter.createPlaceholder() without understanding that DIFFERENT PROVIDERS may have DIFFERENT event flows. Claude uses StateChangeRouter→stream.start, but Codex may rely on stream.start creating placeholder. Removal broke Codex functionality.",
+
+  "solution": {
+    "approach": "FAILED - Attempted 4 different approaches without understanding the complete system architecture first. Each fix addressed symptoms rather than investigating the full event flow and placeholder lifecycle.",
+    "key_changes": [
+      "PlaceholderCreator.js: FAILED ATTEMPT #1 - Added guard to skip if placeholder has 'streaming-active' class - didn't work because duplicates happen BEFORE streaming starts",
+      "PlaceholderCreator.js: FAILED ATTEMPT #2 - Changed guard to skip if ANY placeholder exists using getElementById() - broke multi-tab support",
+      "PlaceholderCreator.js: FAILED ATTEMPT #3 - Changed to use domReferences.getCurrentPlaceholder(targetChatId) for proper chatId scoping - still failed because waiting_for_id vs real chatId mismatch",
+      "StreamingChunkRouter.js: FAILED ATTEMPT #4 - Removed duplicate placeholder creation from routeStreamStart() - still showing duplicates, root cause not fully understood"
+    ]
+  },
+
+  "validation": "FAILED - Build succeeds but: (1) Duplicate indicators STILL appear for Claude, (2) NEW REGRESSION: Codex tool info boxes completely broken and not displaying. Fix attempt made problem worse by breaking different provider.",
+
+  "gotchas": [
+    {
+      "issue": "Agent assumed tool re-trigger during streaming was the problem based on initial investigation of ToolStartHandler emitting 'busy' state",
+      "solution": "Should have traced COMPLETE event flow FIRST before making any fixes. Logs showed duplicates happening at different times with different chatIds (waiting_for_id vs bc52a9e7...)",
+      "category": "investigation",
+      "severity": "high"
+    },
+    {
+      "issue": "First fix assumed streaming-active class would exist during re-trigger, but duplicates happen BEFORE streaming starts",
+      "solution": "Should have checked WHEN the class is added (PlaceholderTransformer.transform) vs WHEN duplicates occur (before stream.start)",
+      "category": "timing",
+      "severity": "high"
+    },
+    {
+      "issue": "Second fix used getElementById('agent-placeholder') which finds placeholders in ANY tab, breaking multi-tab support",
+      "solution": "User caught this immediately - placeholders must be scoped by chatId for multi-tab functionality. Should have reviewed multi-tab architecture before implementing",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Third fix used getCurrentPlaceholder(targetChatId) but first placeholder is stored under 'waiting_for_id', second under real UUID - different keys!",
+      "solution": "Should have traced domReferences storage mechanism and understood placeholder lifecycle through chatId transition (waiting_for_id → real UUID)",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "Fourth fix removed StreamingChunkRouter.createPlaceholder() assuming StateChangeRouter was the 'correct' path, but didn't verify if StateChangeRouter has the right chatId",
+      "solution": "Logs show StateChangeRouter gets targetChatId=undefined and falls back to 'waiting_for_id'. Need to understand WHY chatId is missing and whether EITHER path is correct",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "Agent made 4 sequential 'fixes' without stopping to fully understand the system - classic symptom-chasing anti-pattern",
+      "solution": "CRITICAL LESSON: When first fix fails, STOP CODING. Read architecture, trace complete flow, understand placeholder lifecycle, chatId propagation, event timing. Map out ENTIRE system before attempting fix.",
+      "category": "methodology",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "CATASTROPHIC FAILURE MODE: Agent repeatedly made code changes based on partial understanding, treating symptoms rather than investigating root cause. Not only failed to fix original bug, but CREATED NEW REGRESSION breaking Codex entirely. Key failures: (1) Didn't map complete event flow before coding, (2) Didn't understand placeholder lifecycle (waiting_for_id → UUID transition), (3) Didn't verify chatId propagation through event system, (4) Made assumptions about which path was 'correct' without investigation, (5) Didn't recognize the pattern of failed attempts as signal to change approach, (6) CRITICAL: Made changes to shared infrastructure without testing ALL PROVIDERS (Claude, Codex, Gemini). (7) Assumed Claude event flow represents ALL providers. NEXT SESSION MANDATORY STEPS: (1) REVERT all changes immediately, (2) Test BOTH Claude AND Codex to establish baseline, (3) Map event flow for EACH provider separately, (4) Understand WHY two paths exist - they may serve different providers, (5) Design solution that works for ALL providers, (6) Test ALL providers after ANY change.",
+
+  "tags": [
+    "FAILED",
+    "REGRESSION-BUG-CREATED",
+    "BROKE-CODEX",
+    "duplicate-indicator",
+    "placeholder-creation",
+    "StateChangeRouter",
+    "StreamingChunkRouter",
+    "waiting_for_id",
+    "chatId-transition",
+    "multi-path-creation",
+    "multi-provider-system",
+    "provider-specific-flows",
+    "testing-failure",
+    "symptom-chasing",
+    "investigation-failure",
+    "architecture-understanding",
+    "event-flow-tracing",
+    "CATASTROPHIC-FAILURE",
+    "MUST-REVERT"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "StateChangeRouter.handleBusyState() - Creates placeholder when agent.state.change.v1 with state='busy', but payload.chatId is UNDEFINED",
+      "StreamingChunkRouter.routeStreamStart() - Creates placeholder when chat.stream.start.v1 arrives, has real chatId UUID",
+      "PlaceholderCreator.create(payload) - Receives targetChatId from payload, falls back to 'waiting_for_id' if undefined",
+      "domReferences.getCurrentPlaceholder(chatId) - Retrieves placeholder by chatId key - returns null if chatId mismatch",
+      "PlaceholderTransformer.transform() - Adds 'streaming-active' class AFTER placeholder creation",
+      "ToolStartHandler.handle() - Emits agent.state.change='busy' when tool execution starts, no chatId in payload"
+    ],
+    "api_surface": [
+      "StateChangeRouter.handleBusyState(manager, payload) - payload.chatId is UNDEFINED for tool execution",
+      "StreamingChunkRouter.routeStreamStart(payload) - payload.chatId contains real UUID (bc52a9e7...)",
+      "PlaceholderCreator.create(payload) - payload?.chatId used as targetChatId, falls back to active chat",
+      "domReferences.getCurrentPlaceholder(targetChatId) - Returns placeholder for specific chatId or null",
+      "AgentStateCoordinator.updateAgentStateDelayed('busy', 0) - Emits state change WITHOUT chatId context"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "REVERTED: PlaceholderCreator guard checks - removed after multiple failed attempts",
+      "ATTEMPTED: StreamingChunkRouter.createPlaceholder() removal - not yet verified if this breaks non-state-change flows"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "IMMEDIATE: REVERT StreamingChunkRouter.js changes - restore createPlaceholder() to fix Codex regression",
+      "IMMEDIATE: REVERT PlaceholderCreator.js guard changes - restore to original state",
+      "MANDATORY: Test BOTH Claude AND Codex after revert to confirm baseline functionality restored",
+      "STOP CODING - Do complete architecture review for ALL PROVIDERS",
+      "Map event flow for Claude: user.message.send → agent.state.change → chat.stream.start → placeholder lifecycle",
+      "Map event flow for Codex: Does Codex emit agent.state.change? Or only stream.start? DIFFERENT FLOW?",
+      "Map event flow for Gemini: Third provider may have yet another pattern",
+      "Document WHY we have two creation paths - they likely serve DIFFERENT PROVIDERS with different event patterns",
+      "Understand provider-specific architecture: Claude CLI vs Codex API vs Gemini - different event emission patterns",
+      "Design solution that preserves BOTH paths but coordinates them properly",
+      "Test ALL providers (Claude, Codex, Gemini) after ANY infrastructure change"
+    ],
+    "architecture_decisions": {
+      "symptom-based-fixes-failed": "Made 4 fixes based on symptoms without understanding root cause. Each attempt addressed visible problem but broke something else or didn't work. Created regression bug breaking Codex. Clear sign that deeper investigation needed.",
+      "two-creation-paths-not-conflict-but-provider-specific": "StateChangeRouter and StreamingChunkRouter both create placeholders. Initially assumed this was architectural conflict/redundancy. WRONG - they likely serve DIFFERENT PROVIDERS. Claude may use state-change path, Codex may use stream-start path. Removing either breaks a provider.",
+      "multi-provider-system-complexity": "System supports multiple providers (Claude CLI, Codex API, Gemini) with different architectures and event patterns. Changes to shared infrastructure MUST be tested across ALL providers. Cannot assume one provider's flow represents all.",
+      "waiting_for_id-transition": "Placeholder starts with 'waiting_for_id' then transitions to real UUID. This lifecycle not fully understood - when does transition happen? How does it affect placeholder lookup? Is this the source of duplicate creation?",
+      "regression-testing-required": "MUST establish baseline testing for ALL providers before ANY infrastructure changes. Regression on Codex went undetected because only Claude was tested."
+    },
+    "extension_points": [
+      "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/message-manager-router/routers/StateChangeRouter.js - Investigate why payload.chatId is undefined",
+      "src/ext/modules/logic-manager/conversation-processor/coordinators/AgentStateCoordinator.ts - Check if chatId should be included in state change payload",
+      "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/placeholder/placeholder-creator/PlaceholderCreator.js - Understand domReferences.getCurrentPlaceholder() lookup mechanism"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "investigation-first",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "ultra-modular-single-responsibility",
+    "quality_standards": "zero-breaking-changes-understand-before-fixing",
+    "feedback_style": "direct-critical-when-approach-wrong"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "placeholder-lifecycle",
+      "waiting_for_id-transition",
+      "chatId-propagation",
+      "state-change-events",
+      "streaming-initialization",
+      "dual-creation-paths",
+      "multi-tab-scoping"
+    ],
+    "technical_patterns": [
+      "event-driven-architecture",
+      "state-management",
+      "placeholder-pattern",
+      "router-pattern",
+      "chatId-scoping",
+      "symptom-based-debugging",
+      "investigation-methodology"
+    ],
+    "integration_points": [
+      "Extension-UI-event-bridge",
+      "StateChangeRouter",
+      "StreamingChunkRouter",
+      "PlaceholderCreator",
+      "domReferences",
+      "AgentStateCoordinator",
+      "ToolStartHandler"
+    ]
+  }
+}

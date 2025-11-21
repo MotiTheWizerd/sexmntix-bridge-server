@@ -1,6 +1,6 @@
 from pydantic import BaseModel, field_validator
 from datetime import datetime, date
-from typing import Dict, Any, Optional, List, Literal
+from typing import Dict, Any, Optional, List, Literal, Union
 
 
 # ============================================================================
@@ -28,7 +28,7 @@ class Outcomes(BaseModel):
     """Outcome metrics"""
     performance_impact: Optional[str] = None  # "<specific metrics or 'No impact'>"
     test_coverage_delta: Optional[str] = None  # "<percentage change>"
-    technical_debt_reduced: Optional[Literal["low", "medium", "high"]] = None
+    technical_debt_reduced: Optional[str] = None  # Accept any string value
     follow_up_needed: Optional[bool] = None
 
 
@@ -42,8 +42,8 @@ class Gotcha(BaseModel):
     """Gotcha/issue encountered"""
     issue: Optional[str] = None  # "<specific problem encountered>"
     solution: Optional[str] = None  # "<exact resolution steps>"
-    category: Optional[Literal["testing", "integration", "configuration", "typing", "environment"]] = None
-    severity: Optional[Literal["low", "medium", "high"]] = None
+    category: Optional[str] = None  # Accept any string value
+    severity: Optional[str] = None  # Accept any string value
 
 
 class CodeContext(BaseModel):
@@ -100,9 +100,9 @@ class MemoryLogData(BaseModel):
     component: Optional[str] = None  # "component-name"
     temporal_context: Optional[TemporalContext] = None  # Auto-calculated if not provided
     complexity: Optional[Complexity] = None
-    files_modified: Optional[str] = None  # "<number>"
+    files_modified: Optional[Union[str, int]] = None  # Accept both string and int
     files_touched: Optional[List[str]] = None  # ["<file-path>"]
-    tests_added: Optional[str] = None  # "<number>"
+    tests_added: Optional[Union[str, int]] = None  # Accept both string and int
     related_tasks: Optional[List[str]] = None  # ["<task-name>"]
     outcomes: Optional[Outcomes] = None
     summary: Optional[str] = None  # "<problem> → <solution>"

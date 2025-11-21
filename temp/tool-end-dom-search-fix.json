@@ -1,0 +1,147 @@
+{
+  "task": "tool-end-dom-search-fix",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-27",
+  "component": "ui-streaming-tool-updates",
+
+  "temporal_context": {
+    "date_iso": "2025-10-27",
+    "year": 2025,
+    "month": 10,
+    "week_number": 43,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: DOM manipulation during streaming with element relocation",
+    "business": "5: Critical UX bug - tools appeared broken/never completing",
+    "coordination": "2: Single component fix with clear isolation"
+  },
+
+  "files_modified": "1",
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/renderer/updater/ToolElementUpdater.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "tool-end-events-streaming-fix",
+    "streaming-tool-positioning-fix-simple-append",
+    "tool-notifications-streaming-position-fix"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - same DOM query count with fallback",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "Tool notifications stuck in 'working' spinner state forever during streaming → Global DOM search fallback finds relocated tool elements",
+  "root_cause": "During streaming, .tool-notification elements are moved from parent container into .stream-text for correct positioning. ToolStateManager stores reference to original parent container. When tool_end event arrives, ToolElementUpdater searches for .tool-notification inside the now-empty parent container and fails silently.",
+
+  "solution": {
+    "approach": "Two-step DOM search strategy: local search first (non-streaming), global search by data-tool-id fallback (streaming)",
+    "key_changes": [
+      "ToolElementUpdater.js:findToolNotification() - Added toolId parameter and 2-step search logic",
+      "ToolElementUpdater.js:performUpdate() - Pass toolId to findToolNotification for global search capability",
+      "ToolElementUpdater.js - Added comprehensive debug logging to trace update flow"
+    ]
+  },
+
+  "validation": "Manual testing with both Claude Code and Codex providers - tools now show completion checkmark after execution completes. Debug logs confirm: tool found globally → state updated → data-state='end-success' applied",
+
+  "gotchas": [
+    {
+      "issue": "Tools inserted into .stream-text during streaming but state manager stores parent container reference",
+      "solution": "Don't rely solely on stored parent element - use data-tool-id attribute for global DOM search as fallback",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Silent failure - no error logs when querySelector('.tool-notification') returned null",
+      "solution": "Added explicit debug logging at each step: entry → find → validate → update state",
+      "category": "testing",
+      "severity": "medium"
+    },
+    {
+      "issue": "Extension side working perfectly, but UI side failing with zero indication",
+      "solution": "Always add entry/exit logging for event handlers to quickly isolate where processing stops",
+      "category": "testing",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "When DOM elements get relocated during streaming/dynamic updates, always have a fallback search strategy using unique identifiers. Don't assume element relationships remain stable. Add generous debug logging for silent failures in event handlers.",
+
+  "tags": [
+    "streaming",
+    "tool-updates",
+    "dom-search",
+    "tool_use_end",
+    "element-relocation",
+    "silent-failure",
+    "ui-state-management",
+    "COMPLETE",
+    "critical-fix",
+    "ux-bug"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "document.querySelector(`.tool-notification[data-tool-id=\"${toolId}\"]`) - Global search by unique identifier",
+      "messageElement.querySelector('.tool-notification') - Local search within parent",
+      "Two-step fallback pattern - Try specific location first, fall back to global search"
+    ],
+    "api_surface": [
+      "findToolNotification(messageElement, toolId): HTMLElement|null - Finds tool notification with fallback strategy",
+      "performUpdate(messageElement, payload, newContent, tooltip): boolean - Updates tool element state and content"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "findToolNotification() now requires toolId parameter for global search fallback"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Clean up debug logs once confirmed stable in production",
+      "Consider refactoring ToolStateManager to store .tool-notification directly instead of parent container",
+      "Add automated tests for streaming tool lifecycle (start → relocate → update → complete)"
+    ],
+    "architecture_decisions": {
+      "global_search_fallback": "Chose global search by data-tool-id over refactoring state storage - less invasive change with same effectiveness",
+      "debug_logging_retention": "Keep verbose logging temporarily to catch any edge cases in different streaming scenarios"
+    },
+    "extension_points": [
+      "ToolElementUpdater.js - Add more sophisticated search strategies if global search becomes performance issue",
+      "ToolStateManager.js - Could be refactored to store actual .tool-notification element instead of parent"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "rapid-prototype",
+    "naming_preferences": "natural-conversational",
+    "architecture_philosophy": "event-driven",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "tool-lifecycle",
+      "streaming-updates",
+      "dom-relocation",
+      "state-synchronization"
+    ],
+    "technical_patterns": [
+      "two-step-search-fallback",
+      "global-identifier-lookup",
+      "silent-failure-prevention"
+    ],
+    "integration_points": [
+      "ToolStateManager",
+      "ToolEventHandler",
+      "streaming-text-container"
+    ]
+  }
+}

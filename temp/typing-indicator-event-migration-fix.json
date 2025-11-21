@@ -1,0 +1,159 @@
+{
+  "task": "typing-indicator-event-migration-fix",
+  "agent": "claude-sonnet-4",
+  "date": "2025-10-06",
+  "component": "ui-typing-indicator-system",
+
+  "temporal_context": {
+    "date_iso": "2025-10-06",
+    "year": 2025,
+    "month": 10,
+    "week_number": 40,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "2: Event system migration - identifying deprecated vs new events",
+    "business": "4: Critical UX bug - users had no visual feedback during agent processing",
+    "coordination": "3: Required understanding of multi-component event flow across extension and UI"
+  },
+
+  "files_modified": "3",
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/MessageManagerRouter.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/UserUIController.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/agent-typing-indicator/AgentTypingIndicatorController.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "agent-typing-indicator-extraction-and-state-management",
+    "multi-state-architecture-permission-dialog-fix",
+    "stop-button-sigint-interrupt-complete-implementation"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "Typing indicator missing from message list due to event system migration mismatch → Fixed by updating MessageManagerRouter to listen to new event 'ui.agent.state.change.v1' and removed duplicate indicator from input placeholder",
+
+  "root_cause": "Extension migrated to new event 'ui.agent.state.change.v1' with state 'busy', but MessageManagerRouter still listened to deprecated 'ui.state.change.v1' with state 'agent_busy', causing placeholder creation to never trigger",
+
+  "solution": {
+    "approach": "Identified event mismatch through semantic memory search and grep analysis, then migrated MessageManagerRouter to new event system while deprecating old AgentTypingIndicatorController",
+    "key_changes": [
+      "MessageManagerRouter.js: Changed event listener from 'ui.state.change.v1' to 'ui.agent.state.change.v1'",
+      "MessageManagerRouter.js: Updated state check from 'agent_busy' to 'busy' to match new event payload",
+      "UserUIController.js: Removed 'Agent is working...' placeholder text from disableUI() call",
+      "UserUIController.js: Removed message parameter from disableUI() method to prevent input placeholder changes",
+      "AgentTypingIndicatorController.js: Deprecated setupEventHandlers() - marked as no longer used"
+    ]
+  },
+
+  "validation": "User tested by sending message and confirmed typing indicator (matrix spinner + 'Processing...' text) appeared in message list at correct position, while input placeholder remained 'Type your message...'",
+
+  "gotchas": [
+    {
+      "issue": "Two separate state change events existed: deprecated 'ui.state.change.v1' (states: 'agent_busy', 'active') and new 'ui.agent.state.change.v1' (states: 'busy', 'active')",
+      "solution": "Used grep to find all event listeners and identified which components used which event system, then migrated MessageManagerRouter to new system",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Input placeholder was being changed to 'Agent is working...' creating duplicate indicator",
+      "solution": "Removed placeholder text parameter from UserUIController.disableUI() call and method signature, keeping input placeholder unchanged always",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "AgentTypingIndicatorController was old deprecated system still listening to old event",
+      "solution": "Deprecated the controller by removing event handler logic but keeping shell for backwards compatibility",
+      "category": "integration",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "When migrating event systems, must audit ALL listeners across codebase - partial migrations leave components silently broken. Semantic memory search is invaluable for understanding past architectural decisions and identifying deprecated vs current patterns.",
+
+  "tags": [
+    "typing-indicator",
+    "event-migration",
+    "ui-state-management",
+    "event-system-mismatch",
+    "deprecated-events",
+    "agent-state",
+    "placeholder-system",
+    "ux-bug-fix",
+    "architectural-cleanup"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "eventBus.on('ui.agent.state.change.v1', payload) - NEW event pattern for agent state changes",
+      "eventBus.on('ui.state.change.v1', payload) - DEPRECATED event pattern, being phased out",
+      "AgentMessagesManager.createPlaceholder() - Single source of truth for typing indicator in message list",
+      "UserUIController.disableUI() - Disables input without changing placeholder text"
+    ],
+    "api_surface": [
+      "routeStateChange(payload): void - Routes agent state changes to create/clear placeholder",
+      "createPlaceholder(payload): void - Creates typing indicator in message list",
+      "clearPlaceholder(payload): void - Removes typing indicator from message list",
+      "disableUI(): void - Disables input and switches to stop button without changing placeholder"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "UserUIController.disableUI(message) → disableUI() - Removed message parameter",
+      "'ui.state.change.v1' deprecated → use 'ui.agent.state.change.v1' for agent state",
+      "State value 'agent_busy' → 'busy' in new event system"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Complete removal of AgentTypingIndicatorController if no other code depends on it",
+      "Audit codebase for any remaining 'ui.state.change.v1' listeners and migrate them",
+      "Add automated tests for typing indicator appearance/disappearance on state changes",
+      "Document event migration pattern in architecture docs"
+    ],
+    "architecture_decisions": {
+      "single_typing_indicator": "AgentMessagesManager.createPlaceholder() is the ONLY place that shows agent activity - prevents duplicate indicators",
+      "immutable_input_placeholder": "Input placeholder always stays 'Type your message...' regardless of agent state - cleaner UX",
+      "event_system_v2": "Migrating to granular state events (ui.agent.state.change.v1, ui.permission.state.change.v1) instead of monolithic ui.state.change.v1"
+    },
+    "extension_points": [
+      "AgentMessagesManager.js - Customize typing indicator appearance/animation",
+      "MessageManagerRouter.js - Add new state handlers for additional agent states"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "thorough-debugging",
+    "naming_preferences": "natural-conversational",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "ux-polish-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "typing-indicator",
+      "agent-busy-state",
+      "placeholder-creation",
+      "event-driven-ui"
+    ],
+    "technical_patterns": [
+      "event-routing-architecture",
+      "dumb-renderer-pattern",
+      "single-source-of-truth",
+      "deprecated-event-migration"
+    ],
+    "integration_points": [
+      "extension-to-ui-bridge",
+      "agent-state-coordination",
+      "message-list-rendering"
+    ]
+  }
+}

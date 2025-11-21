@@ -1,0 +1,171 @@
+{
+  "task": "search-tool-end-display-done-text-fix",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-11-04",
+  "component": "tool-notification-ui-display",
+
+  "temporal_context": {
+    "date_iso": "2025-11-04",
+    "year": 2025,
+    "month": 11,
+    "week_number": 45,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: Multi-layer debugging across backend event emission, UI event mapping, formatters, renderers, and templates to trace text generation pipeline",
+    "business": "2: Improves UX clarity by showing clear completion status instead of repeating search pattern",
+    "coordination": "4: Required understanding complete data flow from StreamEventEmitter through ChatStreamMappers to UI formatters and templates"
+  },
+
+  "files_modified": "1",
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/formatter/SearchFormatter.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "search-tool-display-fix-incomplete-end-state",
+    "search-tool-display-pattern-fix-attempt",
+    "ui-action-specific-formatter-migration"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "low",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Search tool showing same text ('Searching for *.html') in both tool_start and tool_end states → Changed SearchFormatter to return 'Done.' for tool_end instead of pattern, now displays 'Searching for {pattern}' during execution and 'Done.' with file count badge on completion",
+
+  "root_cause": "SearchFormatter.formatTarget() was returning the search pattern for both START and END states, just with different prefixes ('Searching for' vs 'Search completed for'). User wanted END state to show generic 'Done.' text instead of repeating the pattern.",
+
+  "solution": {
+    "approach": "Systematic debugging with comprehensive logging at every layer of the text generation pipeline (SearchFormatter → ToolFormatter → ToolRenderer → ToolTemplates) to trace exact text values, then modified SearchFormatter to return 'Done.' for end state",
+    "key_changes": [
+      "SearchFormatter.js:35: Changed end state return from {minimal: pattern, full: `Search completed for ${pattern}`} to {minimal: 'Done.', full: 'Done.'} to display completion text instead of pattern"
+    ]
+  },
+
+  "validation": "Added console.log statements throughout entire text generation pipeline showing SearchFormatter correctly returns 'Done.' for END state and 'Searching for {pattern}' for START state, verified in browser console logs",
+
+  "gotchas": [
+    {
+      "issue": "Initial confusion about whether issue was with result detection, payload structure, or text generation - spent time investigating payload.search.result existence when actual issue was simpler UX preference",
+      "solution": "User clarified they wanted 'Done.' text instead of pattern repetition. Adding comprehensive logging at EVERY layer (formatter, renderer, template) revealed all code was working correctly, just needed different text output",
+      "category": "requirement-clarification",
+      "severity": "medium"
+    },
+    {
+      "issue": "Assumed problem was technical (missing data, wrong pathway) when it was actually a UX design decision about what text to display",
+      "solution": "User explicitly stated: 'the end tool don't show text, i want it to show text Done.' - direct communication clarified requirement",
+      "category": "requirement-understanding",
+      "severity": "low"
+    },
+    {
+      "issue": "There are duplicate ChatStreamMappers files (core/ vs ui-logic/) which caused confusion in previous session, but this wasn't the issue this time",
+      "solution": "Verified only single SearchFormatter, ToolFormatter, ToolRenderer exist - no duplicates. The duplicate ChatStreamMappers was from previous session's fix",
+      "category": "architecture-awareness",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "When debugging UI display issues: 1) Add logging at EVERY transformation point in the data pipeline to see exact values, 2) Verify user requirements clearly before deep diving into technical debugging, 3) Sometimes the 'bug' is actually a feature request for different UX behavior, not broken code",
+
+  "tags": [
+    "tool-notifications",
+    "search-tool",
+    "ui-display-text",
+    "tool-end-state",
+    "formatter-pipeline",
+    "done-text",
+    "completion-status",
+    "text-generation",
+    "ux-improvement",
+    "debugging-methodology",
+    "comprehensive-logging",
+    "COMPLETE"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "SearchFormatter.formatTarget(searchPayload) - Returns {minimal, full} text variants based on presence of searchPayload.result",
+      "ToolRenderer.createToolElement() - Uses targetInfo.full for tool_start display",
+      "ToolRenderer.updateToolElement() - Uses targetInfo.minimal for tool_end display",
+      "ToolTemplates.getToolContentTemplate() - Receives final display text and generates HTML"
+    ],
+    "api_surface": [
+      "formatTarget(searchPayload): {minimal: string, full: string} - Detects START vs END state by checking searchPayload.result existence",
+      "formatResult(searchPayload): string - Generates HTML badge showing file count from searchPayload.result.files",
+      "getToolContentTemplate(action, target, details, isEnd, isSuccess): string - Creates tool notification HTML with text and optional details badge"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "tool_end display text changed from pattern ('*.html') to generic 'Done.' - may affect user expectations if they relied on seeing the pattern in completed state"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Remove all debug console.log statements added during debugging session (SearchFormatter, ToolRenderer, ToolTemplates, ToolEventHandler)",
+      "Consider making completion text configurable per action type (search: 'Done.', read: 'Read complete', etc.)",
+      "Apply same 'Done.' pattern to other tool types (Read, Write, Edit) for consistency",
+      "Add unit tests for SearchFormatter.formatTarget() to verify START vs END state text generation"
+    ],
+    "architecture_decisions": {
+      "end_state_text_generic": "Using generic 'Done.' instead of action-specific completion messages provides cleaner, more compact UI and avoids text repetition",
+      "minimal_vs_full_variants": "SearchFormatter returns both minimal and full text variants, allowing renderer to choose based on UI state - flexibility for future UX changes"
+    },
+    "extension_points": [
+      "SearchFormatter.js - To add different completion text variations (success vs error states)",
+      "ToolRenderer.js - To customize which text variant (minimal/full) to use for different states",
+      "ToolTemplates.js - To modify HTML structure if wanting to show both pattern and status in end state"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "thorough-debugging-with-comprehensive-logging",
+    "naming_preferences": "natural-conversational",
+    "architecture_philosophy": "single-responsibility-with-delegation",
+    "quality_standards": "user-experience-clarity-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "tool-lifecycle-states",
+      "tool-start-end-events",
+      "completion-status-display",
+      "notification-text-generation"
+    ],
+    "technical_patterns": [
+      "formatter-delegation-pattern",
+      "minimal-full-text-variants",
+      "state-based-conditional-formatting",
+      "layered-rendering-pipeline"
+    ],
+    "integration_points": [
+      "StreamEventEmitter-to-UI-event-bus",
+      "ChatStreamMappers-event-transformation",
+      "ToolFormatter-to-action-specific-formatters",
+      "ToolRenderer-to-ToolTemplates"
+    ]
+  },
+
+  "debugging_journey": {
+    "initial_hypothesis": "payload.search.result not being sent in tool_end events causing formatter to treat END state as START state",
+    "actual_root_cause": "Code was working perfectly - user wanted different UX (generic 'Done.' text instead of pattern repetition)",
+    "key_debugging_steps": [
+      "Added logging to SearchFormatter to see if result exists → Result EXISTS correctly",
+      "Added logging to ToolRenderer to see which text variant being used → Correct variants being used (full for START, minimal for END)",
+      "Added logging to ToolTemplates to see final display text → Correct text being generated and used",
+      "User clarified requirement: want 'Done.' text for completion, not pattern"
+    ],
+    "tools_used": [
+      "console.log debugging at multiple pipeline layers",
+      "Browser DevTools HTML inspection",
+      "Memory search for previous session context",
+      "Notebook review of past debugging decisions"
+    ]
+  }
+}

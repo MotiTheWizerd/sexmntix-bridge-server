@@ -1,0 +1,194 @@
+{
+  "task": "duplicate-indicator-fix-streaming-state-guard",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-26",
+  "component": "placeholder-creation-state-management",
+
+  "temporal_context": {
+    "date_iso": "2025-10-26",
+    "year": 2025,
+    "month": 10,
+    "week_number": 43,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Multi-layered event-driven architecture with race condition between state changes and streaming initialization, requiring dependency injection across router hierarchy",
+    "business": "5: CRITICAL UX bug - duplicate indicators during streaming confused users and damaged professional appearance",
+    "coordination": "3: Required understanding event flow, state management, ChatStore integration, and dependency injection chain"
+  },
+
+  "files_modified": "6",
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/message-manager-router/routers/StateChangeRouter.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/message-manager-router/injection/InjectionCoordinator.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/message-manager-router/injection/ManagerInjector.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/message-manager-router/factory/ComponentFactory.js",
+    "src/ui/modules/ui-logic/ui-controllers/ui-controller-manager/ui-controller-manager/injection/RouterInjector.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/MessageManagerRouter.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "duplicate-indicator-investigation-multiple-failed-attempts",
+    "claude-cli-tool-display-fix-complete",
+    "tool-notifications-streaming-position-fix",
+    "universal-error-message-system-implementation"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - adds single boolean check before placeholder creation",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "Duplicate placeholder indicators appearing during streaming (one from agent.state='busy', one from chat.stream.start) → Added streaming state guard in StateChangeRouter to skip placeholder creation when streaming already active",
+
+  "root_cause": "Race condition in placeholder creation: When user sends message, agent.state.change='busy' event emits IMMEDIATELY (before streaming starts) creating placeholder #1. Milliseconds later, chat.stream.start.v1 event emits creating placeholder #2. StateChangeRouter had no awareness of streaming state, so it blindly created placeholders on every 'busy' state change, including during active streaming when placeholder already existed.",
+
+  "solution": {
+    "approach": "Inject ChatStore into StateChangeRouter via dependency injection chain, add streaming state check before placeholder creation, skip if streaming already active for that chat",
+    "key_changes": [
+      "StateChangeRouter.js: Added chatStore constructor parameter (null initially, injected later), added _resolveChatId() helper method for chatId resolution with fallback to active chat, added streaming state check in handleBusyState() that queries chatStore.isStreaming(chatId) and returns early with log message if streaming already active",
+      "InjectionCoordinator.js: Added stateChangeRouter constructor parameter, added injectChatStore() method that injects ChatStore into StateChangeRouter, updated isFullyInjected() to check for chatStore presence, updated getInjectionStatus() to include chatStore status, modified injectChatTabManager() to also inject into ManagerInjector for StateChangeRouter access",
+      "ManagerInjector.js: Added chatTabManager property to store ChatTabManager reference, added setChatTabManager() method for injection, added getChatTabManager() getter method, updated getManager() switch to handle 'chatTab' case",
+      "ComponentFactory.js: Updated StateChangeRouter instantiation to pass null for chatStore (injected later via InjectionCoordinator), updated InjectionCoordinator instantiation to pass stateChangeRouter reference",
+      "RouterInjector.js: Added injectChatStore() method that retrieves router and chatTabManager.store from registry and calls router.injectChatStore(), added injectChatStore() call to injectAll() method",
+      "MessageManagerRouter.js: Added injectChatStore() delegation method that calls injectionCoordinator.injectChatStore()"
+    ]
+  },
+
+  "validation": "Manual testing by Moti - sent message 'hello claude how many html files i have', observed single 'STREAMING CONSCIOUSNESS' indicator during tool execution, confirmed no duplicate indicators appeared, user confirmed 'works perfect buddy! well done!'",
+
+  "gotchas": [
+    {
+      "issue": "Initial investigation traced event flows for Codex vs Claude, assumed different providers had different event patterns causing the bug, but both actually go through same ToolStartHandler",
+      "solution": "Moti's logs revealed the REAL issue: agent.state='busy' emits BEFORE streaming starts (on message send), creating first placeholder, then stream.start creates second. The timing was the key, not provider differences.",
+      "category": "investigation",
+      "severity": "high"
+    },
+    {
+      "issue": "PlaceholderCreator.create() already calls removeExistingPlaceholder() before creating new one, so why duplicates? Assumed Map lookup was failing due to chatId mismatch.",
+      "solution": "The issue wasn't Map lookup failure - it was TWO DIFFERENT ROUTERS creating placeholders at different times. StateChangeRouter creates on state='busy', StreamingChunkRouter creates on stream.start. Both succeed, both visible briefly, causing duplicate.",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "StateChangeRouter needed chatId to check streaming state, but agent.state.change payload doesn't include chatId (AgentStateCoordinator doesn't pass it)",
+      "solution": "Added _resolveChatId() helper that uses same fallback logic as DOMReferences: if payload has chatId use it, else get active chat from ChatTabManager via ManagerInjector",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "Dependency injection chain was complex - StateChangeRouter built in ComponentFactory, but ChatStore comes from ChatTabManager which is injected later via RouterInjector",
+      "solution": "Used delayed injection pattern: StateChangeRouter constructor accepts null for chatStore, InjectionCoordinator provides injectChatStore() method called later when ChatStore available, follows same pattern as ProvidersUIManager injection",
+      "category": "architecture",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "When investigating duplicate UI elements, logs are CRITICAL for understanding timing and sequence. Moti's complete logs from message send through streaming showed that agent.state='busy' happened BEFORE stream.start, revealing the race condition. Without logs, we assumed architectural differences between providers. With logs, we saw it was a timing issue affecting BOTH providers equally. Key learning: (1) Race conditions require timing analysis from logs, (2) Multiple creation paths (StateChangeRouter + StreamingChunkRouter) need coordination, (3) Streaming state should be checked before ANY placeholder creation, not just one path.",
+
+  "tags": [
+    "duplicate-indicator",
+    "placeholder-creation",
+    "streaming-state-guard",
+    "race-condition",
+    "StateChangeRouter",
+    "StreamingChunkRouter",
+    "ChatStore-integration",
+    "dependency-injection",
+    "timing-bug",
+    "multi-provider",
+    "claude",
+    "codex",
+    "CRITICAL-FIX",
+    "SUCCESS"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "StateChangeRouter.handleBusyState() - Now checks chatStore.isStreaming(chatId) before creating placeholder",
+      "InjectionCoordinator.injectChatStore() - Dependency injection pattern for ChatStore into StateChangeRouter",
+      "StateChangeRouter._resolveChatId() - ChatId resolution with fallback to active chat, mirrors DOMReferences pattern",
+      "chatStore.isStreaming(chatId) - Query streaming state for specific chat from ChatStore Map",
+      "chatTabManager.store - ChatStore instance accessed via ChatTabManager.store property"
+    ],
+    "api_surface": [
+      "StateChangeRouter.handleBusyState(manager, payload): void - Checks streaming state before placeholder creation",
+      "StateChangeRouter._resolveChatId(chatId): string|null - Resolves chatId with fallback to active chat",
+      "InjectionCoordinator.injectChatStore(chatStore): void - Injects ChatStore into StateChangeRouter",
+      "ManagerInjector.setChatTabManager(chatTabManager): void - Stores ChatTabManager reference",
+      "ManagerInjector.getChatTabManager(): ChatTabManager|null - Retrieves ChatTabManager reference",
+      "MessageManagerRouter.injectChatStore(chatStore): void - Delegates ChatStore injection to InjectionCoordinator",
+      "RouterInjector.injectChatStore(): void - Retrieves ChatStore from registry and injects into router"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "StateChangeRouter constructor signature changed - Added chatStore parameter (backward compatible via null default)",
+      "InjectionCoordinator constructor signature changed - Added stateChangeRouter parameter",
+      "ComponentFactory passes null for chatStore initially - Requires injection via InjectionCoordinator.injectChatStore()"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Consider adding streaming state check to StreamingChunkRouter.routeStreamStart() as defensive guard (skip if placeholder already exists)",
+      "Add unit tests for StateChangeRouter streaming state guard logic",
+      "Add integration tests that simulate race condition (send message, immediately start streaming, verify single placeholder)",
+      "Document the two-path placeholder creation architecture in system docs (when each path is used, how they coordinate)",
+      "Consider consolidating placeholder creation to single entry point to prevent future duplication issues"
+    ],
+    "architecture_decisions": {
+      "streaming-state-guard-in-StateChangeRouter": "Chose to add guard in StateChangeRouter rather than preventing agent.state='busy' emission because state changes are legitimate and other systems may depend on them. Guard approach is less invasive and maintains event flow integrity.",
+      "chatStore-injection-pattern": "Used delayed injection pattern (null in constructor, inject later) to avoid circular dependencies and maintain clean separation between component construction and runtime dependency injection, following existing pattern used for ProvidersUIManager.",
+      "chatId-resolution-with-fallback": "Implemented same fallback logic as DOMReferences (_resolveChatId) to handle missing chatId in state change payloads. Fallback to active chat ensures guard works even when chatId not provided, preventing false positives.",
+      "check-streaming-not-placeholder-existence": "Guard checks streaming state rather than placeholder DOM existence because streaming state is authoritative source of truth tracked by ChatStore. Placeholder existence can have edge cases (removed but streaming still active, etc)."
+    },
+    "extension_points": [
+      "StateChangeRouter._resolveChatId() - Can be extracted to shared utility if other routers need same logic",
+      "InjectionCoordinator - Add more injection methods following same pattern for future dependencies",
+      "ChatStore.isStreaming() - Could be enhanced to return streaming metadata (provider, start time, etc) not just boolean",
+      "StateChangeRouter guard pattern - Same streaming check could be applied to other state change handlers if needed"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "investigation-first",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "ultra-modular-single-responsibility",
+    "quality_standards": "zero-breaking-changes-understand-before-fixing",
+    "feedback_style": "direct-critical-when-approach-wrong"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "placeholder-lifecycle",
+      "streaming-state",
+      "race-condition",
+      "state-change-events",
+      "streaming-initialization",
+      "multi-path-creation",
+      "chatId-resolution"
+    ],
+    "technical_patterns": [
+      "event-driven-architecture",
+      "state-management",
+      "dependency-injection",
+      "delayed-injection",
+      "guard-pattern",
+      "fallback-resolution",
+      "multi-provider-coordination"
+    ],
+    "integration_points": [
+      "StateChangeRouter",
+      "StreamingChunkRouter",
+      "ChatStore",
+      "ChatTabManager",
+      "InjectionCoordinator",
+      "ManagerInjector",
+      "RouterInjector"
+    ]
+  }
+}

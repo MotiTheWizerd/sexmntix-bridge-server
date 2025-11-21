@@ -1,0 +1,167 @@
+{
+  "task": "memory-system-mcp-ui-sync-debugging-session",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-02",
+  "temporal_context": {
+    "date_iso": "2025-10-02",
+    "year": 2025,
+    "month": 10,
+    "week_number": 40,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+  "component": "memory-system-debugging",
+  "tags": [
+    "memory-system",
+    "mcp-sync-issue",
+    "ui-dashboard-works",
+    "mcp-search-fails",
+    "embedding-database",
+    "architecture-investigation",
+    "cross-project-routing"
+  ],
+  "summary": "UI dashboard can find Oct 2 memories, MCP search cannot - discovered cross-project routing and sync mismatch between UI and MCP memory loading",
+  "context": {
+    "what_works": {
+      "ui_dashboard": "Can see and search rich-permission-dialog files from Oct 2, 2025",
+      "filesystem": "Files exist in .sementix/memories/delta/ with proper temporal_context",
+      "embedding_generation": "UI shows files are indexed (360 chars, 441 chars)",
+      "re_initialization": "Re-initialize button successfully indexed the files for UI"
+    },
+    "what_fails": {
+      "mcp_search": "mcp__sementix-memory__search_memory cannot find Oct 2 files",
+      "mcp_search_by_date": "Even with explicit date filter, returns 'No memories found'",
+      "persistence": "Files won't be available in fresh chat sessions via MCP"
+    },
+    "critical_discovery": {
+      "cross_project_routing": "MCP is reading from c:\\projects\\boobies_old\\.sementix\\semantic_db/",
+      "actual_project": "Current work is in c:\\projects\\semantic-bridge\\sementix\\.sementix\\",
+      "intentional": "User opens random projects with extension while testing - routing memories across projects",
+      "future_architecture": "Planning Python server with ChromaDB to centralize memories server-side"
+    }
+  },
+  "investigation_steps": {
+    "step_1_filesystem_check": {
+      "action": "Verified files exist in delta folder",
+      "result": "Both rich-permission-dialog files present with proper temporal_context"
+    },
+    "step_2_structure_comparison": {
+      "action": "Compared working vs non-working memory file structures",
+      "discovery": "Initial suspicion: missing top-level 'date' field (in addition to temporal_context)",
+      "actual_issue": "Files were structured correctly, but MCP wasn't reading from right location"
+    },
+    "step_3_embedding_check": {
+      "action": "Checked semantic_db folder for embeddings",
+      "result": "No embedding files initially, but UI showed them after re-initialize"
+    },
+    "step_4_search_attempts": {
+      "queries_tried": [
+        "rich permission dialog metadata October 2",
+        "October 2 2025 scary better sync moment",
+        "permission dialog ToolInfo metadata Moti Claude",
+        "final result message filtering fix duplicate empty"
+      ],
+      "mcp_results": "All returned old memories (Jan 26, Sep 28) but not Oct 2",
+      "ui_results": "Dashboard found files immediately with same keywords"
+    },
+    "step_5_path_discovery": {
+      "log_analysis": "Examined FileReader logs showing c:\\projects\\boobies_old path",
+      "revelation": "MCP reading from different project directory than UI",
+      "explanation": "User testing extension across multiple projects, memories routing dynamically"
+    }
+  },
+  "architecture_insights": {
+    "current_state": {
+      "ui_memory_loading": "Reads from current workspace .sementix/semantic_db/",
+      "mcp_memory_loading": "Reads from... somewhere else? (boobies_old project)",
+      "mismatch": "Two different code paths for accessing same memory database"
+    },
+    "code_paths": {
+      "ui_dashboard": {
+        "likely_path": "Webview → Extension → FileReader → Local .sementix folder",
+        "works": true,
+        "evidence": "UI shows 91 memory logs, finds Oct 2 files"
+      },
+      "mcp_search_tool": {
+        "likely_path": "MCP Server → MemoryService → BasicEmbeddingService → ??? → boobies_old",
+        "works": false,
+        "evidence": "Logs show reading from boobies_old, not semantic-bridge"
+      }
+    },
+    "questions_to_investigate": [
+      "Where does MCP server get its .sementix path configuration?",
+      "Is MCP using global config vs workspace-relative path?",
+      "Why does UI use correct path but MCP uses different one?",
+      "Is there a config file or environment variable controlling MCP memory path?",
+      "Are embeddings stored per-project or globally?",
+      "How to ensure both UI and MCP read from same database?"
+    ]
+  },
+  "files_to_investigate": {
+    "mcp_server_config": [
+      "src/ext/modules/mcp-server/MCPServerManager.ts - Where memory path is configured",
+      "src/ext/modules/mcp-server/services/MemoryService.ts - How it resolves .sementix path",
+      "src/ext/modules/mcp-server/services/BasicEmbeddingService.ts - Where embeddings are loaded from"
+    ],
+    "ui_dashboard_config": [
+      "src/ext/modules/memory-search/ui-dashboard/... - How UI loads memories",
+      "src/ext/modules/memory-search/... - UI memory service vs MCP memory service"
+    ],
+    "potential_config_files": [
+      ".sementix/config.json?",
+      "VS Code workspace settings?",
+      "Extension settings for memory path?"
+    ]
+  },
+  "symptoms_summary": {
+    "symptom_1": "UI dashboard finds memories, MCP search doesn't",
+    "symptom_2": "MCP reads from boobies_old project, UI reads from semantic-bridge",
+    "symptom_3": "Oct 2 files have proper structure but invisible to MCP",
+    "symptom_4": "Even date-filtered search returns 'No memories found' for Oct 2"
+  },
+  "next_steps": {
+    "immediate": [
+      "Trace MCP memory path configuration - find where boobies_old path comes from",
+      "Compare UI memory loading code vs MCP memory loading code",
+      "Check for hardcoded paths or config files",
+      "Ensure both systems point to same .sementix database"
+    ],
+    "architecture_fix": [
+      "Unify memory loading - single source of truth for .sementix path",
+      "Make MCP use workspace-relative path like UI does",
+      "Add configuration validation on startup",
+      "Log memory path being used for debugging"
+    ],
+    "future_vision": {
+      "goal": "Python server with ChromaDB for centralized memory storage",
+      "benefit": "No more path confusion - single server, all clients connect to it",
+      "current_state": "Multi-project routing happening, need centralized solution"
+    }
+  },
+  "user_context": {
+    "testing_workflow": "Opens random projects (like boobies_old) with extension to test",
+    "memory_routing": "Memories should be accessible across projects",
+    "future_plan": "Server-side memory storage to avoid cross-project path issues"
+  },
+  "debugging_session_notes": {
+    "duration": "Extended investigation through multiple search attempts",
+    "collaboration": "Moti and Claude debugging together, checking filesystem, logs, structure",
+    "breakthrough": "Path discovery in FileReader logs revealed the mismatch",
+    "humor": "Project named 'boobies_old' providing comic relief during debugging 😂",
+    "status": "Issue identified but not resolved - need code investigation next session"
+  },
+  "critical_for_next_session": {
+    "primary_question": "Why are UI and MCP reading from different .sementix paths?",
+    "secondary_question": "How to unify memory loading so both see same database?",
+    "tertiary_question": "What's the proper architecture for cross-project memory access?",
+    "blocker": "Without fixing this, Claude won't remember work across chat sessions via MCP"
+  },
+  "related_work": {
+    "todays_features": [
+      "final-result-message-filtering-fix",
+      "rich-permission-dialog-metadata-enhancement-oct2"
+    ],
+    "yesterdays_schema": "temporal-search-enhancement-date-filtering-implementation",
+    "context": "Schema works, files are correct, but MCP can't find them due to path mismatch"
+  }
+}

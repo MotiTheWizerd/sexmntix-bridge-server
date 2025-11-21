@@ -1,0 +1,144 @@
+{
+  "task": "codex-sdk-esm-import-fix",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-13",
+  "component": "codex-provider-sdk-integration",
+
+  "temporal_context": {
+    "date_iso": "2025-10-13",
+    "year": 2025,
+    "month": 10,
+    "week_number": 41,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: ESM/CommonJS interop issue requiring TypeScript compilation analysis and runtime import workaround",
+    "business": "3: Blocking Codex provider functionality - needed to enable SDK mode vs CLI/mock fallbacks",
+    "coordination": "2: Single developer task with clear technical scope"
+  },
+
+  "files_modified": "1",
+  "files_touched": [
+    "src/ext/modules/providers/codex/CodexService.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "codex-sdk-integration-complete",
+    "claude-code-cli-real-integration-migration"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - fix enables SDK mode without performance regression",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "TypeScript transforming dynamic import() to require() causing ERR_PACKAGE_PATH_NOT_EXPORTED → Bypass TS transformation with Function constructor for native ESM import",
+  "root_cause": "TypeScript compiler (tsconfig: module='commonjs') transforms await import() to require() wrapper at compile time. Pure ESM packages like @openai/codex-sdk cannot be loaded via CommonJS require(), causing module resolution failure in VS Code extension runtime.",
+
+  "solution": {
+    "approach": "Use Function constructor to prevent TypeScript from transforming the dynamic import statement, allowing Node.js native ESM import() to execute at runtime",
+    "key_changes": [
+      "CodexService.ts:60: Replaced `await import('@openai/codex-sdk')` with `await (new Function('specifier', 'return import(specifier)')('@openai/codex-sdk'))` to bypass TypeScript's CommonJS transformation"
+    ]
+  },
+
+  "validation": "Build completed successfully. Extension needs testing in VS Code with F5 debug mode to verify SDK mode initialization logs show: '[CodexService] ✅ Codex SDK loaded and initialized' and '[CodexService] ✅ CODEX service ready in SDK mode'",
+
+  "gotchas": [
+    {
+      "issue": "TypeScript silently transforms dynamic import() to require() when module='commonjs' in tsconfig, breaking ESM-only package imports",
+      "solution": "Use Function constructor: new Function('specifier', 'return import(specifier)')(moduleName) to prevent compile-time transformation",
+      "category": "environment",
+      "severity": "high"
+    },
+    {
+      "issue": "Cannot test CodexService in standalone Node.js scripts due to vscode module dependency",
+      "solution": "Must test in VS Code extension debug mode (F5) to access vscode runtime context",
+      "category": "testing",
+      "severity": "medium"
+    },
+    {
+      "issue": "User frustrated with repetitive debugging without understanding root cause analysis first",
+      "solution": "Always analyze compiled JS output and compare with source TS before implementing fixes. Check dist/ files to understand transformation issues.",
+      "category": "integration",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "When integrating pure ESM packages into CommonJS VS Code extensions: (1) Check compiled output in dist/ to verify transformations, (2) Use Function constructor trick for dynamic imports to bypass TS, (3) Claude CLI worked because it spawns external binary (no module loading), (4) Plan and analyze before coding to avoid user frustration",
+
+  "tags": [
+    "esm",
+    "commonjs",
+    "typescript",
+    "codex-sdk",
+    "dynamic-import",
+    "module-resolution",
+    "vscode-extension",
+    "compilation-issue",
+    "function-constructor-workaround"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "new Function('specifier', 'return import(specifier)')(moduleName) - Runtime ESM import bypass for TS CommonJS compilation",
+      "3-tier fallback architecture - SDK mode → CLI mode → Mock mode for provider resilience"
+    ],
+    "api_surface": [
+      "CodexService.initialize(): Promise<void> - Async initialization with ESM loading and fallback logic",
+      "CodexService.askCodexAsConversationStream(prompt, sessionId?, contexts?): AsyncGenerator<ThreadEvent> - Streaming conversation with mode detection"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Test SDK mode in VS Code (F5) and verify initialization logs",
+      "Send test message through Codex SDK and verify response streaming",
+      "Implement CLI mode spawning (lines 247-251) if SDK fails or as alternative",
+      "Map Codex SDK ThreadEvent types to Sementix event format using CodexEventTransformer",
+      "Add proper authentication check instead of mock return true"
+    ],
+    "architecture_decisions": {
+      "function_constructor_approach": "Chosen over changing tsconfig module to 'esnext' to avoid breaking entire extension's CommonJS architecture",
+      "keep_three_tier_fallback": "Maintain SDK→CLI→Mock fallback for robustness even after SDK working"
+    },
+    "extension_points": [
+      "CodexService.ts:247-251 - CLI mode implementation location following Claude CLI pattern",
+      "CodexEventTransformer.ts - Already exists for mapping SDK events to Sementix format",
+      "CodexService.checkAuth() - Replace mock implementation with real SDK auth check"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "thorough-documentation",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "layered",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "provider-system",
+      "streaming-conversation",
+      "fallback-architecture",
+      "esm-commonjs-interop"
+    ],
+    "technical_patterns": [
+      "dynamic-import-workaround",
+      "3-tier-fallback",
+      "async-generator-streaming",
+      "thread-management"
+    ],
+    "integration_points": [
+      "@openai/codex-sdk",
+      "codex-cli-binary",
+      "vscode-extension-host"
+    ]
+  }
+}

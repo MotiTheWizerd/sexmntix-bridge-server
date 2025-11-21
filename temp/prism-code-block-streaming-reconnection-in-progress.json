@@ -1,0 +1,166 @@
+{
+  "task": "prism-code-block-streaming-reconnection-in-progress",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-30",
+  "component": "ui-streaming-formatter-code-blocks",
+
+  "temporal_context": {
+    "date_iso": "2025-10-30",
+    "year": 2025,
+    "month": 10,
+    "week_number": 44,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4-5: Multi-line code block state tracking across streaming chunks with auto-close pattern, requires understanding existing formatter architecture and streaming flow",
+    "business": "3-5: Critical for code readability in AI responses - syntax highlighting is core UX feature",
+    "coordination": "4-5: Required deep understanding of formatter rebuild, auto-close system, and avoiding breaking streaming (broken twice before)"
+  },
+
+  "files_modified": "2",
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/formatters/components/streaming/CodeBlockStateManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/formatters/ClaudeFormatter.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "streaming-markdown-formatter-simple-line-buffering",
+    "prism-syntax-highlighting-integration",
+    "streaming-text-deletion-conditional-removal-fix"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - maintains existing streaming performance",
+    "test_coverage_delta": "0% - no tests added yet",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Prism disconnected after formatter rebuild → Created CodeBlockStateManager + integrated into ClaudeFormatter BUT regex detection issue found - continuing next session",
+  "root_cause": "Formatter was completely rebuilt with line-buffering architecture, Prism integration was temporarily removed and needs reconnection. Code blocks span multiple lines requiring stateful tracking across chunks.",
+
+  "solution": {
+    "approach": "Create reusable CodeBlockStateManager module for per-chatId state tracking, integrate into ClaudeFormatter to bypass markdown formatting when inside code blocks, maintain auto-close pattern for streaming",
+    "key_changes": [
+      "CodeBlockStateManager.js: NEW - Stateful tracker for code block opening/closing/content across streaming chunks with per-chatId Map",
+      "ClaudeFormatter.js: Imported CodeBlockStateManager, added detection logic in formatChunk() to bypass formatter when in code block, added clearBuffer() cleanup",
+      "CodeBlockStateManager.js: FIXED - Updated regex from /^```(\\w*)$/ to /^```(\\w*)/ to handle chunks with code on same line as opening marker"
+    ]
+  },
+
+  "validation": "INCOMPLETE - regex fix applied but not tested yet, continuing next session",
+
+  "gotchas": [
+    {
+      "issue": "Code block chunks arrive as '```javascript\\ncode\\nmore code' not '```javascript' alone on line",
+      "solution": "Changed opening detection regex from /^```(\\w*)$/ (exact match) to /^```(\\w*)/ (prefix match) to handle code on same line",
+      "category": "streaming",
+      "severity": "high"
+    },
+    {
+      "issue": "User went SLOW deliberately - we broke streaming twice before, must understand fully before coding",
+      "solution": "Spent 2-3 sessions understanding: auto-close system (MarkdownElementMapper), line-buffering (LineBufferManager), stateful parsing (StatefulInlineParser), two-path system (complete vs incomplete)",
+      "category": "methodology",
+      "severity": "high"
+    },
+    {
+      "issue": "Initially overcomplicated with questions about 'what user sees at each millisecond'",
+      "solution": "Moti reminded: 'dude, its streaming.. milliseconds' - stop overthinking, just make it flow naturally",
+      "category": "design",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "When reconnecting features after major refactors: (1) Take time to FULLY understand new architecture before coding - don't rush, (2) Streaming chunks don't always arrive line-by-line - regex must handle multiple lines in single chunk, (3) User feedback 'go SLOW' is critical when we've broken things before - earn back trust through understanding",
+
+  "tags": [
+    "prism-integration",
+    "code-block-streaming",
+    "syntax-highlighting",
+    "stateful-tracking",
+    "multi-line-elements",
+    "auto-close-pattern",
+    "formatter-reconnection",
+    "streaming-chunks",
+    "regex-detection",
+    "IN-PROGRESS",
+    "PARTIAL-SUCCESS",
+    "CONTINUE-NEXT-SESSION"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "CodeBlockStateManager.detectOpening(line) - Regex matches ```language at line start, returns {isOpening, language}",
+      "CodeBlockStateManager.isInCodeBlock(chatId) - Check if currently streaming inside code block for chatId",
+      "ClaudeFormatter.formatChunk() - Main streaming loop, checks code block state before applying markdown formatting",
+      "MarkdownElementMapper.analyzeIncompleteBuffer() - Auto-close system for incomplete markdown in streaming"
+    ],
+    "api_surface": [
+      "CodeBlockStateManager.detectOpening(line): {isOpening: boolean, language: string} - Detect ```language marker",
+      "CodeBlockStateManager.detectClosing(line): boolean - Detect closing ``` marker",
+      "CodeBlockStateManager.isInCodeBlock(chatId): boolean - Check if in code block state",
+      "CodeBlockStateManager.open(chatId, language): void - Start code block state",
+      "CodeBlockStateManager.close(chatId): void - End code block state",
+      "CodeBlockStateManager.clear(chatId): void - Clear state on message completion"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Test regex fix - verify code blocks are detected when chunks arrive as '```javascript\\ncode'",
+      "Add Prism highlighting call after code block completes streaming (may already work via MessagePostProcessor)",
+      "Verify PrismHighlighter.highlightInContainer() works with streamed code blocks",
+      "Add console logs to CodeBlockStateManager for debugging detection",
+      "Handle edge case: incomplete code blocks (streaming interrupted before closing ```)",
+      "Consider adding data-incomplete attribute to code blocks during streaming"
+    ],
+    "architecture_decisions": {
+      "separate-state-manager": "Created CodeBlockStateManager as separate module (not in ClaudeFormatter) for reusability across providers (Codex, Gemini)",
+      "bypass-not-parse": "Code blocks bypass markdown formatter entirely (raw text) instead of parsing - simpler and safer",
+      "visible-markers": "User sees ```language and ``` markers during streaming (Moti said NO to hiding them)",
+      "per-chatId-state": "State tracked per chatId in Map for multi-chat support"
+    },
+    "extension_points": [
+      "CodeBlockStateManager.js - Add support for indented code blocks (4-space prefix) if needed",
+      "ClaudeFormatter.js - Add language detection for language-less code blocks (```\\n without language)",
+      "PrismHighlighter.js - May need custom handling for streamed code blocks vs static ones"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "methodical-understanding-first - User insists on going SLOW, understanding fully before coding, because we broke streaming twice before",
+    "naming_preferences": "natural-conversational - User speaks casually ('dude', 'buddy') but expects precise technical work",
+    "architecture_philosophy": "ultra-modular-single-responsibility - Every component has ONE job, orchestrator pattern everywhere",
+    "quality_standards": "stability-over-speed - User prioritizes NOT breaking existing functionality over fast iteration"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "streaming-formatter",
+      "auto-close-system",
+      "line-buffering",
+      "stateful-inline-parsing",
+      "code-block-fencing",
+      "syntax-highlighting",
+      "prism-integration"
+    ],
+    "technical_patterns": [
+      "per-chatId-state-tracking",
+      "Map-based-state-management",
+      "two-path-rendering (complete-lines vs incomplete-buffer)",
+      "data-incomplete-attribute",
+      "orchestrator-pattern",
+      "ultra-modular-components"
+    ],
+    "integration_points": [
+      "PrismHighlighter.highlightInContainer()",
+      "MessagePostProcessor._highlightCodeBlocks()",
+      "MarkdownRenderer.render()",
+      "ClaudeFormatter.formatChunk()"
+    ]
+  }
+}

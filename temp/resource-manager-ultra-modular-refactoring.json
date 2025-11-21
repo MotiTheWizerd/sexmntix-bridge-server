@@ -1,0 +1,172 @@
+{
+  "task": "resource-manager-ultra-modular-refactoring",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-07",
+  "component": "resource-manager",
+
+  "temporal_context": {
+    "date_iso": "2025-10-07",
+    "year": 2025,
+    "month": 10,
+    "week_number": 41,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: TypeScript VSCode extension manager with webview URIs, filesystem operations, and template injection",
+    "business": "3: Critical webview resource loading for entire UI system - CSS, scripts, icons",
+    "coordination": "3: Event-driven pipeline with 6 stages coordinating multiple services"
+  },
+
+  "files_modified": "8",
+  "files_touched": [
+    "src/ext/providers/semntix-view/managers/ResourceManager.ts",
+    "src/ext/providers/semntix-view/managers/resource-manager/types/ResourceTypes.ts",
+    "src/ext/providers/semntix-view/managers/resource-manager/services/CssUriResolver.ts",
+    "src/ext/providers/semntix-view/managers/resource-manager/services/ScriptUriResolver.ts",
+    "src/ext/providers/semntix-view/managers/resource-manager/services/IconUriLoader.ts",
+    "src/ext/providers/semntix-view/managers/resource-manager/services/TemplateInjector.ts",
+    "src/ext/providers/semntix-view/managers/resource-manager/pipeline/ResourcePipeline.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "react-dashboard-panel-ultra-modular-refactoring",
+    "header-controller-ultra-modular-refactoring",
+    "vscode-bridge-refactoring-analysis"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - same runtime behavior, pipeline delegation overhead negligible",
+    "test_coverage_delta": "0% - no tests added yet",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "Monolithic 363-line TypeScript manager with 214 lines of repetitive URI code and 20+ manual string replacements → Ultra-modular 88-line orchestrator + 7 focused components with configuration-driven approach",
+
+  "root_cause": "Mixed concerns: event handling, CSS/script/icon URI resolution, filesystem operations, template token injection all in single class with massive code duplication",
+
+  "solution": {
+    "approach": "Pipeline pattern with configuration-driven URI resolution - eliminate repetition through declarative CSS path config and token mapping, separate services by responsibility",
+    "key_changes": [
+      "types/ResourceTypes.ts: TypeScript interfaces for CssResourcePaths, CssResourceUris, IconUriMap, ResourceDependencies, ProcessedResources",
+      "services/CssUriResolver.ts: Configuration-driven CSS URI resolution - eliminates 214 lines of repetitive webview.asWebviewUri() calls",
+      "services/ScriptUriResolver.ts: Single-purpose script URI resolution for main.js",
+      "services/IconUriLoader.ts: Filesystem icon loading with SVG filtering and camelCase name conversion (extracted existing logic)",
+      "services/TemplateInjector.ts: Declarative token mapping eliminates 20+ manual .replace() calls",
+      "pipeline/ResourcePipeline.ts: 6-stage pipeline orchestrates all services (Resolve CSS → Script → Icons → Inject → Emit → Set HTML)",
+      "ResourceManager.ts: Ultra-thin orchestrator (88 lines) - event handling, pipeline initialization, CSS path config, delegates ALL processing"
+    ]
+  },
+
+  "validation": "TypeScript compilation successful, line count verified: 363 lines → 88-line orchestrator + 407 lines in 7 components (495 total, ~1.36x expansion). Backup file created.",
+
+  "gotchas": [
+    {
+      "issue": "TypeScript error TS2345: CssResourceUris not assignable to Record<string, Uri> in emitResourcesReady()",
+      "solution": "Import CssResourceUris type and use as parameter type instead of generic Record - maintains type safety with named properties",
+      "category": "typing",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "Configuration-driven approaches are incredibly powerful for eliminating code duplication in TypeScript. 214 lines of repetitive webview.asWebviewUri() calls → single declarative config object. Declarative token mapping beats 20+ manual .replace() calls. Pipeline pattern creates clear 6-stage flow that's easy to understand and extend.",
+
+  "tags": [
+    "ultra-modular",
+    "resource-manager-refactoring",
+    "vscode-extension",
+    "webview-resources",
+    "typescript-refactoring",
+    "configuration-driven",
+    "pipeline-pattern",
+    "uri-resolution",
+    "template-injection",
+    "dependency-injection",
+    "code-deduplication",
+    "declarative-programming",
+    "filesystem-operations",
+    "icon-loading"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "Pipeline pattern - ResourcePipeline orchestrates 6 stages of resource processing",
+      "Configuration-driven - CSS paths as declarative config eliminates 200+ lines of duplication",
+      "Declarative token mapping - buildTokenMap() creates token → value pairs for .replace()",
+      "CssUriResolver.resolveCssUris(paths) - Maps CssResourcePaths to CssResourceUris via resolveUri()",
+      "IconUriLoader.loadIconUris() - Filesystem scanning + camelCase conversion (send-button-icon.svg → sendButtonIcon)",
+      "TemplateInjector.injectResources() - Replaces all template tokens from declarative map",
+      "ResourcePipeline.processResources() - 6-stage flow: resolve CSS → script → icons → inject → emit → set HTML",
+      "BaseManager inheritance maintained - setupEventHandlers() pattern preserved"
+    ],
+    "api_surface": [
+      "ResourceManager.setupEventHandlers(): void - Listens to view.resolved and template.loaded events",
+      "ResourcePipeline.processResources(html: string, cssPaths: CssResourcePaths): void - Main pipeline entry point",
+      "CssUriResolver.resolveCssUris(paths: CssResourcePaths): CssResourceUris - Convert paths to webview URIs",
+      "ScriptUriResolver.resolveScriptUri(): vscode.Uri - Resolve main.js script URI",
+      "IconUriLoader.loadIconUris(): IconUriMap - Scan filesystem and load all SVG icons",
+      "TemplateInjector.injectResources(html, scriptUri, cssUris, iconUris): string - Replace all tokens"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Work on slash command implementation (next session planned)",
+      "Consider adding unit tests for each service now that they're isolated",
+      "Potentially extract icon loading to separate MCP service for cross-platform use",
+      "Apply same configuration-driven pattern to other managers if they have repetitive code"
+    ],
+    "architecture_decisions": {
+      "configuration_driven_css_paths": "CSS paths as declarative array config instead of 214 lines of code - single source of truth, easy to add/remove, eliminates duplication",
+      "pipeline_pattern": "6-stage pipeline (resolve → resolve → load → inject → emit → set) makes flow explicit and each stage independently testable",
+      "declarative_token_mapping": "buildTokenMap() creates object with all token → value pairs instead of 20+ manual .replace() calls - easier to maintain and extend",
+      "separate_uri_resolvers": "CssUriResolver and ScriptUriResolver are separate despite similarity - allows independent evolution and different complexity levels",
+      "extract_icon_loader": "IconUriLoader extracts existing filesystem logic (lines 310-363) into reusable service - maintains same behavior, adds testability"
+    },
+    "extension_points": [
+      "resource-manager/types/ResourceTypes.ts - Add new resource path types to CssResourcePaths interface",
+      "resource-manager/services/CssUriResolver.ts - Add new CSS resources to resolveCssUris() mapping",
+      "ResourceManager.getCssResourcePaths() - Add new CSS file paths to config object",
+      "resource-manager/services/TemplateInjector.ts - Add new tokens to buildTokenMap() for new resource types",
+      "resource-manager/pipeline/ResourcePipeline.ts - Add new pipeline stages if needed (e.g., font loading, image optimization)"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "ultra-modular-refactoring-marathon-world-record-pace",
+    "naming_preferences": "technical-precise-descriptive-typescript-conventions",
+    "architecture_philosophy": "single-responsibility-pipeline-pattern-configuration-driven-dependency-injection",
+    "quality_standards": "maintainability-focus-backward-compatibility-code-deduplication-testability"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "webview-resources",
+      "vscode-extension-manager",
+      "uri-resolution",
+      "template-injection",
+      "css-loading",
+      "icon-management"
+    ],
+    "technical_patterns": [
+      "pipeline-pattern",
+      "configuration-driven-architecture",
+      "declarative-programming",
+      "dependency-injection",
+      "event-driven-architecture",
+      "orchestrator-pattern"
+    ],
+    "integration_points": [
+      "vscode-webview-api",
+      "filesystem-fs-module",
+      "base-manager-event-system",
+      "view-resolved-event",
+      "template-loaded-event",
+      "resources-ready-event"
+    ]
+  }
+}

@@ -1,0 +1,194 @@
+{
+  "task": "three-choice-permission-system-per-chat-session",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-11-12",
+  "component": "permission-system-session-storage",
+
+  "temporal_context": {
+    "date_iso": "2025-11-12",
+    "year": 2025,
+    "month": 11,
+    "week_number": 46,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Multi-layer architecture spanning UI, state management, and provider integration with type-safe event contracts",
+    "business": "5: Critical UX improvement reducing friction in permission workflow while maintaining security",
+    "coordination": "4: Coordinated changes across 14 files including UI components, state managers, and type definitions"
+  },
+
+  "files_modified": "14",
+  "files_touched": [
+    "src/ui/templates/components/confirm-box.html",
+    "src/ui/modules/ui-logic/ui-controllers/confirmation-controller/handlers/AllowButtonHandler.js",
+    "src/ui/modules/ui-logic/ui-controllers/confirmation-controller/dom/DOMEventsBinder.js",
+    "src/ui/modules/ui-logic/ui-controllers/confirmation-controller/dom/DOMElementsManager.js",
+    "src/ext/modules/logic-manager/chat-instance/components/session/AllowedToolsTracker.ts",
+    "src/ext/modules/logic-manager/chat-instance/ChatInstance.ts",
+    "src/ext/modules/logic-manager/chat-instance/components/diagnostics/SnapshotBuilder.ts",
+    "src/ext/modules/logic-manager/permission/PermissionWorkflowManager.ts",
+    "src/ext/modules/logic-manager/permission/AllowedToolsResolver.ts",
+    "src/ext/modules/logic-manager/message-router/utils/SessionManager.ts",
+    "src/ext/modules/logic-manager/orchestration/initialization/ModuleFactory.ts",
+    "src/shared/events/ui-state.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "permission-multi-tab-routing-complete",
+    "bash-command-permission-system-implementation",
+    "terminal-permission-investigation-user-settings-discovery"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - merge operation is O(n) where n is small set of tool types",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Binary permission system (Allow/Deny) with no session memory → Three-choice system with per-chat session storage that persists allowed tools and auto-approves future requests",
+  "root_cause": "User had to repeatedly approve same tools in a chat session causing UX friction, but needed chat-scoped isolation (not global settings) for fine-grained control",
+
+  "solution": {
+    "approach": "Extend ChatInstance micro-component architecture with AllowedToolsTracker, add third decision type 'allow_session', implement Union merge strategy for global+session tools",
+    "key_changes": [
+      "confirm-box.html: Replaced checkbox+2 buttons with 3 clickable buttons (Yes/Yes+don't ask/No)",
+      "AllowedToolsTracker.ts: NEW micro-component using Set<string> for tool-specific session storage",
+      "ChatInstance.ts: Integrated tracker with public API (add/remove/has/get/clear allowed tools)",
+      "SnapshotBuilder.ts: Added allowedTools field to ChatInstanceSnapshot for serialization",
+      "PermissionWorkflowManager.ts: Handle 'allow_session' decision, store in ChatInstance, check session in auto-approval",
+      "AllowedToolsResolver.ts: NEW static utility merging global settings + session tools with Set deduplication",
+      "SessionManager.ts: Merge tools using resolver before passing to provider on resume",
+      "ui-state.ts: Added 'allow_session' to PermissionResponse decision union type",
+      "ModuleFactory.ts: Inject ChatInstanceManager into PermissionWorkflowManager"
+    ]
+  },
+
+  "validation": "TypeScript build passed with no errors, all type contracts satisfied, merge strategy verified through logging",
+
+  "gotchas": [
+    {
+      "issue": "TypeScript error: decision type 'allow' | 'deny' | 'always_allow' did not include new 'allow_session' type",
+      "solution": "Added 'allow_session' to PermissionResponse.decision union type in ui-state.ts line 27",
+      "category": "typing",
+      "severity": "medium"
+    },
+    {
+      "issue": "DOMElementsManager and DOMEventsBinder were tightly coupled to 2-button model with hardcoded selectors",
+      "solution": "Updated queries to use new class names (.permission-allow-once, .permission-allow-session) and passed decision parameter to handler",
+      "category": "integration",
+      "severity": "low"
+    },
+    {
+      "issue": "ConversationManager doesn't have chatId in scope to use AllowedToolsResolver on initial messages",
+      "solution": "Implemented merge strategy in SessionManager.resumeWithPermission where chatId is available, future can extend to initial messages via parameter passing",
+      "category": "architecture",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "ChatInstance's micro-component architecture made adding AllowedToolsTracker trivial - following existing patterns (SessionTracker, ProviderTracker) allowed seamless integration. Union merge strategy (Set deduplication) elegantly handles overlapping global+session permissions.",
+
+  "tags": [
+    "permission-system",
+    "three-choice-ui",
+    "session-storage",
+    "per-chat-permissions",
+    "tool-specific-permissions",
+    "chat-instance-components",
+    "allowed-tools-tracker",
+    "permission-merge-strategy",
+    "auto-approval",
+    "ui-workflow",
+    "type-safety",
+    "serialization",
+    "chat-isolation",
+    "COMPLETE"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "AllowedToolsTracker.addTool(toolType) - Store tool type in Set for session",
+      "AllowedToolsResolver.resolve(chatInstance) - Merge global + session tools with Union strategy",
+      "ChatInstance.getAllowedTools() - Public API returns string[] of tool types",
+      "PermissionWorkflowManager.isPermissionTypeAutoApproved(type, chatId) - Check global OR session",
+      "ChatInstanceSnapshot interface - Serializable snapshot includes allowedTools field",
+      "ToolPermissionMapper.getToolsForPermission(toolType) - Maps 'Write' → ['Write', 'Edit', 'MultiEdit', 'Bash']"
+    ],
+    "api_surface": [
+      "ChatInstance.addAllowedTool(toolType: string): void - Add tool to session allowed list",
+      "ChatInstance.hasAllowedTool(toolType: string): boolean - Check if tool is session-approved",
+      "ChatInstance.getAllowedTools(): string[] - Get all session-approved tool types",
+      "AllowedToolsResolver.resolve(chatInstance: ChatInstance | null): string[] - Merge and return final tools",
+      "AllowedToolsResolver.isToolAllowed(toolType: string, chatInstance: ChatInstance | null): boolean - Check global OR session",
+      "AllowedToolsTracker.toJSON(): string[] - Serialize for persistence",
+      "AllowedToolsTracker.fromJSON(tools: string[]): void - Deserialize from saved data"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "PermissionResponse.decision type → Added 'allow_session' to union",
+      "PermissionWorkflowManager constructor → Added ChatInstanceManager parameter (3rd position)",
+      "PermissionWorkflowManager.isPermissionTypeAutoApproved() → Added optional chatId parameter",
+      "ChatInstanceSnapshot interface → Added allowedTools: string[] field",
+      "SnapshotBuilder constructor → Added AllowedToolsTracker parameter (3rd position)"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Add UI to view/manage session permissions (show which tools are approved for current chat)",
+      "Implement bulk revoke command to clear all session permissions for a chat",
+      "Pass chatId to ConversationManager for initial message tool merging (currently only works on resume)",
+      "Add persistence verification tests to ensure allowedTools survive VS Code restart",
+      "Create permission analytics/history UI showing when tools were approved",
+      "Add visual indicator in UI when tool is auto-approved from session (subtle notification)"
+    ],
+    "architecture_decisions": {
+      "micro_component_pattern": "Followed existing ChatInstance pattern - AllowedToolsTracker is single-responsibility component like SessionTracker/ProviderTracker",
+      "union_merge_strategy": "Tool allowed if global OR session - provides flexibility without surprising users",
+      "tool_specific_scope": "Each tool type (Write/Edit/Delete/Bash) tracked independently - more granular than permission type grouping",
+      "chat_isolation": "Each ChatInstance has own allowedTools - prevents cross-chat pollution while allowing global settings to work",
+      "serialization_via_snapshot": "Leveraged existing SnapshotBuilder pattern - allowedTools automatically persisted with ChatInstance state"
+    },
+    "extension_points": [
+      "AllowedToolsTracker.ts - Add expiry timestamps if time-based session permissions needed",
+      "AllowedToolsResolver.ts - Add priority/override logic if need more complex merge strategies",
+      "ChatInstance.ts - clearAllowedTools() method already present for future 'Reset Permissions' UI button",
+      "PermissionWorkflowManager.ts - handleAutoApproval() can be extended to emit events for analytics",
+      "SnapshotBuilder.ts - allowedTools field can be enhanced with metadata (approved_at timestamps, approved_by info)"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "permission-workflow",
+      "session-scoped-authorization",
+      "tool-permission-mapping",
+      "chat-isolation",
+      "auto-approval-logic"
+    ],
+    "technical_patterns": [
+      "micro-component-architecture",
+      "union-merge-strategy",
+      "event-driven-permission-flow",
+      "dependency-injection",
+      "snapshot-serialization"
+    ],
+    "integration_points": [
+      "ChatInstance-component-system",
+      "PermissionWorkflowManager-chatId-routing",
+      "SessionManager-tool-merging",
+      "UI-event-bus-permission-response",
+      "SnapshotBuilder-persistence"
+    ]
+  }
+}

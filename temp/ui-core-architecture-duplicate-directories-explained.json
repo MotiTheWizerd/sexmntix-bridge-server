@@ -1,0 +1,156 @@
+{
+  "task": "ui-core-architecture-duplicate-directories-explained",
+  "agent": "claude-sonnet-4",
+  "date": "2025-11-04",
+  "component": "ui-core-module-architecture",
+
+  "temporal_context": {
+    "date_iso": "2025-11-04",
+    "year": 2025,
+    "month": 11,
+    "week_number": 45,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "5: Complete architectural mapping of 152 duplicate files across two directory trees with import resolution analysis",
+    "business": "4: Understanding this is critical for all future UI development and debugging",
+    "coordination": "1: Knowledge documentation for team understanding"
+  },
+
+  "files_modified": "0",
+  "files_touched": [
+    "src/ui/modules/core/",
+    "src/ui/modules/ui-logic/core/",
+    "src/ui/app/main.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "duplicate-core-directories-investigation-documentation"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Confusion about which core/ directory is active and why both exist → Mapped complete import flow from main.js entry point through entire module chain to understand BOTH directories are active but serve different import paths",
+
+  "root_cause": "ES6 module relative import resolution creates TWO valid paths to reach core modules depending on WHERE the importing file is located. This wasn't duplication by mistake - it's duplication to satisfy different import path resolutions",
+
+  "solution": {
+    "approach": "Trace actual import execution flow from browser entry point through module loading chain to understand which core/ directory gets loaded and when",
+    "key_changes": [
+      "No code changes - pure architectural understanding and documentation",
+      "Mapped: main.js → UIManager → DIBootstrap → BridgeHandler import chain",
+      "Discovered: '../../core/' from ui-logic/bootstrap/ resolves to ui-logic/core/",
+      "Discovered: '../modules/core/' from app/main.js resolves to modules/core/",
+      "Confirmed: BOTH paths are valid and BOTH directories must exist for system to work"
+    ]
+  },
+
+  "validation": "Deleted modules/core/ and webview failed to load with file not found errors, proving BOTH directories are actively used",
+
+  "gotchas": [
+    {
+      "issue": "DIBootstrap imports '../../core/' which LOOKS like it would go to modules/core/ but actually resolves to ui-logic/core/ because DIBootstrap is in ui-logic/bootstrap/",
+      "solution": "Trace import from file's actual location, not from mental model. From ui-logic/bootstrap/, ../../ goes to ui-logic/, then /core/ = ui-logic/core/",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "main.js imports '../modules/core/events/events.js' which IS actually modules/core, NOT ui-logic/core",
+      "solution": "From app/main.js, ../ goes to ui/, then modules/core/ = modules/core/. This is a DIFFERENT resolution than DIBootstrap's imports",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "Both core/ directories must stay in sync but 9 files diverged with bug fixes only in ui-logic/core version",
+      "solution": "Future changes must be applied to BOTH directories OR consolidate to single directory with all imports updated",
+      "category": "architecture",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "ES6 relative imports create multiple valid paths to same modules depending on importer location. What looks like duplication may be architectural necessity. ALWAYS trace actual import resolution before assuming dead code. The 'active' directory is not singular - BOTH can be active serving different import chains.",
+
+  "tags": [
+    "import-resolution",
+    "es6-modules",
+    "relative-paths",
+    "dual-import-paths",
+    "core-architecture",
+    "module-loading",
+    "webview-bootstrap",
+    "directory-structure",
+    "architectural-explanation"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "main.js entry point - Browser loads this first, imports from '../modules/core/'",
+      "UIManager bootstrapping - Created by main.js, imports from '../modules/ui-logic/'",
+      "DIBootstrap.createSharedServices() - Imports core modules via '../../core/' which resolves to ui-logic/core/",
+      "Relative import resolution - Path depends on CURRENT file location, not project root"
+    ],
+    "api_surface": [
+      "Import Path Resolution Flow: app/main.js → '../modules/X' resolves to modules/X",
+      "Import Path Resolution Flow: ui-logic/bootstrap/DIBootstrap.js → '../../core/X' resolves to ui-logic/core/X",
+      "Import Path Resolution Flow: ui-logic/controllers/Controller.js → '../../core/X' resolves to ui-logic/core/X"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Consolidate to single core/ location by updating ALL import paths to use explicit 'modules/ui-logic/core/' instead of relative paths",
+      "Create import path linting rule to prevent relative '../core/' imports that cause ambiguity",
+      "Sync the 9 divergent files back to modules/core/ as temporary measure until consolidation",
+      "Consider using TypeScript path aliases to create '@core' import that resolves to single location"
+    ],
+    "architecture_decisions": {
+      "dual_directory_necessity": "BOTH core/ directories must exist because different import chains resolve to different locations. Not optional duplication.",
+      "import_standardization": "Future work should standardize on explicit paths from project root instead of relative paths to avoid resolution ambiguity",
+      "sync_requirement": "Until consolidation, BOTH directories must be kept in sync for system stability",
+      "consolidation_target": "Long-term goal is single ui-logic/core/ directory with all imports updated to explicit paths"
+    },
+    "extension_points": [
+      "main.js - Entry point imports, change to 'modules/ui-logic/core/events/events.js' for consolidation",
+      "DIBootstrap.js - Already uses correct relative paths that resolve to ui-logic/core/",
+      "All files in modules/ directory - Audit for '../core/' imports that need updating"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "thorough-investigation",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "explicit-over-implicit",
+    "quality_standards": "correctness-over-convenience"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "import-path-resolution",
+      "relative-vs-absolute-imports",
+      "module-loading-sequence",
+      "webview-initialization",
+      "dependency-injection-bootstrap"
+    ],
+    "technical_patterns": [
+      "dual-directory-architecture",
+      "path-dependent-resolution",
+      "implicit-duplication",
+      "incomplete-migration-state",
+      "file-synchronization-requirement"
+    ],
+    "integration_points": [
+      "vscode-webview-loader",
+      "es6-module-system",
+      "browser-import-resolution"
+    ]
+  }
+}

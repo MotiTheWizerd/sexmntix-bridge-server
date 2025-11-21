@@ -1,0 +1,79 @@
+{
+  "task": "claude-code-service-test-refactoring",
+  "agent": "claude-opus-4.1",
+  "date": "2025-01-24",
+  "temporal_context": {
+    "date_iso": "2025-01-24",
+    "year": 2025,
+    "month": 1,
+    "week_number": 4,
+    "quarter": "2025-Q1",
+    "time_period": "archived"
+  },
+  "component": "test-infrastructure",
+  "complexity": {
+    "technical": "4: Complex test mocking and Jest configuration issues",
+    "business": "2: Internal testing improvement, no user impact",
+    "coordination": "3: Required changes across multiple test files and configs"
+  },
+  "files_modified": 11,
+  "files_touched": [
+    "tests/unit/claude-code-service/ClaudeCodeService.initialization.test.ts",
+    "tests/unit/claude-code-service/ClaudeCodeService.messaging-core.test.ts",
+    "tests/unit/claude-code-service/ClaudeCodeService.messaging-edge-cases.test.ts",
+    "tests/unit/claude-code-service/ClaudeCodeService.status.test.ts",
+    "tests/unit/claude-code-service/ClaudeCodeService.integration.test.ts",
+    "tests/unit/claude-code-service/__shared__/test-setup.ts",
+    "tests/unit/claude-code-service/__shared__/mock-factories.ts",
+    ".eslintrc.js",
+    "src/ext/modules/providers/anthropics/cli-wrapper/ClaudeCodeService.ts",
+    "src/ext/modules/providers/anthropics/cli-wrapper/auth-manager/AuthManager.ts",
+    "tests/unit/ClaudeCodeService.test.ts"
+  ],
+  "tests_added": 0,
+  "related_tasks": [
+    "claude-cli-wrapper-refactoring"
+  ],
+  "outcomes": {
+    "performance_impact": "No performance impact, improved test organization",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": false
+  },
+  "summary": "Refactored 429-line test file into 5 focused files under 150 LOC each → fixed Jest mocking issues and CLI flag order",
+  "root_cause": "Large test file (429 LOC) exceeded Claude's context management capabilities, causing errors during modifications",
+  "solution": {
+    "approach": "Split into focused test files with shared utilities, fixed mocking structure and CLI command format",
+    "key_changes": [
+      "Split ClaudeCodeService.test.ts into 5 files by functionality",
+      "Created __shared__/ folder for test utilities and mock factories",
+      "Moved jest.mock() calls to individual test files (Jest requirement)",
+      "Fixed CLI flag order: claude --print 'prompt' (not claude 'prompt' --print)",
+      "Added ESLint support for test files"
+    ]
+  },
+  "validation": "All 32 tests pass, terminal authentication works correctly",
+  "gotchas": [
+    {
+      "issue": "jest.mock() calls must be in the same file as tests, not imported from shared modules",
+      "solution": "Moved jest.mock() declarations to top of each test file, kept shared mock setup logic",
+      "category": "testing",
+      "severity": "high"
+    },
+    {
+      "issue": "CLI flags must come before arguments: claude --print 'text' not claude 'text' --print",
+      "solution": "Updated both AuthManager and ClaudeCodeService to use correct flag order",
+      "category": "cli-integration",
+      "severity": "high"
+    }
+  ],
+  "lesson": "Claude works significantly better with files under 150 LOC - large files (200+ LOC) cause context management issues and increase error rates",
+  "tags": [
+    "testing",
+    "refactoring",
+    "jest",
+    "mocking",
+    "cli-integration",
+    "file-size-management"
+  ]
+}

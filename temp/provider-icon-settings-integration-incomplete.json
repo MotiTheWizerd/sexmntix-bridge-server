@@ -1,0 +1,193 @@
+{
+  "task": "provider-icon-settings-integration-incomplete",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-14",
+  "component": "provider-ui-initialization",
+
+  "temporal_context": {
+    "date_iso": "2025-10-14",
+    "year": 2025,
+    "month": 10,
+    "week_number": 42,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Complex timing/initialization flow across extension-UI boundary with event-driven architecture",
+    "business": "3: Critical for multi-provider system - users must see which provider is active",
+    "coordination": "3: Multiple systems coordination - SystemInitializer, ProviderInitializer, EventMapper, UI event handlers"
+  },
+
+  "files_modified": "8",
+  "files_touched": [
+    "src/ext/modules/logic-manager/system-initializer/SystemInitializer.ts",
+    "src/ext/modules/logic-manager/provider-initializer/ProviderInitializer.ts",
+    "src/ext/modules/logic-manager/LogicManager.ts",
+    "src/ui/modules/core/events/bridge-handler/mapping/EventMapper.js",
+    "src/ui/modules/ui-logic/providers/events/ProviderEventHandler.js",
+    "src/ui/modules/ui-logic/providers/data/ProviderRegistry.js",
+    "src/ui/modules/ui-logic/ui-controllers/header-controller/ProviderIconStateManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/HeaderController.js",
+    "src/ui/templates/css/ui-header.css"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "providers-ui-manager-isolated-implementation",
+    "chat-header-ai-provider-icons-integration",
+    "provider-icon-click-handlers-basic-implementation"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - event-driven state management",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Provider icons not reflecting active provider from settings on initial load → Attempted fixes: EventMapper registration, ProviderInitializer emission, timing adjustments - STILL NOT WORKING",
+  "root_cause": "Complex initialization timing issue: provider.active.v1 event not reaching UI despite multiple fix attempts. Event flow breaking somewhere between extension postToUI() and UI EventBus",
+
+  "solution": {
+    "approach": "Multi-phase approach: (1) Fix EventMapper registration for provider.active.v1, (2) Create visual indicator system, (3) Move provider emission from SystemInitializer to ProviderInitializer for correct timing",
+    "key_changes": [
+      "EventMapper.js: Added 'provider.active.v1' to incomingEventMap (line 32) - event was being filtered out!",
+      "EventMapper.js: Created mapProviderActive() method (line 253-261) for pass-through mapping",
+      "ProviderInitializer.ts: Added postToUI parameter and provider emission after initialization (lines 42-59)",
+      "LogicManager.ts: Pass postToUI to ProviderInitializer constructor (line 89)",
+      "SystemInitializer.ts: Removed setTimeout logic - moved to ProviderInitializer",
+      "ui-header.css: Added .provider-icon.active styles with glow effect (opacity transitions + ::after pseudo-element)",
+      "ProviderIconStateManager.js: NEW micro-component listens to providers.state.updated.v1 and updates CSS classes",
+      "HeaderController.js: Integrated ProviderIconStateManager alongside ProviderIconManager",
+      "ProviderRegistry.js: Both providers start inactive (active: false) - wait for event from extension"
+    ]
+  },
+
+  "validation": "FAILED - Manual clicking provider icons works (glow effect appears), but initial load still shows both icons inactive. Console logs missing expected [ProviderInitializer] emission logs",
+
+  "gotchas": [
+    {
+      "issue": "provider.active.v1 event sent by extension but never reached UI EventBus",
+      "solution": "Added event to EventMapper.incomingEventMap - it was being filtered out as unmapped event",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "SystemInitializer called providerManager.getActive() before providers were initialized",
+      "solution": "Moved provider emission to ProviderInitializer.initialize() AFTER providers are activated",
+      "category": "timing",
+      "severity": "high"
+    },
+    {
+      "issue": "Backend uses different provider IDs than UI (codex vs openai, claude-code-cli vs claude)",
+      "solution": "Added providerIdMap in both SystemInitializer and ProviderInitializer to translate IDs",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "TypeScript changes not reflected in runtime - rebuild required",
+      "solution": "Must run 'pnpm run build' after modifying .ts files in src/ext",
+      "category": "environment",
+      "severity": "low"
+    },
+    {
+      "issue": "Still not working after all fixes - provider emission logs not appearing in console",
+      "solution": "UNRESOLVED - suspect postToUI() function reference issue or event not being sent at all. Need deeper debugging next session.",
+      "category": "debugging",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "Event-driven initialization across extension-webview boundary is complex with multiple failure points: event mapping, timing, function references, and state synchronization. Manual interaction works (proves UI logic correct), but automatic initialization still broken suggests issue in extension → UI message pipeline, not UI event handling. Need to verify postToUI function is actually being called and messages reaching webview.",
+
+  "tags": [
+    "provider-initialization",
+    "settings-integration",
+    "event-mapping",
+    "timing-issue",
+    "extension-ui-bridge",
+    "active-provider",
+    "provider-icons",
+    "initialization-flow",
+    "debugging-required",
+    "incomplete-task",
+    "ui-state-sync",
+    "webview-messaging"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "postToUI(message) - Extension → UI communication via webview.postMessage",
+      "EventMapper.mapIncomingEvent() - Translates bridge events to UI events, filters unmapped events",
+      "ProviderInitializer.initialize() - Async provider activation, emits providers.ready event",
+      "providerManager.getActive() - Returns currently active provider adapter or null",
+      "ProviderIconStateManager.handleProviderStateUpdate() - Updates icon CSS classes based on active provider"
+    ],
+    "api_surface": [
+      "EventMapper.addIncomingMapping(bridgeEvent, mapper) - Register new event mappings",
+      "ProviderInitializer(providerManager, logger, eventEmitter, postToUI?) - Constructor now accepts optional postToUI",
+      "postToUI({ event: string, ...payload }) - Send message from extension to webview",
+      "eventBus.emit('provider.active.v1', { provider: string, timestamp: number }) - UI event for provider activation",
+      "eventBus.emit('providers.state.updated.v1', { activeProvider: string, providers: Array }) - Provider state changes"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "ProviderInitializer constructor signature changed - added optional postToUI parameter"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Add console.log in ProviderInitializer.initialize() right before postToUI call to verify it's reached",
+      "Add console.log in LogicManager to verify postToUI function reference is valid",
+      "Check if webview is actually receiving messages - add raw message listener",
+      "Consider alternative approach: UI requests provider on startup via command",
+      "Add providers.ready event listener in UI that requests active provider",
+      "Verify extension compilation output - check if ProviderInitializer changes are actually in dist/",
+      "Test with increased setTimeout delay (2000ms+) to rule out timing",
+      "Add health check: extension sends test message on startup, UI confirms receipt"
+    ],
+    "architecture_decisions": {
+      "event-driven-vs-request-response": "Chose event-driven (postToUI push) over request-response, but may need to reconsider if push continues failing",
+      "timing-solution": "Moved from SystemInitializer (too early) to ProviderInitializer (after provider activation) - theoretically correct but still not working",
+      "id-mapping-location": "Centralized backend→UI ID mapping in ProviderInitializer rather than distributed across UI components"
+    },
+    "extension_points": [
+      "ProviderInitializer.ts line 42 - Provider emission logic, verify postToUI is called",
+      "EventMapper.js line 32 - Event registration, already complete",
+      "LogicManager.ts line 89 - postToUI parameter passing, verify function reference is correct",
+      "IncomingProcessor.js - Add debug logging to verify messages arrive from extension"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "rapid-prototype with incremental refinement",
+    "naming_preferences": "natural-conversational with technical precision",
+    "architecture_philosophy": "ultra-modular single-responsibility with event-driven communication",
+    "quality_standards": "maintainability-focus with emphasis on working incrementally"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "provider-initialization",
+      "active-provider-state",
+      "settings-persistence",
+      "extension-webview-bridge"
+    ],
+    "technical_patterns": [
+      "event-driven-initialization",
+      "event-mapper-pattern",
+      "micro-component-architecture",
+      "bridge-communication",
+      "timing-coordination"
+    ],
+    "integration_points": [
+      "SystemInitializer",
+      "ProviderInitializer",
+      "EventMapper",
+      "IncomingProcessor",
+      "ProviderIconStateManager",
+      "webview-postMessage"
+    ]
+  }
+}

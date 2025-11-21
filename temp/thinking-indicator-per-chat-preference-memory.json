@@ -1,0 +1,176 @@
+{
+  "task": "thinking-indicator-per-chat-preference-memory",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-11-13",
+  "component": "thinking-container-collapse-preference",
+
+  "temporal_context": {
+    "date_iso": "2025-11-13",
+    "year": 2025,
+    "month": 11,
+    "week_number": 46,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: Multi-component state management with per-chat isolation and dependency injection across 6 files",
+    "business": "4: Significantly improves UX by remembering user preferences, reducing repetitive collapse/expand actions",
+    "coordination": "3: Required coordinating state management across streaming, non-streaming, and click handler components"
+  },
+
+  "files_modified": 6,
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/state/ThinkingPreferenceManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/container/DependencyContainer.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/factories/ComponentFactory.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/handlers/ThinkingCollapseHandler.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/parsers/ReasoningChunkHandler.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/builders/ReasoningMessageBuilder.js"
+  ],
+  "tests_added": 0,
+  "related_tasks": [
+    "thinking-container-collapse-with-arrow-icon",
+    "thinking-collapse-during-streaming-fix",
+    "thinking-container-blockindex-duplicate-listeners-fix"
+  ],
+
+  "outcomes": {
+    "performance_impact": "Minimal - single Map lookup per thinking container creation (O(1))",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "Thinking indicators always defaulted to expanded, requiring manual collapse each time → Per-chat preference memory that remembers user's last toggle action and applies it to future thinking blocks",
+
+  "root_cause": "No state management for thinking indicator collapse preference - each new thinking block created with hardcoded 'collapsed' class without checking user's actual preference history",
+
+  "solution": {
+    "approach": "Created centralized ThinkingPreferenceManager with per-chat Map storage, injected via DependencyContainer into all components that create thinking indicators (streaming + non-streaming), updated on every toggle event",
+    "key_changes": [
+      "ThinkingPreferenceManager.js: New state manager with Map<chatId, 'collapsed'|'expanded'>, defaults to 'collapsed', session-only (no localStorage)",
+      "DependencyContainer.js: Added lazy getter for ThinkingPreferenceManager following existing ScrollManager pattern",
+      "ComponentFactory.js: Injected preferenceManager into ThinkingCollapseHandler, ReasoningChunkHandler, and ReasoningMessageBuilder",
+      "ThinkingCollapseHandler.js: Added preferenceManager.setPreference(chatId, isCollapsed) after DOM toggle to save user's action",
+      "ReasoningChunkHandler.js: Check preferenceManager.shouldBeCollapsed(chatId) when creating thinking containers during streaming",
+      "ReasoningMessageBuilder.js: Check preferenceManager.shouldBeCollapsed(chatId) when building completed thinking messages"
+    ]
+  },
+
+  "validation": "TypeScript build passed, manual testing confirmed per-chat independence and preference persistence across new thinking blocks",
+
+  "gotchas": [
+    {
+      "issue": "ReasoningChunkHandler and ReasoningMessageBuilder both hardcoded 'collapsed' class without checking preferences",
+      "solution": "Changed from hardcoded className = 'thinking-container collapsed' to dynamic: const collapsedClass = shouldBeCollapsed ? 'collapsed' : ''; className = `thinking-container ${collapsedClass}`",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "ComponentFactory needed to pass preferenceManager to 3 different components with different constructor signatures",
+      "solution": "Added preferenceManager parameter to each constructor in specific order, updated all instantiation calls in ComponentFactory.buildComponents()",
+      "category": "integration",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "Per-chat state management requires consistent Map-based storage keyed by chatId with sensible defaults. Inject state managers via DependencyContainer for clean architecture. Always check preferences at creation time (streaming + non-streaming paths) and update on user actions.",
+
+  "tags": [
+    "thinking-container",
+    "per-chat-preference",
+    "state-management",
+    "user-preference",
+    "session-storage",
+    "collapsed-expanded",
+    "dependency-injection",
+    "ThinkingPreferenceManager",
+    "ReasoningChunkHandler",
+    "ReasoningMessageBuilder",
+    "ThinkingCollapseHandler",
+    "ComponentFactory",
+    "DependencyContainer",
+    "streaming-integration",
+    "UX-improvement",
+    "memory-persistence",
+    "default-collapsed",
+    "future-only-application",
+    "COMPLETE",
+    "SUCCESS"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "ThinkingPreferenceManager.setPreference(chatId, isCollapsed) - Save user's collapse/expand action",
+      "ThinkingPreferenceManager.shouldBeCollapsed(chatId) - Check if thinking blocks should be collapsed (defaults true)",
+      "DependencyContainer.getThinkingPreferenceManager() - Lazy initialization pattern for shared state",
+      "Map<chatId, 'collapsed'|'expanded'> - Per-chat preference storage pattern"
+    ],
+    "api_surface": [
+      "setPreference(chatId: string, isCollapsed: boolean): void - Store user's preference",
+      "getPreference(chatId: string): 'collapsed' | 'expanded' - Retrieve preference with default",
+      "shouldBeCollapsed(chatId: string): boolean - Helper returning boolean preference",
+      "hasPreference(chatId: string): boolean - Check if preference exists",
+      "clearPreference(chatId: string): void - Remove specific chat preference",
+      "clearAll(): void - Reset all preferences"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "ThinkingCollapseHandler constructor: constructor(eventBus, logger) → constructor(eventBus, preferenceManager, logger)",
+      "ReasoningChunkHandler constructor: constructor(scrollManager, domReferences, thinkingCollapseHandler, streamInitializer) → constructor(..., preferenceManager)",
+      "ReasoningMessageBuilder constructor: constructor(domReferences) → constructor(domReferences, preferenceManager)"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Add visual indicator showing current chat's preference (e.g., icon in status bar)",
+      "Add keyboard shortcut to toggle all thinking blocks at once (e.g., Ctrl+Shift+T)",
+      "Add 'Reset preferences' button in settings to clear all chat preferences",
+      "Persist preferences to localStorage/file for survival across restarts (upgrade from session-only)",
+      "Add analytics to track how users prefer thinking indicators (collapsed vs expanded ratios)"
+    ],
+    "architecture_decisions": {
+      "session-only-storage": "Chose in-memory Map over localStorage per user requirement - simple, no I/O overhead, clean on restart",
+      "default-collapsed": "User specified collapsed as default to reduce screen clutter for most users",
+      "per-chat-isolation": "Each chat maintains independent preference for flexibility (user might want expanded in Chat A, collapsed in Chat B)",
+      "future-only-application": "Don't retroactively change existing thinking blocks to avoid jarring UX - only apply to new blocks"
+    },
+    "extension_points": [
+      "ThinkingPreferenceManager - Add localStorage persistence by implementing save/load methods",
+      "ComponentFactory - Add more state managers following same pattern (e.g., ToolPreferenceManager)",
+      "ThinkingCollapseHandler - Add 'toggle all' functionality to collapse/expand all thinking blocks in current chat"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "natural-conversational",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "thinking-indicator",
+      "per-chat-preference",
+      "user-preference-memory",
+      "collapsed-expanded-state",
+      "session-persistence"
+    ],
+    "technical_patterns": [
+      "dependency-injection",
+      "lazy-initialization",
+      "map-based-state-storage",
+      "per-entity-state-management",
+      "event-driven-state-updates"
+    ],
+    "integration_points": [
+      "ThinkingCollapseHandler-toggle-events",
+      "ReasoningChunkHandler-streaming-creation",
+      "ReasoningMessageBuilder-completed-creation",
+      "DependencyContainer-state-management"
+    ]
+  }
+}

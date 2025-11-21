@@ -1,0 +1,170 @@
+{
+  "task": "edit-tool-action-payload-migration-complete",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-11-02",
+  "component": "tool-result-streaming-payload-architecture",
+
+  "temporal_context": {
+    "date_iso": "2025-11-02",
+    "year": 2025,
+    "month": 11,
+    "week_number": 44,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "5: Async streaming params, registry timing coordination, dynamic action detection",
+    "business": "4: Critical for Edit tool identity tracking and UI payload structure consistency",
+    "coordination": "5: Multiple system layers (mappers, handlers, registry, emitters) with streaming timing issues"
+  },
+
+  "files_modified": "6",
+  "files_touched": [
+    "src/shared/events/chat.ts",
+    "src/ext/modules/logic-manager/message-router/events/StreamEventEmitter.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/ToolParamStreamHandler.ts",
+    "src/ext/modules/providers/shared/parsers/mappers/tools/FileToolMapper.ts",
+    "src/ext/modules/logic-manager/message-router/permission/ToolNameMapper.ts",
+    "src/ext/modules/providers/base/ExtensionTypes.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "write-tool-action-payload-migration",
+    "read-tool-filepath-streaming-params-fix",
+    "tool-result-metadata-complete-data-flow-fix"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Edit tool showing action='write' and using legacy payload structure → Edit tool now correctly shows action='edit' with dedicated EditActionPayload matching Read/Write pattern",
+
+  "root_cause": "FileToolMapper called at content_block_start with empty input={} before params streamed via input_json_delta, causing action to be set as 'write'. ToolParamStreamHandler updated params but never updated action field, leaving it as 'write' forever",
+
+  "solution": {
+    "approach": "Dynamic action detection - update action field when params arrive and old_string is detected, following same timing pattern as params accumulation",
+    "key_changes": [
+      "chat.ts: Added EditActionPayload interface with lightweight metadata (filePath, oldStringLength, newStringLength, replaceAll, success, message)",
+      "StreamEventEmitter.ts: Built editPayload from ToolMapRegistry params matching Read/Write pattern",
+      "ToolParamStreamHandler.ts: KEY FIX - Added action update logic when old_string param arrives (changes 'write' to 'edit')",
+      "FileToolMapper.ts: Added conditional action logic (input.old_string ? 'edit' : 'write') for initial mapping",
+      "ExtensionTypes.ts: Added 'edit' to UniversalAction type definition",
+      "ToolNameMapper.ts: Changed 'Edit': 'write' to 'Edit': 'edit' for permission mapping consistency"
+    ]
+  },
+
+  "validation": "Real Edit tool execution showing action='edit', editPayload with all fields populated (filePath, fileDisplayName, oldStringLength: 24, newStringLength: 42, success: true), verified after ~100 test attempts",
+
+  "gotchas": [
+    {
+      "issue": "Changed ToolNameMapper but action still showed 'write' - ToolNameMapper only used for permissions, not actual action field",
+      "solution": "Found real source in FileToolMapper which is called during tool registration via ClaudeToolMapper → ToolInfoExtractor flow",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "FileToolMapper receiving empty input={} with no old_string - debug logs revealed input keys: (0) []",
+      "solution": "Tool params stream via input_json_delta AFTER initial registration, need to update action dynamically in ToolParamStreamHandler when params arrive",
+      "category": "timing",
+      "severity": "high"
+    },
+    {
+      "issue": "TypeScript error 'edit' not assignable to UniversalAction type",
+      "solution": "Added 'edit' to UniversalAction type definition in ExtensionTypes.ts",
+      "category": "typing",
+      "severity": "medium"
+    },
+    {
+      "issue": "Extension still using old compiled code despite pnpm build success",
+      "solution": "User correctly reloaded VSCode window - real issue was timing/empty input, not stale code",
+      "category": "environment",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "In streaming architectures, field values may need dynamic updates as data arrives asynchronously. Tool identity detection (Edit vs Write) must happen AFTER params stream in, not at initial registration with empty input. Debug logging is critical for revealing timing and data flow issues",
+
+  "tags": [
+    "edit-tool",
+    "action-payload-migration",
+    "streaming-timing",
+    "dynamic-action-detection",
+    "toolmapregistry",
+    "params-accumulation",
+    "input_json_delta",
+    "architectural-consistency",
+    "100-attempts",
+    "COMPLETE"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "ToolParamStreamHandler.processChunk() - Accumulates params from input_json_delta and updates registry",
+      "ToolInfoExtractor.extract() - Maps Claude tools to universal format at registration time",
+      "FileToolMapper.map() - Conditional action detection based on old_string presence",
+      "StreamEventEmitter.createToolEndPayload() - Builds action-specific payloads from registry data"
+    ],
+    "api_surface": [
+      "EditActionPayload.result: { filePath, fileDisplayName, oldStringLength, newStringLength, replaceAll?, success, message? }",
+      "ToolParamStreamHandler.processChunk(chunk, context) - Updates params AND action when JSON complete",
+      "FileToolMapper.map(toolId, input): ToolInfo - Returns action based on input.old_string existence"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "UniversalAction type: Added 'edit' as valid action type",
+      "Edit tool payload: Moved from legacy target/result fields to dedicated edit.result structure"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Remove debug console.log statements from FileToolMapper.ts",
+      "Test Write tool to ensure it still works correctly with new logic",
+      "Migrate Bash tool to BashActionPayload (last remaining unmigrated tool)",
+      "Update UI to consume editPayload structure instead of legacy fields",
+      "Add contentLength/lineCount to WriteActionPayload (currently shows 0)"
+    ],
+    "architecture_decisions": {
+      "dynamic_action_update": "Action field updated when params arrive (not at registration) because tool params stream asynchronously via input_json_delta after content_block_start",
+      "lightweight_payload": "EditActionPayload contains metadata only (lengths, not full strings) following YAGNI principle - can add content fields later if UI needs them",
+      "registry_as_source": "ToolMapRegistry is single source of truth for tool data, updated progressively as data streams in"
+    },
+    "extension_points": [
+      "ToolParamStreamHandler.ts:81-85 - Add similar dynamic field updates for other streaming-dependent tool properties",
+      "StreamEventEmitter.ts:137-147 - Follow same pattern for future action-specific payloads (Bash, etc)",
+      "chat.ts - Add new action payload interfaces here following EditActionPayload structure"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "thorough-debugging",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "tool-action-identity",
+      "streaming-params",
+      "payload-migration",
+      "edit-vs-write-detection"
+    ],
+    "technical_patterns": [
+      "dynamic-field-update",
+      "registry-pattern",
+      "streaming-accumulation",
+      "action-specific-payloads"
+    ],
+    "integration_points": [
+      "claude-tool-mapper",
+      "tool-map-registry",
+      "stream-event-emitter"
+    ]
+  }
+}

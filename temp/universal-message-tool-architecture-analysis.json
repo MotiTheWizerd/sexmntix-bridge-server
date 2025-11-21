@@ -1,0 +1,176 @@
+{
+  "task": "universal-message-tool-architecture-analysis",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-11-01",
+  "component": "universal-message-tool-streaming",
+
+  "temporal_context": {
+    "date_iso": "2025-11-01",
+    "year": 2025,
+    "month": 11,
+    "week_number": 44,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Deep architecture analysis across provider abstraction layer, universal message format, and streaming coordination",
+    "business": "5: Critical foundation for all tool operations - affects every provider integration and tool streaming feature",
+    "coordination": "3: Requires understanding provider layer, extension host, and UI boundaries"
+  },
+
+  "files_modified": "0",
+  "files_touched": [
+    "src/ext/modules/providers/base/ExtensionTypes.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/ToolParamStreamHandler.ts",
+    "src/ext/modules/providers/implementations/claude-code-cli-adapter/message-processing/routing/ChunkRouter.ts",
+    "src/ext/modules/providers/implementations/claude-code-cli-adapter/message-processing/transformers/ContentBlockStartTransformer.ts",
+    "src/ext/modules/providers/implementations/claude-code-cli-adapter/message-processing/utils/ClaudeMessageBuilder.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "streaming-conversation-strategy-ultra-modular-refactoring",
+    "diff-view-implementation-planning",
+    "conversation-builder-ultra-modular-refactoring"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No immediate impact - analysis phase only",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "none - discovered architectural debt to be addressed",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Discovered that tool parameter streaming bypasses the universal ConversationMessage.tool.params design, creating provider-specific code duplication → Need to refactor providers to use universal tool.params field and eliminate custom input_json_delta events",
+
+  "root_cause": "Initial streaming implementation was done per-provider before universal message format was fully established, leading to custom intermediary events (input_json_delta, tool_param_stream) instead of using the designed universal ConversationMessage.tool.params structure",
+
+  "solution": {
+    "approach": "Deep dive analysis of universal message format specification and current tool streaming implementation to identify architectural mismatch",
+    "key_changes": [
+      "ExtensionTypes.ts: Documented complete universal message structure including ToolInfo, ToolParams, ToolTarget, ToolResult interfaces",
+      "Analysis: Identified that tool.params field already supports all tool parameters (content, oldContent, newContent, toolName)",
+      "Discovery: Current ChunkRouter creates custom tool_param_stream events instead of using ConversationMessage with type='tool_param_delta'",
+      "Architecture Gap: ToolParamStreamHandler consumes raw partial_json instead of reading from universal tool.params"
+    ]
+  },
+
+  "validation": "Read ExtensionTypes.ts universal format specification, traced current implementation through ChunkRouter → ToolParamStreamHandler → EditorCoordinator, confirmed architectural mismatch",
+
+  "gotchas": [
+    {
+      "issue": "Universal message type 'tool_param_delta' exists but is NOT being used - providers create custom 'tool_param_stream' internal events instead",
+      "solution": "Providers should emit ConversationMessage with type='tool_param_delta' and populated tool.params, not custom event types",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "ToolInfo.params already has oldContent/newContent/content fields for Edit/Write tools, but current code parses raw JSON with old_string/new_string",
+      "solution": "Providers should transform their format (old_string → oldContent, new_string → newContent) when building universal message",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "ContentBlockStartTransformer creates 'assistant' chunk (internal type) instead of ConversationMessage with type='tool_use_start'",
+      "solution": "Transform directly to universal ConversationMessage format, not intermediary internal types",
+      "category": "architecture",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "When a universal format is designed (like ConversationMessage), ALL layers must use it consistently. Creating intermediary custom events or internal types defeats the purpose of having a universal format and creates provider lock-in and code duplication.",
+
+  "tags": [
+    "universal-message-format",
+    "tool-streaming",
+    "architecture-analysis",
+    "provider-abstraction",
+    "ConversationMessage",
+    "ToolInfo",
+    "ToolParams",
+    "tool_param_delta",
+    "code-duplication",
+    "architectural-debt",
+    "design-mismatch",
+    "PLANNING"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "ConversationMessage - Universal message format that all providers must transform to",
+      "ToolInfo.params - Single source of truth for all tool parameters (content, oldContent, newContent)",
+      "type: 'tool_param_delta' - Designed for incremental tool parameter streaming",
+      "UniversalAction - Provider-agnostic action types: read|write|search|execute|analyze",
+      "ToolTarget - Describes what tool operates on (file, directory, command, search)"
+    ],
+    "api_surface": [
+      "ConversationMessage.tool.params.content: string - Write tool content (streaming)",
+      "ConversationMessage.tool.params.oldContent: string - Edit tool old_string",
+      "ConversationMessage.tool.params.newContent: string - Edit tool new_string",
+      "ConversationMessage.tool.params.toolName: string - Tool identifier (Write, Edit, Bash)",
+      "ConversationMessage.type: 'tool_param_delta' - Message type for streaming parameters",
+      "ToolInfo.toolId: string - Unique identifier for tool operation",
+      "ToolTarget.path: string - File/directory path for file operations"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "Future: Custom 'tool_param_stream' events → ConversationMessage with type='tool_param_delta'",
+      "Future: Raw partial_json parsing → Reading from tool.params",
+      "Future: 'assistant' internal chunks → ConversationMessage with type='tool_use_start'"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Map complete current tool flow: Provider → ChunkRouter → ToolEventProcessor → ToolParamStreamHandler → EditorCoordinator",
+      "Design refactored flow where providers populate ConversationMessage.tool.params directly",
+      "Refactor ChunkRouter to emit ConversationMessage with type='tool_param_delta' instead of custom events",
+      "Refactor ToolParamStreamHandler to read from message.tool.params instead of raw partial_json",
+      "Update ContentBlockStartTransformer to create proper tool_use_start ConversationMessage",
+      "Remove custom internal event types (assistant, tool_param_stream)",
+      "Test with both Claude and Codex providers to ensure universal format works"
+    ],
+    "architecture_decisions": {
+      "single-source-of-truth": "ConversationMessage.tool.params is the ONLY place tool parameters should exist - no custom events",
+      "provider-transformation-boundary": "Providers transform their format → universal format at the earliest possible point (in transformers)",
+      "host-reads-universal-only": "Host/Extension layer (ToolParamStreamHandler) should NEVER parse provider-specific formats - only read universal fields",
+      "no-intermediary-types": "Eliminate 'assistant', 'tool_param_stream' internal types - use ConversationMessageType enum only"
+    },
+    "extension_points": [
+      "ToolParams - Add new tool parameter fields here (already has [key: string]: any for extensibility)",
+      "UniversalAction - Add new action types if needed beyond read|write|search|execute|analyze",
+      "ToolTarget.type - Add new target types beyond file|directory|command|search",
+      "ConversationMessageType - Already has tool_param_delta for streaming, tool_use_start/end for lifecycle"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-analysis-then-refactor",
+    "naming_preferences": "technical-precise-with-universal-prefix",
+    "architecture_philosophy": "single-responsibility-with-provider-abstraction-and-dependency-injection",
+    "quality_standards": "maintainability-focus-eliminate-duplication-across-providers"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "universal-message-format",
+      "provider-abstraction",
+      "tool-parameter-streaming",
+      "incremental-content-delivery",
+      "provider-agnostic-architecture"
+    ],
+    "technical_patterns": [
+      "transformer-pattern",
+      "adapter-pattern",
+      "streaming-async-generator",
+      "single-source-of-truth",
+      "event-driven-architecture"
+    ],
+    "integration_points": [
+      "claude-code-cli",
+      "codex-provider",
+      "vscode-editor-api",
+      "streaming-ndjson-processor"
+    ]
+  }
+}

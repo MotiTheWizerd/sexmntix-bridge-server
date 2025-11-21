@@ -1,0 +1,134 @@
+{
+  "task": "typing-indicator-state-management-attempt",
+  "agent": "claude-opus-4-1",
+  "date": "2025-09-27",
+  "temporal_context": {
+    "date_iso": "2025-09-27",
+    "year": 2025,
+    "month": 9,
+    "week_number": 39,
+    "quarter": "2025-Q3",
+    "time_period": "recent"
+  },
+  "component": "ui-state-management",
+  "complexity": {
+    "technical": "4: Complex event flow architecture with extension-UI bridge, state management coordination, and DOM manipulation",
+    "business": "2: Typing indicator provides visual feedback during message processing but not critical functionality",
+    "coordination": "5: Multiple failed attempts spanning UIStateCoordinator, MessageListController, LogicManager with event bridge complications"
+  },
+  "files_modified": "4",
+  "files_touched": [
+    "src/ext/modules/logic-manager/LogicManager.ts",
+    "src/ui/modules/ui-logic/coordination/UIStateCoordinator.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/MessageListController.js",
+    "src/ext/modules/logic-manager/conversation-processor/StreamingController.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "spinner-css-integration-fix",
+    "mock-streaming-delay-implementation"
+  ],
+  "outcomes": {
+    "performance_impact": "No impact",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "true"
+  },
+  "summary": "Need typing indicator during message processing → Multiple failed approaches, partial cleanup incomplete",
+  "root_cause": "Misunderstood event architecture: confused bridge events vs internal UI events, bypassed proper state management patterns",
+  "solution": {
+    "approach": "Attempted direct UI state manipulation then proper event-driven approach",
+    "key_changes": [
+      "StreamingController.ts: Added 3-4 second mock delays for realistic testing",
+      "LogicManager.ts: Added then reverted invalid ui.state.change.v1 emissions to UI",
+      "UIStateCoordinator.js: Changed to listen for chat.message.user.v1 and chat.message.assistant.v1 (incorrect bridge events)",
+      "MessageListController.js: Added complete typing indicator DOM manipulation system"
+    ]
+  },
+  "validation": "Partial testing showed state flow worked but identified architecture violations",
+  "gotchas": [
+    {
+      "issue": "Sent ui.state.change.v1 from extension to UI causing MessageValidator rejection",
+      "solution": "Reverted LogicManager changes, identified need to use internal UI events not bridge events",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "UIStateCoordinator listening to bridge events instead of internal UI events",
+      "solution": "Identified correct events: chat.message.send vs chat.message.user.v1",
+      "category": "configuration",
+      "severity": "high"
+    },
+    {
+      "issue": "Added complex DOM manipulation instead of using existing state management",
+      "solution": "Should leverage existing StatusController pattern instead",
+      "category": "integration",
+      "severity": "medium"
+    }
+  ],
+  "lesson": "Respect existing architecture patterns and event flow - extension events vs UI events are fundamentally different domains",
+  "tags": [
+    "typing-indicator",
+    "state-management",
+    "event-architecture",
+    "ui-bridge",
+    "failed-attempt"
+  ],
+  "code_context": {
+    "key_patterns": [
+      "UIStateCoordinator.transitionToState() - central state management pattern",
+      "eventBus.on() - internal UI event subscription pattern",
+      "this.postToUI() - extension to UI bridge communication"
+    ],
+    "api_surface": [
+      "UIStateCoordinator.transitionToState(state, context): boolean - state transition with validation",
+      "MessageListController.displayMessage(payload): void - add message to DOM with cleanup"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "UIStateCoordinator event listeners → changed from tool.use.* to chat.message.*",
+      "MessageListController → added typing indicator methods (needs removal)"
+    ]
+  },
+  "future_planning": {
+    "next_logical_steps": [
+      "Remove all typing indicator code from MessageListController completely",
+      "Fix UIStateCoordinator to use internal UI events (chat.message.send, chat.message.received)",
+      "Enable StatusController UI updates to show 'Agent Working...' during agent_busy state",
+      "Test complete flow: user send → agent_busy → status shows → streaming → active → status ready"
+    ],
+    "architecture_decisions": {
+      "event_driven_state": "UIStateCoordinator should remain the single source of truth for UI state transitions",
+      "bridge_separation": "Extension events (bridge) vs UI events (internal) must remain separate - no cross-contamination"
+    },
+    "extension_points": [
+      "StatusController.js - enable commented UI updates for proper status indication",
+      "UIStateCoordinator.js - correct event listeners for internal UI events"
+    ]
+  },
+  "user_context": {
+    "development_style": "rapid-prototype",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "event-driven",
+    "quality_standards": "maintainability-focus"
+  },
+  "semantic_context": {
+    "domain_concepts": [
+      "typing-indicator",
+      "agent-busy-state",
+      "message-processing",
+      "visual-feedback"
+    ],
+    "technical_patterns": [
+      "state-machine",
+      "event-bus",
+      "bridge-pattern",
+      "observer-pattern"
+    ],
+    "integration_points": [
+      "extension-ui-bridge",
+      "state-coordinator",
+      "message-controller"
+    ]
+  }
+}
