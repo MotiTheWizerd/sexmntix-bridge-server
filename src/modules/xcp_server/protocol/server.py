@@ -70,7 +70,7 @@ class XCPMCPServer:
 
         # Initialize components
         self.session_manager = SessionManager(logger)
-        self.context_builder = ContextBuilder(config)
+        self.context_builder = ContextBuilder(config, logger)
         self.tool_list_handler = ToolListHandler(tools, logger)
         self.tool_call_handler = ToolCallHandler(
             self.tool_registry,

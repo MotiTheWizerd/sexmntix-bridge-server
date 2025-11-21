@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 # Path: __main__.py -> xcp_server/ -> modules/ -> src/ -> project_root/
 project_root = Path(__file__).parent.parent.parent.parent
 dotenv_path = project_root / ".env"
-load_dotenv(dotenv_path=dotenv_path)
+load_dotenv(dotenv_path=dotenv_path, override=False)  # Preserve env vars from .mcp.json
 
 # Import after loading env
 from src.modules.core import EventBus, Logger
@@ -161,8 +161,6 @@ async def main():
     logger.info(f"  Name: {server_info['server_name']}")
     logger.info(f"  Version: {server_info['server_version']}")
     logger.info(f"  Transport: {server_info['transport']}")
-    logger.info(f"  Default User ID: {server_info['default_user_id']}")
-    logger.info(f"  Default Project ID: {server_info['default_project_id']}")
     logger.info(f"  Registered Tools ({len(server_info['tools'])}):")
     for tool_name in server_info['tools']:
         logger.info(f"    - {tool_name}")

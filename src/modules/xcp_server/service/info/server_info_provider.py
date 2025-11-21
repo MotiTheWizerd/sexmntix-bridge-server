@@ -28,9 +28,7 @@ class ServerInfoProvider:
             "server_version": config.server_version,
             "transport": config.transport.value,
             "tools": tool_registry.get_tool_names(),
-            "tools_count": tool_registry.count(),
-            "default_user_id": config.default_user_id,
-            "default_project_id": config.default_project_id
+            "tools_count": tool_registry.count()
         }
 
     @staticmethod

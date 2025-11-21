@@ -1,0 +1,17 @@
+{
+  "id": "32da954f-fb50-46ad-8ef8-882ac37d820e",
+  "workspacePath": "c:\\projects\\semantic-bridge\\semantix",
+  "userId": "84e17260-ff03-409b-bf30-0b5ba52a2ab4",
+  "name": "Semantix",
+  "createdAt": 1760582899791,
+  "lastAccessedAt": 1760669534835,
+  "activeProviders": ["codex", "claude"],  
+  "projects": [],
+  "googleApiKey": "AIzaSyC4dsEGJiyHNSCcHRkN_sOW9qKNFlvevKw",
+  "chromaUrl": "http://localhost:8000",
+  "activeProvider": "codex",
+  "permissionPreferences": {
+    "Write": false,
+    "Bash": false
+  }
+}

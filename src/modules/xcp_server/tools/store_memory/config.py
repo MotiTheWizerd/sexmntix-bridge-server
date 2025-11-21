@@ -19,8 +19,6 @@ class StoreMemoryConfig:
         "learnings, solutions, or context for future reference.\n\n"
         "Required format:\n"
         "{\n"
-        "  \"user_id\": <number> (required),\n"
-        "  \"project_id\": <string> (required),\n"
         "  \"memory_log\": {\n"
         "    \"content\": <string> (optional),\n"
         "    \"task\": <string> (optional),\n"
@@ -30,7 +28,7 @@ class StoreMemoryConfig:
         "    ...any additional fields (optional)\n"
         "  }\n"
         "}\n\n"
-        "The system will automatically add a datetime field.\n"
+        "The system will automatically add user_id, project_id, and datetime fields.\n"
         "All fields in memory_log are optional and you can add custom fields."
     )
 
@@ -61,13 +59,13 @@ class StoreMemoryConfig:
             ToolParameter(
                 name="user_id",
                 type="string",
-                description="User ID (UUID format) for memory isolation",
+                description="User ID for storing the memory (required)",
                 required=True
             ),
             ToolParameter(
                 name="project_id",
                 type="string",
-                description="Project ID for memory isolation",
+                description="Project ID for storing the memory (required)",
                 required=True
             ),
             ToolParameter(

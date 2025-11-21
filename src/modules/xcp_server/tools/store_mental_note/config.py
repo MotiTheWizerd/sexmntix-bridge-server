@@ -49,13 +49,13 @@ class StoreMentalNoteConfig:
             ToolParameter(
                 name="user_id",
                 type="string",
-                description="User ID (UUID format) for memory isolation (required)",
+                description="User ID for storing the mental note (required)",
                 required=True
             ),
             ToolParameter(
                 name="project_id",
                 type="string",
-                description="Project ID for memory isolation (required)",
+                description="Project ID for storing the mental note (required)",
                 required=True
             ),
             ToolParameter(

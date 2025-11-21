@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 # Path: config.py -> models/ -> xcp_server/ -> modules/ -> src/ -> project_root/
 project_root = Path(__file__).parent.parent.parent.parent.parent
 dotenv_path = project_root / ".env"
-load_dotenv(dotenv_path=dotenv_path, override=True)  # Load from correct path
+load_dotenv(dotenv_path=dotenv_path, override=False)  # Preserve env vars from .mcp.json
 
 
 class TransportType(str, Enum):
@@ -62,16 +62,6 @@ class XCPConfig(BaseModel):
         description="Transport method (stdio or sse)"
     )
 
-    # Default context
-    default_user_id: int = Field(
-        default_factory=lambda: int(os.getenv("XCP_DEFAULT_USER_ID", "1")),
-        description="Default user ID for operations"
-    )
-
-    default_project_id: str = Field(
-        default_factory=lambda: os.getenv("XCP_DEFAULT_PROJECT_ID", "public"),
-        description="Default project ID for operations"
-    )
 
     # Logging
     log_level: LogLevel = Field(
@@ -109,17 +99,9 @@ class XCPConfig(BaseModel):
 class ToolContext(BaseModel):
     """Context for tool execution
 
-    Encapsulates user and project context for tool operations.
-    Can be overridden per tool call.
+    Minimal context for tool operations. Tools receive user_id and project_id
+    as explicit parameters from the client.
     """
-
-    user_id: int = Field(
-        description="User ID for this operation"
-    )
-
-    project_id: str = Field(
-        description="Project ID for this operation"
-    )
 
     session_id: Optional[str] = Field(
         default=None,

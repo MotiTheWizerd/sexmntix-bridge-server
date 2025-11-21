@@ -50,13 +50,13 @@ class QueryMentalNotesConfig:
             ToolParameter(
                 name="user_id",
                 type="string",
-                description="User ID (UUID format) for memory isolation (required)",
+                description="User ID for querying mental notes (required)",
                 required=True
             ),
             ToolParameter(
                 name="project_id",
                 type="string",
-                description="Project ID for memory isolation (required)",
+                description="Project ID for querying mental notes (required)",
                 required=True
             ),
             ToolParameter(

@@ -45,8 +45,8 @@ class ToolTelemetry:
             EventType.XCP_TOOL_CALLED.value,
             {
                 "tool_name": tool_name,
-                "user_id": context.user_id,
-                "project_id": context.project_id,
+                "user_id": arguments.get("user_id"),
+                "project_id": arguments.get("project_id"),
                 "arguments": arguments,
                 "session_id": context.session_id
             }
@@ -57,8 +57,8 @@ class ToolTelemetry:
             f"Executing tool '{tool_name}'",
             extra={
                 "tool_name": tool_name,
-                "user_id": context.user_id,
-                "project_id": context.project_id
+                "user_id": arguments.get("user_id"),
+                "project_id": arguments.get("project_id")
             }
         )
 
@@ -67,7 +67,8 @@ class ToolTelemetry:
         tool_name: str,
         context: ToolContext,
         result: ToolResult,
-        duration_ms: float
+        duration_ms: float,
+        arguments: Dict[str, Any] = None
     ) -> None:
         """Log and publish events for successful execution
 
@@ -76,14 +77,15 @@ class ToolTelemetry:
             context: Execution context
             result: Tool execution result
             duration_ms: Execution duration in milliseconds
+            arguments: Tool arguments (for extracting user_id/project_id)
         """
         # Publish completion event
         self.event_bus.publish(
             EventType.XCP_TOOL_COMPLETED.value,
             {
                 "tool_name": tool_name,
-                "user_id": context.user_id,
-                "project_id": context.project_id,
+                "user_id": arguments.get("user_id") if arguments else None,
+                "project_id": arguments.get("project_id") if arguments else None,
                 "result": result.data,
                 "duration_ms": duration_ms,
                 "session_id": context.session_id
@@ -100,7 +102,8 @@ class ToolTelemetry:
         self,
         tool_name: str,
         context: ToolContext,
-        result: ToolResult
+        result: ToolResult,
+        arguments: Dict[str, Any] = None
     ) -> None:
         """Log and publish events for failed execution
 
@@ -108,14 +111,15 @@ class ToolTelemetry:
             tool_name: Name of the tool
             context: Execution context
             result: Tool execution result with error details
+            arguments: Tool arguments (for extracting user_id/project_id)
         """
         # Publish failure event
         self.event_bus.publish(
             EventType.XCP_TOOL_FAILED.value,
             {
                 "tool_name": tool_name,
-                "user_id": context.user_id,
-                "project_id": context.project_id,
+                "user_id": arguments.get("user_id") if arguments else None,
+                "project_id": arguments.get("project_id") if arguments else None,
                 "error_message": result.error,
                 "error_code": result.error_code,
                 "session_id": context.session_id
@@ -147,7 +151,8 @@ class ToolTelemetry:
         self,
         tool_name: str,
         context: ToolContext,
-        error: Exception
+        error: Exception,
+        arguments: Dict[str, Any] = None
     ) -> None:
         """Log and publish events for unexpected errors
 
@@ -155,6 +160,7 @@ class ToolTelemetry:
             tool_name: Name of the tool
             context: Execution context
             error: Exception that occurred
+            arguments: Tool arguments (for extracting user_id/project_id)
         """
         # Log exception with traceback
         self.logger.exception(f"Tool execution failed: {str(error)}")
@@ -164,8 +170,8 @@ class ToolTelemetry:
             EventType.XCP_TOOL_FAILED.value,
             {
                 "tool_name": tool_name,
-                "user_id": context.user_id,
-                "project_id": context.project_id,
+                "user_id": arguments.get("user_id") if arguments else None,
+                "project_id": arguments.get("project_id") if arguments else None,
                 "error_message": str(error),
                 "error_code": "UNEXPECTED_ERROR",
                 "session_id": context.session_id

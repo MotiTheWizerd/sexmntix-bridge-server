@@ -47,6 +47,18 @@ class SemanticSearchConfig:
         """
         return [
             ToolParameter(
+                name="user_id",
+                type="string",
+                description="User ID for scoping the search (required)",
+                required=True
+            ),
+            ToolParameter(
+                name="project_id",
+                type="string",
+                description="Project ID for scoping the search (required)",
+                required=True
+            ),
+            ToolParameter(
                 name="query",
                 type="string",
                 description=(
@@ -71,18 +83,6 @@ class SemanticSearchConfig:
                 ),
                 required=False,
                 default=cls.DEFAULT_MIN_SIMILARITY
-            ),
-            ToolParameter(
-                name="user_id",
-                type="string",
-                description="User ID (UUID format) for memory isolation (required)",
-                required=True
-            ),
-            ToolParameter(
-                name="project_id",
-                type="string",
-                description="Project ID for memory isolation (required)",
-                required=True
             ),
             ToolParameter(
                 name="enable_temporal_decay",

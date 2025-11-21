@@ -197,8 +197,6 @@ class XCPServerService:
                 "server_version": self.config.server_version,
                 "transport": self.config.transport.value,
                 "tools": [],
-                "tools_count": 0,
-                "default_user_id": self.config.default_user_id,
-                "default_project_id": self.config.default_project_id
+                "tools_count": 0
             }
         return self._info_provider.get_server_info(self.config, self._tool_registry)

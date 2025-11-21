@@ -70,7 +70,7 @@ class ToolCallHandler:
             # Create execution context
             context = self.context_builder.build_default_context()
 
-            # Execute tool
+            # Execute tool with arguments from client
             result = await tool.run(context, arguments)
 
             # Format response based on result

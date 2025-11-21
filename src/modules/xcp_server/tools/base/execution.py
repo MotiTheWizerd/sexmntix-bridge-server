@@ -72,9 +72,9 @@ class ToolExecutor:
 
             # Log based on result
             if result.success:
-                self.telemetry.log_execution_success(tool_name, context, result, duration_ms)
+                self.telemetry.log_execution_success(tool_name, context, result, duration_ms, validated_args)
             else:
-                self.telemetry.log_execution_failure(tool_name, context, result)
+                self.telemetry.log_execution_failure(tool_name, context, result, validated_args)
 
             return result
 
@@ -89,7 +89,7 @@ class ToolExecutor:
 
         except Exception as e:
             # Handle unexpected errors
-            self.telemetry.log_unexpected_error(tool_name, context, e)
+            self.telemetry.log_unexpected_error(tool_name, context, e, arguments)
             return ToolResult(
                 success=False,
                 error=f"Unexpected error: {str(e)}",
