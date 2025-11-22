@@ -29,7 +29,7 @@ class InternalHandlerConfig:
     PROJECT_ID_FIELD = "project_id"
     MEMORY_LOG_ID_FIELD = "memory_log_id"
     MENTAL_NOTE_ID_FIELD = "mental_note_id"
-    RAW_DATA_FIELD = "raw_data"
+    MEMORY_LOG_FIELD = "memory_log"
     CONTENT_FIELD = "content"
 
     # Messages

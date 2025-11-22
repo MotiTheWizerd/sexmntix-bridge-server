@@ -120,7 +120,7 @@ class BaseStorageHandler(ABC):
     def _log_processing_details(self, validated: Dict[str, Any]):
         """Log processing details including content analysis"""
         prefix = self._get_log_prefix()
-        raw_data = validated["raw_data"]
+        memory_log = validated.get("memory_log") or validated.get("content", {})
         doc_id = self._get_doc_id(validated)
 
         # Log processing started
@@ -143,24 +143,25 @@ class BaseStorageHandler(ABC):
         )
         self.logger.info(message)
 
-        # Log raw_data keys
-        message = self.formatter.format_raw_data_keys(prefix, list(raw_data.keys()))
-        self.logger.info(message)
+        # Log memory_log keys
+        if isinstance(memory_log, dict):
+            message = self.formatter.format_memory_log_keys(prefix, list(memory_log.keys()))
+            self.logger.info(message)
 
-        # Log content info
-        content_info = self.validator.get_content_info(raw_data)
-        message = self.formatter.format_content_info(
-            prefix,
-            content_info["exists"],
-            content_info["type"],
-            content_info["length"]
-        )
-        self.logger.info(message)
+            # Log content info
+            content_info = self.validator.get_content_info(memory_log)
+            message = self.formatter.format_content_info(
+                prefix,
+                content_info["exists"],
+                content_info["type"],
+                content_info["length"]
+            )
+            self.logger.info(message)
 
-        # Log content preview
-        preview = self.validator.extract_content_preview(raw_data)
-        message = self.formatter.format_content_preview(prefix, preview)
-        self.logger.info(message)
+            # Log content preview
+            preview = self.validator.extract_content_preview(memory_log)
+            message = self.formatter.format_content_preview(prefix, preview)
+            self.logger.info(message)
 
     def _log_vector_stored(
         self,

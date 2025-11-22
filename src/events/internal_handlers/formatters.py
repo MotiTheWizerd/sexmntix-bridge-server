@@ -80,18 +80,18 @@ class LogMessageFormatter:
         )
 
     @staticmethod
-    def format_raw_data_keys(prefix: str, keys: List[str]) -> str:
+    def format_memory_log_keys(prefix: str, keys: List[str]) -> str:
         """
-        Format raw data keys message.
+        Format memory log keys message.
 
         Args:
             prefix: Log prefix
-            keys: List of raw_data dictionary keys
+            keys: List of memory_log dictionary keys
 
         Returns:
             Formatted log message
         """
-        return f"{prefix} raw_data keys: {keys}"
+        return f"{prefix} memory_log keys: {keys}"
 
     @staticmethod
     def format_content_info(

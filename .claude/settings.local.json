@@ -18,7 +18,8 @@
       "Bash(\"src\\modules\\SXThalamus\\prompts\\default.py\")",
       "Bash(touch:*)",
       "Bash(alembic revision:*)",
-      "Bash(poetry run alembic:*)"
+      "Bash(poetry run alembic:*)",
+      "Bash(if not exist \"c:\\project\\semantix-bridge\\semantix-bridge-server\\src\\api\\formatters\" mkdir \"c:\\project\\semantix-bridge\\semantix-bridge-server\\src\\api\\formatters\")"
     ]
   },
   "enableAllProjectMcpServers": true,

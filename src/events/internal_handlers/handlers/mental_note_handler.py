@@ -97,7 +97,7 @@ class MentalNoteStorageHandler(BaseStorageHandler):
 
         note_id, embedding = await self.orchestrator.store_mental_note_vector(
             mental_note_id=validated["mental_note_id"],
-            raw_data=validated["raw_data"],
+            content=validated["content"],
             user_id=validated["user_id"],
             project_id=validated["project_id"]
         )

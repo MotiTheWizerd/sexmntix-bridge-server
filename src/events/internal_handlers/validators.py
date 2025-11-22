@@ -51,7 +51,7 @@ class EventDataValidator:
             "user_id": user_id,
             "project_id": project_id,
             "memory_log_id": memory_log_id,
-            "raw_data": event_data.get(InternalHandlerConfig.RAW_DATA_FIELD, {})
+            "memory_log": event_data.get(InternalHandlerConfig.MEMORY_LOG_FIELD, {})
         }
 
     @staticmethod
@@ -79,41 +79,41 @@ class EventDataValidator:
             "user_id": user_id,
             "project_id": project_id,
             "mental_note_id": mental_note_id,
-            "raw_data": event_data.get(InternalHandlerConfig.RAW_DATA_FIELD, {})
+            "content": event_data.get(InternalHandlerConfig.CONTENT_FIELD, "")
         }
 
     @staticmethod
     def extract_content_preview(
-        raw_data: Dict[str, Any],
+        memory_log: Dict[str, Any],
         length: int = InternalHandlerConfig.CONTENT_PREVIEW_LENGTH
     ) -> str:
         """
         Extract content preview for logging.
 
         Args:
-            raw_data: Raw data dictionary containing content
+            memory_log: Memory log data dictionary containing content
             length: Maximum length of preview
 
         Returns:
             Content preview string or placeholder
         """
-        content = raw_data.get(InternalHandlerConfig.CONTENT_FIELD, "")
+        content = memory_log.get(InternalHandlerConfig.CONTENT_FIELD, "")
         if content:
             return content[:length]
         return InternalHandlerConfig.NO_CONTENT_PLACEHOLDER
 
     @staticmethod
-    def get_content_info(raw_data: Dict[str, Any]) -> Dict[str, Any]:
+    def get_content_info(memory_log: Dict[str, Any]) -> Dict[str, Any]:
         """
         Get detailed content information for debugging.
 
         Args:
-            raw_data: Raw data dictionary
+            memory_log: Memory log data dictionary
 
         Returns:
             Dict with content metadata (exists, type, length)
         """
-        content = raw_data.get(InternalHandlerConfig.CONTENT_FIELD, "")
+        content = memory_log.get(InternalHandlerConfig.CONTENT_FIELD, "")
         return {
             "exists": bool(content),
             "type": type(content).__name__,

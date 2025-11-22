@@ -1,8 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
-from datetime import datetime, timedelta
 from src.api.dependencies.database import get_db_session
 from src.api.dependencies.event_bus import get_event_bus
 from src.api.dependencies.logger import get_logger
@@ -13,18 +11,18 @@ from src.api.schemas.memory_log import (
     MemoryLogSearchRequest,
     MemoryLogSearchResult,
     MemoryLogDateSearchRequest,
-    TemporalContext
 )
+from src.api.formatters.memory_log_formatters import MemoryLogFormatter
 from src.database.repositories.memory_log_repository import MemoryLogRepository
+from src.services.memory_log_service import MemoryLogService
 from src.modules.core import EventBus, Logger
-from src.modules.core.temporal_context import TemporalContextCalculator
 
 router = APIRouter(prefix="/memory-logs", tags=["memory-logs"])
 
 
 @router.post("", response_model=MemoryLogResponse, status_code=201)
 async def create_memory_log(
-    data: MemoryLogCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db_session),
     event_bus: EventBus = Depends(get_event_bus),
     logger: Logger = Depends(get_logger),
@@ -37,12 +35,10 @@ async def create_memory_log(
         "user_id": "uuid-string",
         "project_id": "default",
         "session_id": "string",
+        "task": "task-name-kebab-case",
+        "agent": "claude-sonnet-4",
         "memory_log": {
-            "task": "task-name-kebab-case",
-            "agent": "claude-sonnet-4",
-            "date": "2025-01-15",
             "component": "component-name",
-            "temporal_context": {...},  // Auto-calculated if not provided
             "complexity": {...},
             "outcomes": {...},
             "solution": {...},
@@ -67,46 +63,31 @@ async def create_memory_log(
     User and project IDs enable multi-tenant isolation in vector storage.
     The system automatically adds a datetime field and calculates temporal_context if not provided.
     """
-    # Extract required fields from top level
-    task = data.task
-    agent = data.agent
+    # Get request body
+    body = await request.json()
 
-    logger.info(f"Creating memory log for task: {task}")
+    # Create service instance
+    repo = MemoryLogRepository(db)
+    service = MemoryLogService(repo, None, event_bus, logger)
+    logger.debug(f"[un warpping] ")
+    # Unwrap request body (handles MCP-wrapped format)
+    data_dict = service.unwrap_request_body(body)
+
+    # Validate with Pydantic
+    data = MemoryLogCreate(**data_dict)
+    logger.debug(f"[API_VALIDATED] task={data.task}, agent={data.agent}")
 
     # Convert memory_log to dict, handling nested models
     memory_log_dict = data.memory_log.model_dump(exclude_none=True)
 
-    # Create memory log in PostgreSQL (synchronous for immediate response with ID)
-    repo = MemoryLogRepository(db)
-    memory_log = await repo.create(
-        task=task,
-        agent=agent,
+    # Create memory log via service
+    memory_log = await service.create_memory_log(
+        task=data.task,
+        agent=data.agent,
         session_id=data.session_id,
         memory_log=memory_log_dict,
         user_id=str(data.user_id),
         project_id=data.project_id,
-    )
-
-    logger.info(f"Memory log stored in PostgreSQL with id: {memory_log.id}")
-
-    # Emit event for async vector storage (background task via event handler)
-    event_data = {
-        "memory_log_id": memory_log.id,
-        "task": task,
-        "agent": agent,
-        "session_id": data.session_id,
-        "memory_log": memory_log_dict,
-        "user_id": str(data.user_id),
-        "project_id": data.project_id,
-    }
-
-    # Use publish (not publish_async) to schedule as background task
-    # This triggers the memory_log.stored event handler asynchronously
-    event_bus.publish("memory_log.stored", event_data)
-
-    logger.info(
-        f"Memory log created with id {memory_log.id}, "
-        f"vector storage scheduled as background task"
     )
 
     return memory_log
@@ -172,11 +153,6 @@ async def search_memory_logs(
 
     Returns memories ranked by similarity with scores.
     """
-    logger.info(
-        f"Searching memory logs for: '{search_request.query[:100]}' "
-        f"(user: {search_request.user_id}, project: {search_request.project_id})"
-    )
-
     try:
         # Create VectorStorageService for this specific user/project
         vector_service = create_vector_storage_service(
@@ -187,114 +163,31 @@ async def search_memory_logs(
             logger=logger
         )
 
-        # Build combined filter with tag if provided
-        combined_filter = search_request.filters or {}
-        if search_request.tag:
-            # Add tag filter - tags are stored in metadata as:
-            # 1. tag_0, tag_1, tag_2, tag_3, tag_4 (individual fields)
-            # 2. tags (comma-separated string)
-            # Check both formats for compatibility
-            tag_filter = {
-                "$or": [
-                    {"tag_0": search_request.tag},
-                    {"tag_1": search_request.tag},
-                    {"tag_2": search_request.tag},
-                    {"tag_3": search_request.tag},
-                    {"tag_4": search_request.tag},
-                    {"tags": {"$contains": search_request.tag}}  # Check comma-separated string
-                ]
-            }
-            # Combine with existing filters using $and
-            if combined_filter:
-                combined_filter = {"$and": [combined_filter, tag_filter]}
-            else:
-                combined_filter = tag_filter
+        # Create service instance
+        service = MemoryLogService(None, vector_service, None, logger)
 
-        results = await vector_service.search_similar_memories(
+        # Search via service
+        results = await service.search_memory_logs(
             query=search_request.query,
             user_id=search_request.user_id,
             project_id=search_request.project_id,
             limit=search_request.limit,
-            where_filter=combined_filter,
+            filters=search_request.filters,
+            tag=search_request.tag,
             min_similarity=search_request.min_similarity
         )
 
-        # Convert to response format
-        search_results = []
-        for result in results:
-            # Extract memory_log_id from the memory_id format: memory_{id}_{user}_{project}
-            # Handle both integer IDs and UUID strings
-            memory_id_parts = result["id"].split("_")
-            if len(memory_id_parts) > 1:
-                try:
-                    memory_log_id = int(memory_id_parts[1])
-                except ValueError:
-                    # If not an integer, keep as string (UUID from MCP tools)
-                    memory_log_id = memory_id_parts[1]
-            else:
-                memory_log_id = None
-
-            search_results.append(
-                MemoryLogSearchResult(
-                    id=result["id"],
-                    memory_log_id=memory_log_id,
-                    document=result["document"],
-                    metadata=result["metadata"],
-                    distance=result["distance"],
-                    similarity=result["similarity"]
-                )
-            )
-
-        logger.info(f"Found {len(search_results)} matching memories")
+        # Format results using formatter
+        search_results = MemoryLogFormatter.format_search_results_json(results)
 
         # Return based on format parameter
         if format == "json":
-            # Return JSON array for WebUI
             return search_results
         else:
-            # Format as terminal text for CLI/terminal usage
-            lines = [
-                "=" * 80,
-                f"SEARCH RESULTS - {len(search_results)} items",
-                f'Query: "{search_request.query}"',
-                "=" * 80,
-                ""
-            ]
-
-            for idx, result in enumerate(search_results, 1):
-                doc = result.document
-                task = doc.get("task", "untitled-memory")
-
-                lines.append(f"[{idx}/{len(search_results)}] {task}")
-                lines.append("-" * 80)
-                lines.append(f"Similarity: {result.similarity * 100:.1f}%")
-
-                if doc.get("component"):
-                    lines.append(f"Component: {doc['component']}")
-
-                if doc.get("date"):
-                    date_str = str(doc['date']).split("T")[0]
-                    lines.append(f"Date: {date_str}")
-
-                if doc.get("tags"):
-                    tag_str = ", ".join(doc['tags'][:5])
-                    lines.append(f"Tags: {tag_str}")
-
-                lines.append("")
-                if doc.get("summary"):
-                    summary = doc['summary']
-                    if len(summary) > 200:
-                        summary = summary[:197] + "..."
-                    lines.append(summary)
-
-                lines.append("")
-
-            lines.append("=" * 80)
-            lines.append("End of Results")
-            lines.append("=" * 80)
-
-            formatted_text = "\n".join(lines)
-            return PlainTextResponse(content=formatted_text)
+            return MemoryLogFormatter.format_search_results_text(
+                search_results,
+                search_request.query
+            )
 
     except Exception as e:
         logger.error(f"Search failed: {e}")
@@ -309,7 +202,6 @@ async def search_memory_logs_by_date(
     search_request: MemoryLogDateSearchRequest,
     request: Request,
     format: str = "text",
-    db: AsyncSession = Depends(get_db_session),
     logger: Logger = Depends(get_logger),
 ):
     """
@@ -340,57 +232,8 @@ async def search_memory_logs_by_date(
             "end_date": "2024-12-31T23:59:59"
         }
     """
-    logger.info(
-        f"Searching memory logs by date for: '{search_request.query[:100]}' "
-        f"(user: {search_request.user_id}, project: {search_request.project_id})"
-    )
-
     try:
-        # Calculate date range based on time_period or use explicit dates
-        start_date = search_request.start_date
-        end_date = search_request.end_date
-
-        if search_request.time_period:
-            now = datetime.utcnow()
-
-            if search_request.time_period == "recent" or search_request.time_period == "last-week":
-                # Last 7 days
-                start_date = now - timedelta(days=7)
-                end_date = now
-            elif search_request.time_period == "last-month":
-                # Last 30 days
-                start_date = now - timedelta(days=30)
-                end_date = now
-            elif search_request.time_period == "archived":
-                # Older than 30 days
-                end_date = now - timedelta(days=30)
-                start_date = None  # No lower bound for archived
-
-        # Query database by date range
-        repo = MemoryLogRepository(db)
-
-        if start_date and end_date:
-            memory_logs = await repo.get_by_date_range(
-                start_date=start_date,
-                end_date=end_date,
-                limit=search_request.limit
-            )
-        elif end_date:
-            # Only end_date (archived case)
-            memory_logs = await repo.get_by_date_range(
-                start_date=datetime.min,
-                end_date=end_date,
-                limit=search_request.limit
-            )
-        else:
-            # No date filter, just get recent ones
-            memory_logs = await repo.get_all(limit=search_request.limit)
-
-        # Optionally filter by semantic similarity if query provided
-        # For now, just return the date-filtered results
-        # Future: Could integrate with vector search for hybrid date+semantic filtering
-
-        # Create VectorStorageService for semantic search within date-filtered results
+        # Create VectorStorageService for semantic search
         vector_service = create_vector_storage_service(
             user_id=search_request.user_id,
             project_id=search_request.project_id,
@@ -399,104 +242,34 @@ async def search_memory_logs_by_date(
             logger=logger
         )
 
-        # Build ChromaDB filter for date range
-        where_filter = {}
-        if start_date:
-            where_filter["date"] = {"$gte": start_date.isoformat()}
-        if end_date and start_date:
-            where_filter["date"] = {
-                "$gte": start_date.isoformat(),
-                "$lte": end_date.isoformat()
-            }
-        elif end_date:
-            where_filter["date"] = {"$lte": end_date.isoformat()}
+        # Create service instance
+        service = MemoryLogService(None, vector_service, None, logger)
 
-        # Perform semantic search with date filter
-        results = await vector_service.search_similar_memories(
+        # Search by date via service
+        results = await service.search_by_date(
             query=search_request.query,
             user_id=search_request.user_id,
             project_id=search_request.project_id,
             limit=search_request.limit,
-            where_filter=where_filter if where_filter else None,
-            min_similarity=0.0
+            time_period=search_request.time_period,
+            start_date=search_request.start_date,
+            end_date=search_request.end_date
         )
 
-        # Convert to response format
-        search_results = []
-        for result in results:
-            # Extract memory_log_id from the memory_id format
-            memory_id_parts = result["id"].split("_")
-            if len(memory_id_parts) > 1:
-                try:
-                    memory_log_id = int(memory_id_parts[1])
-                except ValueError:
-                    memory_log_id = memory_id_parts[1]
-            else:
-                memory_log_id = None
-
-            search_results.append(
-                MemoryLogSearchResult(
-                    id=result["id"],
-                    memory_log_id=memory_log_id,
-                    document=result["document"],
-                    metadata=result["metadata"],
-                    distance=result["distance"],
-                    similarity=result["similarity"]
-                )
-            )
-
-        logger.info(f"Found {len(search_results)} matching memories")
+        # Format results using formatter
+        search_results = MemoryLogFormatter.format_search_results_json(results)
 
         # Return based on format parameter
         if format == "json":
-            # Return JSON array for WebUI
             return search_results
         else:
-            # Format as terminal text for CLI/terminal usage
-            time_period_str = search_request.time_period or f"{start_date} to {end_date}"
-            lines = [
-                "=" * 80,
-                f"DATE-FILTERED SEARCH RESULTS - {len(search_results)} items",
-                f'Query: "{search_request.query}"',
-                f'Time Period: {time_period_str}',
-                "=" * 80,
-                ""
-            ]
-
-            for idx, result in enumerate(search_results, 1):
-                doc = result.document
-                task = doc.get("task", "untitled-memory")
-
-                lines.append(f"[{idx}/{len(search_results)}] {task}")
-                lines.append("-" * 80)
-                lines.append(f"Similarity: {result.similarity * 100:.1f}%")
-
-                if doc.get("component"):
-                    lines.append(f"Component: {doc['component']}")
-
-                if doc.get("date"):
-                    date_str = str(doc['date']).split("T")[0]
-                    lines.append(f"Date: {date_str}")
-
-                if doc.get("tags"):
-                    tag_str = ", ".join(doc['tags'][:5])
-                    lines.append(f"Tags: {tag_str}")
-
-                lines.append("")
-                if doc.get("summary"):
-                    summary = doc['summary']
-                    if len(summary) > 200:
-                        summary = summary[:197] + "..."
-                    lines.append(summary)
-
-                lines.append("")
-
-            lines.append("=" * 80)
-            lines.append("End of Results")
-            lines.append("=" * 80)
-
-            formatted_text = "\n".join(lines)
-            return PlainTextResponse(content=formatted_text)
+            # Generate time period description
+            time_period_str = search_request.time_period or f"{search_request.start_date} to {search_request.end_date}"
+            return MemoryLogFormatter.format_date_search_text(
+                search_results,
+                search_request.query,
+                time_period_str
+            )
 
     except Exception as e:
         logger.error(f"Date search failed: {e}")

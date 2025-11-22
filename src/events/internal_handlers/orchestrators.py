@@ -74,7 +74,7 @@ class VectorStorageOrchestrator:
 
         memory_id, embedding = await vector_service.store_memory_vector(
             memory_log_id=memory_log_id,
-            memory_data=raw_data,
+            memory_data=memory_log,
             user_id=user_id,
             project_id=project_id
         )
@@ -84,7 +84,7 @@ class VectorStorageOrchestrator:
     async def store_mental_note_vector(
         self,
         mental_note_id: int,
-        memory_log: Dict[str, Any],
+        content: str,
         user_id: str,
         project_id: str
     ) -> Tuple[str, List[float]]:
@@ -93,7 +93,7 @@ class VectorStorageOrchestrator:
 
         Args:
             mental_note_id: Mental note ID from PostgreSQL
-            memory_log: Raw mental note data
+            content: Mental note content text
             user_id: User identifier
             project_id: Project identifier
 
@@ -104,7 +104,7 @@ class VectorStorageOrchestrator:
 
         note_id, embedding = await vector_service.store_mental_note_vector(
             mental_note_id=mental_note_id,
-            mental_note_data=raw_data,
+            mental_note_data=content,
             user_id=user_id,
             project_id=project_id
         )
@@ -140,7 +140,7 @@ class VectorStorageOrchestrator:
 
         conversation_ids, embeddings = await vector_service.store_conversation_vector(
             conversation_db_id=conversation_db_id,
-            conversation_data=raw_data,
+            conversation_data=memory_log,
             user_id=user_id,
             session_id=session_id,
             gemini_analysis=gemini_analysis
