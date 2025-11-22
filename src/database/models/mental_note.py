@@ -1,4 +1,4 @@
-from sqlalchemy import String, Integer, DateTime, BigInteger, Float
+from sqlalchemy import String, Integer, DateTime, BigInteger, Float, Text
 from sqlalchemy.dialects.postgresql import JSONB, ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
@@ -12,12 +12,10 @@ class MentalNote(Base):
     __tablename__ = "mental_notes"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
-    session_id: Mapped[str] = mapped_column(String(255), index=True)
-    start_time: Mapped[int] = mapped_column(BigInteger, index=True)
-    raw_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
-
-    # Document type for unified semantic space
-    document_type: Mapped[str] = mapped_column(String(50), default="mental_note", index=True)
+    session_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    note_type: Mapped[str] = mapped_column(String(50), default="note", index=True)
+    meta_data: Mapped[dict] = mapped_column(JSONB, default=dict, server_default='{}')
 
     # Vector embedding for semantic search (768 dimensions)
     # Using pgvector's Vector type for efficient similarity search

@@ -7,17 +7,20 @@ class MentalNoteCreate(BaseModel):
     """Schema for creating mental notes with optional user/project isolation"""
     model_config = {"extra": "allow"}
 
-    sessionId: str
-    startTime: int
+    sessionId: Optional[str] = None
+    content: str
+    note_type: str = "note"
     user_id: str  # Required: UUID from users table
     project_id: Optional[str] = "default"  # Default project_id
+    meta_data: Optional[Dict[str, Any]] = {}
 
 
 class MentalNoteResponse(BaseModel):
     id: str
-    session_id: str
-    start_time: int
-    raw_data: Dict[str, Any]
+    session_id: Optional[str]
+    content: str
+    note_type: str
+    meta_data: Dict[str, Any]
     embedding: Optional[List[float]] = None
     user_id: Optional[str] = None
     project_id: Optional[str] = None
