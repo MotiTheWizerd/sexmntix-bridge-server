@@ -151,6 +151,8 @@ class StoreMentalNoteTool(BaseTool):
         """
         return self.validator.extract_and_validate(
             arguments,
+            context_user_id=context.user_id,
+            context_project_id=context.project_id,
             context_session_id=getattr(context, 'session_id', None)
         )
 

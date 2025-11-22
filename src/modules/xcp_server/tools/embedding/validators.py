@@ -30,12 +30,16 @@ class EmbeddingArgumentValidator:
     @classmethod
     def extract_and_validate(
         cls,
-        arguments: Dict[str, Any]
+        arguments: Dict[str, Any],
+        context_user_id: str,
+        context_project_id: str
     ) -> Dict[str, Any]:
         """Extract and validate all embedding arguments
 
         Args:
             arguments: Raw arguments from tool invocation
+            context_user_id: User ID from context (set from environment variables)
+            context_project_id: Project ID from context (set from environment variables)
 
         Returns:
             Dictionary of validated arguments
@@ -43,16 +47,9 @@ class EmbeddingArgumentValidator:
         Raises:
             ValueError: If validation fails
         """
-        # Extract and validate required user_id and project_id
-        user_id = arguments.get("user_id")
-        project_id = arguments.get("project_id")
-
-        if user_id is None:
-            raise ValueError("user_id is required")
-        if not project_id:
-            raise ValueError("project_id is required")
-
-        user_id = str(user_id)
+        # Get user_id and project_id from context (set from environment variables)
+        user_id = context_user_id
+        project_id = context_project_id
 
         # Extract text (required)
         text = arguments.get("text")

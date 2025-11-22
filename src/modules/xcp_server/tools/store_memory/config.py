@@ -57,18 +57,6 @@ class StoreMemoryConfig:
         """
         return [
             ToolParameter(
-                name="user_id",
-                type="string",
-                description="User ID for storing the memory (required)",
-                required=True
-            ),
-            ToolParameter(
-                name="project_id",
-                type="string",
-                description="Project ID for storing the memory (required)",
-                required=True
-            ),
-            ToolParameter(
                 name="memory_log",
                 type="object",
                 description="Memory log data containing content, task, agent, tags, and metadata",

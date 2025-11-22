@@ -49,18 +49,6 @@ class SemanticSearchConfig:
         """
         return [
             ToolParameter(
-                name="user_id",
-                type="string",
-                description="User ID for scoping the search (required)",
-                required=True
-            ),
-            ToolParameter(
-                name="project_id",
-                type="string",
-                description="Project ID for scoping the search (required)",
-                required=True
-            ),
-            ToolParameter(
                 name="query",
                 type="string",
                 description=(

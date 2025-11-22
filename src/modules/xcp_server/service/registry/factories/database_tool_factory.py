@@ -7,7 +7,8 @@ from src.modules.xcp_server.tools import (
     BaseTool,
     StoreMemoryTool,
     StoreMentalNoteTool,
-    QueryMentalNotesTool
+    QueryMentalNotesTool,
+    SearchMemoryByDateTool
 )
 from .base_factory import BaseToolFactory
 
@@ -69,6 +70,13 @@ class DatabaseToolFactory(BaseToolFactory):
         )
         tools.append(query_mental_notes_tool)
 
+        # Create Search Memory By Date Tool
+        search_memory_by_date_tool = self._create_search_memory_by_date_tool(
+            event_bus=event_bus,
+            logger=logger
+        )
+        tools.append(search_memory_by_date_tool)
+
         logger.debug(f"DatabaseToolFactory created {len(tools)} tools")
         return tools
 
@@ -112,4 +120,20 @@ class DatabaseToolFactory(BaseToolFactory):
             event_bus=event_bus,
             logger=logger,
             db_session_factory=db_session_factory
+        )
+
+    @staticmethod
+    def _create_search_memory_by_date_tool(
+        event_bus: EventBus,
+        logger: Logger
+    ) -> SearchMemoryByDateTool:
+        """
+        Create SearchMemoryByDateTool with dependencies
+
+        Note: This tool is a dumb HTTP pipeline that forwards requests to the backend API.
+        No database session factory needed.
+        """
+        return SearchMemoryByDateTool(
+            event_bus=event_bus,
+            logger=logger
         )

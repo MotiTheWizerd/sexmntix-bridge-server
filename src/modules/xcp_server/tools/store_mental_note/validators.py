@@ -19,12 +19,16 @@ class ArgumentValidator:
     def extract_and_validate(
         cls,
         arguments: Dict[str, Any],
+        context_user_id: str,
+        context_project_id: str,
         context_session_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Extract and validate all arguments
 
         Args:
             arguments: Raw arguments from MCP client
+            context_user_id: User ID from context (set from environment variables)
+            context_project_id: Project ID from context (set from environment variables)
             context_session_id: Session ID from context (if available)
 
         Returns:
@@ -33,16 +37,9 @@ class ArgumentValidator:
         Raises:
             ValueError: If validation fails
         """
-        # Extract and validate required user_id and project_id
-        user_id = arguments.get("user_id")
-        project_id = arguments.get("project_id")
-
-        if user_id is None:
-            raise ValueError("user_id is required")
-        if not project_id:
-            raise ValueError("project_id is required")
-
-        user_id = str(user_id)
+        # Get user_id and project_id from context (set from environment variables)
+        user_id = context_user_id
+        project_id = context_project_id
 
         # Validate required content parameter
         content = cls._validate_content(arguments.get("content"))

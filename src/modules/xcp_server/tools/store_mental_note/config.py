@@ -47,18 +47,6 @@ class StoreMentalNoteConfig:
         """
         return [
             ToolParameter(
-                name="user_id",
-                type="string",
-                description="User ID for storing the mental note (required)",
-                required=True
-            ),
-            ToolParameter(
-                name="project_id",
-                type="string",
-                description="Project ID for storing the mental note (required)",
-                required=True
-            ),
-            ToolParameter(
                 name="content",
                 type="string",
                 description="The content of the mental note",

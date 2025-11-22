@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
-from datetime import datetime
+from datetime import datetime, timedelta
 from src.api.dependencies.database import get_db_session
 from src.api.dependencies.event_bus import get_event_bus
 from src.api.dependencies.logger import get_logger
@@ -12,6 +12,7 @@ from src.api.schemas.memory_log import (
     MemoryLogResponse,
     MemoryLogSearchRequest,
     MemoryLogSearchResult,
+    MemoryLogDateSearchRequest,
     TemporalContext
 )
 from src.database.repositories.memory_log_repository import MemoryLogRepository
@@ -329,4 +330,200 @@ async def search_memory_logs(
         raise HTTPException(
             status_code=500,
             detail=f"Search failed: {str(e)}"
+        )
+
+
+@router.post("/search-by-date")
+async def search_memory_logs_by_date(
+    search_request: MemoryLogDateSearchRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db_session),
+    logger: Logger = Depends(get_logger),
+):
+    """
+    Search memory logs with date filtering.
+
+    Supports both explicit date ranges and convenience time period shortcuts:
+    - recent: Last 7 days
+    - last-week: Last 7 days
+    - last-month: Last 30 days
+    - archived: Older than 30 days
+
+    Example:
+        POST /memory-logs/search-by-date
+        {
+            "query": "authentication bug fix",
+            "user_id": "user123",
+            "project_id": "project456",
+            "limit": 10,
+            "time_period": "recent"
+        }
+
+        OR with explicit dates:
+        {
+            "query": "authentication bug fix",
+            "user_id": "user123",
+            "project_id": "project456",
+            "start_date": "2024-01-01T00:00:00",
+            "end_date": "2024-12-31T23:59:59"
+        }
+    """
+    logger.info(
+        f"Searching memory logs by date for: '{search_request.query[:100]}' "
+        f"(user: {search_request.user_id}, project: {search_request.project_id})"
+    )
+
+    try:
+        # Calculate date range based on time_period or use explicit dates
+        start_date = search_request.start_date
+        end_date = search_request.end_date
+
+        if search_request.time_period:
+            now = datetime.utcnow()
+
+            if search_request.time_period == "recent" or search_request.time_period == "last-week":
+                # Last 7 days
+                start_date = now - timedelta(days=7)
+                end_date = now
+            elif search_request.time_period == "last-month":
+                # Last 30 days
+                start_date = now - timedelta(days=30)
+                end_date = now
+            elif search_request.time_period == "archived":
+                # Older than 30 days
+                end_date = now - timedelta(days=30)
+                start_date = None  # No lower bound for archived
+
+        # Query database by date range
+        repo = MemoryLogRepository(db)
+
+        if start_date and end_date:
+            memory_logs = await repo.get_by_date_range(
+                start_date=start_date,
+                end_date=end_date,
+                limit=search_request.limit
+            )
+        elif end_date:
+            # Only end_date (archived case)
+            memory_logs = await repo.get_by_date_range(
+                start_date=datetime.min,
+                end_date=end_date,
+                limit=search_request.limit
+            )
+        else:
+            # No date filter, just get recent ones
+            memory_logs = await repo.get_all(limit=search_request.limit)
+
+        # Optionally filter by semantic similarity if query provided
+        # For now, just return the date-filtered results
+        # Future: Could integrate with vector search for hybrid date+semantic filtering
+
+        # Create VectorStorageService for semantic search within date-filtered results
+        vector_service = create_vector_storage_service(
+            user_id=search_request.user_id,
+            project_id=search_request.project_id,
+            embedding_service=request.app.state.embedding_service,
+            event_bus=request.app.state.event_bus,
+            logger=logger
+        )
+
+        # Build ChromaDB filter for date range
+        where_filter = {}
+        if start_date:
+            where_filter["date"] = {"$gte": start_date.isoformat()}
+        if end_date and start_date:
+            where_filter["date"] = {
+                "$gte": start_date.isoformat(),
+                "$lte": end_date.isoformat()
+            }
+        elif end_date:
+            where_filter["date"] = {"$lte": end_date.isoformat()}
+
+        # Perform semantic search with date filter
+        results = await vector_service.search_similar_memories(
+            query=search_request.query,
+            user_id=search_request.user_id,
+            project_id=search_request.project_id,
+            limit=search_request.limit,
+            where_filter=where_filter if where_filter else None,
+            min_similarity=0.0
+        )
+
+        # Convert to response format
+        search_results = []
+        for result in results:
+            # Extract memory_log_id from the memory_id format
+            memory_id_parts = result["id"].split("_")
+            if len(memory_id_parts) > 1:
+                try:
+                    memory_log_id = int(memory_id_parts[1])
+                except ValueError:
+                    memory_log_id = memory_id_parts[1]
+            else:
+                memory_log_id = None
+
+            search_results.append(
+                MemoryLogSearchResult(
+                    id=result["id"],
+                    memory_log_id=memory_log_id,
+                    document=result["document"],
+                    metadata=result["metadata"],
+                    distance=result["distance"],
+                    similarity=result["similarity"]
+                )
+            )
+
+        logger.info(f"Found {len(search_results)} matching memories")
+
+        # Format as terminal text
+        time_period_str = search_request.time_period or f"{start_date} to {end_date}"
+        lines = [
+            "=" * 80,
+            f"DATE-FILTERED SEARCH RESULTS - {len(search_results)} items",
+            f'Query: "{search_request.query}"',
+            f'Time Period: {time_period_str}',
+            "=" * 80,
+            ""
+        ]
+
+        for idx, result in enumerate(search_results, 1):
+            doc = result.document
+            task = doc.get("task", "untitled-memory")
+
+            lines.append(f"[{idx}/{len(search_results)}] {task}")
+            lines.append("-" * 80)
+            lines.append(f"Similarity: {result.similarity * 100:.1f}%")
+
+            if doc.get("component"):
+                lines.append(f"Component: {doc['component']}")
+
+            if doc.get("date"):
+                date_str = str(doc['date']).split("T")[0]
+                lines.append(f"Date: {date_str}")
+
+            if doc.get("tags"):
+                tag_str = ", ".join(doc['tags'][:5])
+                lines.append(f"Tags: {tag_str}")
+
+            lines.append("")
+            if doc.get("summary"):
+                summary = doc['summary']
+                if len(summary) > 200:
+                    summary = summary[:197] + "..."
+                lines.append(summary)
+
+            lines.append("")
+
+        lines.append("=" * 80)
+        lines.append("End of Results")
+        lines.append("=" * 80)
+
+        formatted_text = "\n".join(lines)
+        return PlainTextResponse(content=formatted_text)
+
+    except Exception as e:
+        logger.error(f"Date search failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Date search failed: {str(e)}"
         )

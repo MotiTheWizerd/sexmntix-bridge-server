@@ -48,18 +48,6 @@ class QueryMentalNotesConfig:
         """
         return [
             ToolParameter(
-                name="user_id",
-                type="string",
-                description="User ID for querying mental notes (required)",
-                required=True
-            ),
-            ToolParameter(
-                name="project_id",
-                type="string",
-                description="Project ID for querying mental notes (required)",
-                required=True
-            ),
-            ToolParameter(
                 name="session_id",
                 type="string",
                 description="Optional session ID to filter notes from a specific session",

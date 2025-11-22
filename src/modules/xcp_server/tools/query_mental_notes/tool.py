@@ -115,7 +115,11 @@ class QueryMentalNotesTool(BaseTool):
         Raises:
             ValueError: If validation fails
         """
-        return self.validator.extract_and_validate(arguments)
+        return self.validator.extract_and_validate(
+            arguments,
+            context_user_id=context.user_id,
+            context_project_id=context.project_id
+        )
 
     def _log_query_execution(
         self,

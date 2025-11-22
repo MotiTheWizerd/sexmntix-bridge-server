@@ -6,8 +6,8 @@
       "args": ["run", "python", "-m", "src.modules.xcp_server"],
       "cwd": "c:/project/semantix-bridge/semantix-bridge-server",
       "env": {
-        "XCP_DEFAULT_USER_ID": "84e17260-ff03-409b-bf30-0b5ba52a2ab4",
-        "XCP_DEFAULT_PROJECT_ID": "42da954f-fb50-46ad-8ef8-882ac37d820e"
+        "XCP_USER_ID": "84e17260-ff03-409b-bf30-0b5ba52a2ab4",
+        "XCP_PROJECT_ID": "42da954f-fb50-46ad-8ef8-882ac37d820e"
       }
     }
   }

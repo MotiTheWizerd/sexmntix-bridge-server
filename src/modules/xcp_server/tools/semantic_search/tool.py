@@ -120,8 +120,8 @@ class SemanticSearchTool(BaseTool):
         """
         return self.validator.extract_and_validate(
             arguments=arguments,
-            context_user_id=None,
-            context_project_id=None
+            context_user_id=context.user_id,
+            context_project_id=context.project_id
         )
 
     def _log_search_execution(self, validated_args: Dict[str, Any]) -> None:

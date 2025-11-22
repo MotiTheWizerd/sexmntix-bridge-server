@@ -183,3 +183,18 @@ class MemoryLogSearchResult(BaseModel):
     metadata: Dict[str, Any]
     distance: float
     similarity: float
+
+
+class MemoryLogDateSearchRequest(BaseModel):
+    """
+    Search memory logs with date filtering
+
+    Supports both explicit date ranges and convenience time period shortcuts.
+    """
+    user_id: str  # Required: UUID from users table
+    project_id: str  # Required: Project identifier
+    query: str  # Search query text
+    limit: Optional[int] = 10  # Max results to return
+    start_date: Optional[datetime] = None  # Start date filter (ISO format)
+    end_date: Optional[datetime] = None  # End date filter (ISO format)
+    time_period: Optional[Literal["recent", "last-week", "last-month", "archived"]] = None  # Convenience shortcuts

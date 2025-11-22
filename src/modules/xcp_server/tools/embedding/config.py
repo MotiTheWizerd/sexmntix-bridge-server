@@ -44,18 +44,6 @@ class EmbeddingToolConfig:
         """
         return [
             ToolParameter(
-                name="user_id",
-                type="string",
-                description="User ID (required for context)",
-                required=True
-            ),
-            ToolParameter(
-                name="project_id",
-                type="string",
-                description="Project ID (required for context)",
-                required=True
-            ),
-            ToolParameter(
                 name="text",
                 type="string",
                 description="The text to generate an embedding for. Should be non-empty and meaningful.",

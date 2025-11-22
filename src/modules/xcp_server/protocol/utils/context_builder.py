@@ -39,7 +39,11 @@ class ContextBuilder:
         Returns:
             ToolContext instance ready for tool execution
         """
-        return ToolContext(session_id=session_id)
+        return ToolContext(
+            session_id=session_id,
+            user_id=self.config.user_id,
+            project_id=self.config.project_id
+        )
 
     def build_default_context(self) -> ToolContext:
         """Build a ToolContext with all default values from config

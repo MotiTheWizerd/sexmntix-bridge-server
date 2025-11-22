@@ -91,21 +91,47 @@ class XCPConfig(BaseModel):
         description="Port for SSE server"
     )
 
+    # User and project configuration
+    user_id: str = Field(
+        default_factory=lambda: os.getenv("XCP_USER_ID"),
+        description="User ID from XCP_USER_ID environment variable (required)"
+    )
+
+    project_id: str = Field(
+        default_factory=lambda: os.getenv("XCP_PROJECT_ID"),
+        description="Project ID from XCP_PROJECT_ID environment variable (required)"
+    )
+
     class Config:
         """Pydantic configuration"""
         use_enum_values = True
+
+    def __init__(self, **data):
+        """Initialize config and validate required environment variables"""
+        super().__init__(**data)
+        if not self.user_id:
+            raise ValueError("XCP_USER_ID environment variable must be set")
+        if not self.project_id:
+            raise ValueError("XCP_PROJECT_ID environment variable must be set")
 
 
 class ToolContext(BaseModel):
     """Context for tool execution
 
-    Minimal context for tool operations. Tools receive user_id and project_id
-    as explicit parameters from the client.
+    Context for tool operations including user_id and project_id from environment.
     """
 
     session_id: Optional[str] = Field(
         default=None,
         description="Optional session identifier"
+    )
+
+    user_id: str = Field(
+        description="User ID from XCP_USER_ID environment variable"
+    )
+
+    project_id: str = Field(
+        description="Project ID from XCP_PROJECT_ID environment variable"
     )
 
 

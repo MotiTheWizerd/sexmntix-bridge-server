@@ -137,17 +137,13 @@ class MemoryArgumentValidator:
         Raises:
             ValueError: If validation fails
         """
-        # Extract top-level required fields
-        user_id = arguments.get("user_id")
-        project_id = arguments.get("project_id")
+        # Get user_id and project_id from context (set from environment variables)
+        user_id = context.user_id
+        project_id = context.project_id
         session_id = arguments.get("session_id")
         memory_log = arguments.get("memory_log")
 
-        # Validate top-level fields
-        if user_id is None:
-            raise ValueError("user_id is required at top level")
-        if not project_id:
-            raise ValueError("project_id is required at top level")
+        # Validate memory_log
         if not memory_log or not isinstance(memory_log, dict):
             raise ValueError("memory_log is required and must be an object")
 
