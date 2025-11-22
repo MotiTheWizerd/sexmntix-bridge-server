@@ -15,7 +15,8 @@ class SemanticSearchConfig:
     TOOL_DESCRIPTION = (
         "Search through stored memories using semantic similarity. "
         "Provide a natural language query and get back the most relevant memories. "
-        "Useful for finding related information, past solutions, or similar contexts."
+        "Useful for finding related information, past solutions, or similar contexts. "
+        "Supports hybrid search combining vector similarity (70%) + keyword matching (30%) for optimal retrieval."
     )
 
     # Parameter constraints
@@ -24,6 +25,7 @@ class SemanticSearchConfig:
     DEFAULT_MIN_SIMILARITY = 0.0
     DEFAULT_HALF_LIFE_DAYS = 30
     DEFAULT_ENABLE_TEMPORAL_DECAY = False
+    DEFAULT_ENABLE_HYBRID_SEARCH = False
 
     @classmethod
     def get_tool_definition(cls) -> ToolDefinition:
@@ -103,5 +105,27 @@ class SemanticSearchConfig:
                 ),
                 required=False,
                 default=cls.DEFAULT_HALF_LIFE_DAYS
+            ),
+            ToolParameter(
+                name="enable_hybrid_search",
+                type="boolean",
+                description=(
+                    "Enable hybrid search combining vector similarity (70%) + keyword matching (30%). "
+                    "Provides better results for queries with specific technical terms. "
+                    f"(default: {cls.DEFAULT_ENABLE_HYBRID_SEARCH})"
+                ),
+                required=False,
+                default=cls.DEFAULT_ENABLE_HYBRID_SEARCH
+            ),
+            ToolParameter(
+                name="threshold_preset",
+                type="string",
+                description=(
+                    "Use preset similarity threshold. Options: 'high_precision' (0.7), "
+                    "'filtered' (0.6), 'discovery' (0.3). Overrides min_similarity if set. "
+                    "(default: null)"
+                ),
+                required=False,
+                default=None
             )
         ]

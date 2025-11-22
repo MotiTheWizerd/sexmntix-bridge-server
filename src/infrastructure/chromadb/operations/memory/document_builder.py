@@ -5,26 +5,59 @@ from typing import Dict, Any
 
 
 def extract_document_summary(memory_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Extract essential fields from memory data into document summary.
+    """Extract comprehensive fields from memory data into document summary.
 
-    Handles field extraction, tag limiting, and preserves complex objects.
+    Includes all rich context fields for comprehensive retrieval.
+    Stores semantic content, metadata, and full context objects.
 
     Args:
         memory_data: Complete memory log data
 
     Returns:
-        Dictionary with essential memory fields for storage
+        Dictionary with comprehensive memory fields for storage
     """
     return {
+        # Core fields
         "content": memory_data.get("content", ""),  # Main content from store_memory
         "task": memory_data.get("task", ""),
         "summary": memory_data.get("summary", ""),
         "component": memory_data.get("component", ""),
         "tags": memory_data.get("tags", [])[:10],  # Limit tags to 10
+
+        # Semantic learning fields
         "gotchas": memory_data.get("gotchas", []),  # Issue/solution pairs
         "lesson": memory_data.get("lesson", ""),
         "root_cause": memory_data.get("root_cause", ""),
         "solution": memory_data.get("solution", {}),  # Full solution object
+
+        # Complexity metrics
+        "complexity": memory_data.get("complexity", {}),  # Technical/business/coordination
+
+        # Outcomes
+        "outcomes": memory_data.get("outcomes", {}),  # Performance/test coverage/technical debt
+
+        # Code context
+        "code_context": memory_data.get("code_context", {}),  # Patterns/API/dependencies
+
+        # Semantic context
+        "semantic_context": memory_data.get("semantic_context", {}),  # Domain concepts/patterns
+
+        # Future planning
+        "future_planning": memory_data.get("future_planning", {}),  # Next steps/extension points
+
+        # Validation
+        "validation": memory_data.get("validation", ""),
+
+        # File context
+        "files_modified": memory_data.get("files_modified", []),
+        "files_touched": memory_data.get("files_touched", []),
+
+        # Related tasks
+        "related_tasks": memory_data.get("related_tasks", []),
+
+        # Agent and date
+        "agent": memory_data.get("agent", ""),
+        "date": memory_data.get("date", ""),
     }
 
 

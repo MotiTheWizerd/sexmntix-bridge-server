@@ -54,6 +54,30 @@ def prepare_metadata(memory_log: Dict[str, Any], document_type: str = "memory_lo
             metadata["quarter"] = temporal.get("quarter", "")
             metadata["year"] = str(temporal.get("year", ""))
 
+    # Handle complexity metrics (for filtering by complexity levels)
+    if "complexity" in memory_log and isinstance(memory_log["complexity"], dict):
+        complexity = memory_log["complexity"]
+
+        if "technical" in complexity and complexity["technical"]:
+            metadata["complexity_technical"] = str(complexity["technical"])
+
+        if "business" in complexity and complexity["business"]:
+            metadata["complexity_business"] = str(complexity["business"])
+
+        if "coordination" in complexity and complexity["coordination"]:
+            metadata["complexity_coordination"] = str(complexity["coordination"])
+
+    # Handle file metrics (for filtering by file modification scope)
+    if "files_modified" in memory_log:
+        files_modified = memory_log["files_modified"]
+        if isinstance(files_modified, list):
+            metadata["files_modified_count"] = len(files_modified)
+        elif isinstance(files_modified, int):
+            metadata["files_modified_count"] = files_modified
+
+    if "files_touched" in memory_log and isinstance(memory_log["files_touched"], list):
+        metadata["files_touched_count"] = len(memory_log["files_touched"])
+
     # Filter out None values (ChromaDB doesn't accept None)
     metadata = {k: v for k, v in metadata.items() if v is not None}
 

@@ -110,19 +110,31 @@ class VectorStorageService:
             ProviderError: If embedding generation fails
         """
         # Extract searchable text using TextExtractor
+        # Extract memory_log data from nested structure if present
+        # raw_data structure: {"user_id": "...", "datetime": "...", "memory_log": {...}}
+        # We need to pass just the memory_log content to both text extractor and storage handler
+
+        # Log the structure before extraction
+        self.logger.info(f"[VECTOR_SERVICE] Received memory_data keys: {list(memory_data.keys())}")
+        self.logger.info(f"[VECTOR_SERVICE] Has 'memory_log' key: {'memory_log' in memory_data}")
+
+        actual_memory_data = memory_data.get("memory_log", memory_data)
+
+        self.logger.info(f"[VECTOR_SERVICE] Extracted memory_data keys: {list(actual_memory_data.keys())}")
+
         if text_override:
             searchable_text = text_override
         else:
             searchable_text = self.text_extractor.extract_with_fallback(
-                memory_data=memory_data,
+                memory_data=actual_memory_data,
                 memory_log_id=memory_log_id
             )
 
-        # Store vector using StorageHandler
+        # Store vector using StorageHandler (pass actual_memory_data, not raw_data)
         return await self.storage_handler.store_memory_vector(
             memory_log_id=memory_log_id,
             searchable_text=searchable_text,
-            memory_data=memory_data,
+            memory_data=actual_memory_data,
             user_id=user_id,
             project_id=project_id
         )

@@ -78,11 +78,14 @@ class DatabaseToolFactory(BaseToolFactory):
         logger: Logger,
         db_session_factory
     ) -> StoreMemoryTool:
-        """Create StoreMemoryTool with dependencies"""
+        """Create StoreMemoryTool with dependencies
+
+        Note: StoreMemoryTool now uses HTTP API instead of direct database access,
+        so db_session_factory is not passed to the tool.
+        """
         return StoreMemoryTool(
             event_bus=event_bus,
-            logger=logger,
-            db_session_factory=db_session_factory
+            logger=logger
         )
 
     @staticmethod

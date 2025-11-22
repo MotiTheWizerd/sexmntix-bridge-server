@@ -1,8 +1,8 @@
 from sqlalchemy import String, Integer, DateTime, Float
-from sqlalchemy.dialects.postgresql import JSONB, ARRAY, UUID
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY, UUID, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 import uuid
 from pgvector.sqlalchemy import Vector
 from .base import Base
@@ -27,5 +27,8 @@ class MemoryLog(Base):
     # User and project isolation for ChromaDB collections
     user_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
     project_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+
+    # Full-text search vector for hybrid search (auto-updated by trigger)
+    search_vector: Mapped[Optional[Any]] = mapped_column(TSVECTOR, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

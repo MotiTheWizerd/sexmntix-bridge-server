@@ -22,7 +22,7 @@ class MemoryResultFormatter:
         """Format successful storage response
 
         Args:
-            memory_log: Stored memory log object from database
+            memory_log: Stored memory log dict from API response
             task: Task category
             content: Memory content
             user_id: User identifier
@@ -33,10 +33,10 @@ class MemoryResultFormatter:
         """
         return {
             "data": {
-                "memory_id": memory_log.id,
+                "memory_id": memory_log["id"],
                 "task": task,
                 "content": content,
-                "created_at": memory_log.created_at.isoformat(),
+                "created_at": memory_log["created_at"],
                 "message": "Memory stored successfully and will be indexed for semantic search"
             },
             "metadata": {

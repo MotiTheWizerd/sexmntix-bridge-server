@@ -7,13 +7,12 @@ Orchestrates validation, data building, storage, and event publishing.
 
 from typing import Dict, Any
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
+import httpx
 
 from src.modules.xcp_server.tools.base import BaseTool, ToolDefinition, ToolResult
 from src.modules.xcp_server.models.config import ToolContext
 from src.modules.xcp_server.exceptions import XCPToolExecutionError
 from src.modules.core import EventBus, Logger
-from src.database.repositories.memory_log_repository import MemoryLogRepository
 
 from src.modules.xcp_server.tools.store_memory.config import StoreMemoryConfig
 from src.modules.xcp_server.tools.store_memory.validators import MemoryArgumentValidator
@@ -39,18 +38,16 @@ class StoreMemoryTool(BaseTool):
     def __init__(
         self,
         event_bus: EventBus,
-        logger: Logger,
-        db_session_factory
+        logger: Logger
     ):
         """Initialize store memory tool
 
         Args:
             event_bus: Event bus for publishing events
             logger: Logger instance
-            db_session_factory: Factory function to create database sessions
         """
         super().__init__(event_bus, logger)
-        self.db_session_factory = db_session_factory
+        self.api_base_url = "http://localhost:8000"
 
         # Initialize components
         self.config = StoreMemoryConfig()
@@ -97,13 +94,10 @@ class StoreMemoryTool(BaseTool):
             # Step 3: Log storage request
             self._log_storage_request(validated_args, raw_data)
 
-            # Step 4: Store in database
-            memory_log = await self._store_in_database(validated_args, raw_data)
+            # Step 4: Store via API (API handles event publishing)
+            memory_log = await self._store_via_api(validated_args, raw_data)
 
-            # Step 5: Publish event for async vector storage
-            self._publish_storage_event(memory_log, validated_args, raw_data)
-
-            # Step 6: Format and return success response
+            # Step 5: Format and return success response
             return self._format_success_response(memory_log, validated_args)
 
         except ValueError as e:
@@ -196,67 +190,55 @@ class StoreMemoryTool(BaseTool):
             }
         )
 
-    async def _store_in_database(
+    async def _store_via_api(
         self,
         validated_args: Dict[str, Any],
         raw_data: Dict[str, Any]
     ):
-        """Store memory in database
+        """Store memory via HTTP API
 
         Args:
             validated_args: Validated arguments
             raw_data: Built raw_data structure
 
         Returns:
-            MemoryLog: Stored memory log object
+            dict: API response with memory log data
         """
-        async with self.db_session_factory() as db_session:
-            repo = MemoryLogRepository(db_session)
+        # Build API payload (remove datetime - API generates it)
+        api_payload = {
+            "user_id": raw_data["user_id"],
+            "project_id": raw_data["project_id"],
+            "session_id": raw_data.get("session_id"),
+            "memory_log": raw_data["memory_log"]
+        }
 
-            memory_log = await repo.create(
-                task=validated_args["task"],
-                agent=validated_args["agent"],
-                date=datetime.utcnow(),
-                raw_data=raw_data,
-                user_id=validated_args["user_id"],
-                project_id=validated_args["project_id"]
-            )
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.api_base_url}/memory-logs",
+                    json=api_payload
+                )
+                response.raise_for_status()
+                memory_log = response.json()
 
-            self.logger.info(f"Memory log stored with id: {memory_log.id}")
+            self.logger.info(f"Memory log stored via API with id: {memory_log['id']}")
 
             return memory_log
 
-    def _publish_storage_event(
-        self,
-        memory_log,
-        validated_args: Dict[str, Any],
-        raw_data: Dict[str, Any]
-    ) -> None:
-        """Publish memory_log.stored event for async vector storage
-
-        Args:
-            memory_log: Stored memory log object
-            validated_args: Validated arguments
-            raw_data: Built raw_data structure
-        """
-        event_data = self.formatter.create_event_data(
-            memory_log=memory_log,
-            task=validated_args["task"],
-            agent=validated_args["agent"],
-            raw_data=raw_data,
-            user_id=validated_args["user_id"],
-            project_id=validated_args["project_id"]
-        )
-
-        self.logger.info(
-            f"[STORE_MEMORY] Publishing memory_log.stored event with data: {list(event_data.keys())}"
-        )
-
-        self.event_bus.publish("memory_log.stored", event_data)
-
-        self.logger.info(
-            f"[STORE_MEMORY] Memory stored successfully, vector storage scheduled (id: {memory_log.id})"
-        )
+        except httpx.HTTPStatusError as e:
+            self.logger.error(f"API returned error {e.response.status_code}: {e.response.text}")
+            raise XCPToolExecutionError(
+                tool_name="store_memory",
+                message=f"API error {e.response.status_code}: {e.response.text}",
+                original_error=e
+            )
+        except httpx.RequestError as e:
+            self.logger.error(f"Failed to connect to API at {self.api_base_url}: {str(e)}")
+            raise XCPToolExecutionError(
+                tool_name="store_memory",
+                message=f"Failed to connect to API: {str(e)}",
+                original_error=e
+            )
 
     def _format_success_response(
         self,

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from datetime import datetime
@@ -176,7 +177,7 @@ async def list_memory_logs(
     return memory_logs
 
 
-@router.post("/search", response_model=List[MemoryLogSearchResult])
+@router.post("/search")
 async def search_memory_logs(
     search_request: MemoryLogSearchRequest,
     request: Request,
@@ -255,8 +256,16 @@ async def search_memory_logs(
         search_results = []
         for result in results:
             # Extract memory_log_id from the memory_id format: memory_{id}_{user}_{project}
+            # Handle both integer IDs and UUID strings
             memory_id_parts = result["id"].split("_")
-            memory_log_id = int(memory_id_parts[1]) if len(memory_id_parts) > 1 else None
+            if len(memory_id_parts) > 1:
+                try:
+                    memory_log_id = int(memory_id_parts[1])
+                except ValueError:
+                    # If not an integer, keep as string (UUID from MCP tools)
+                    memory_log_id = memory_id_parts[1]
+            else:
+                memory_log_id = None
 
             search_results.append(
                 MemoryLogSearchResult(
@@ -271,7 +280,49 @@ async def search_memory_logs(
 
         logger.info(f"Found {len(search_results)} matching memories")
 
-        return search_results
+        # Format as terminal text
+        lines = [
+            "=" * 80,
+            f"SEARCH RESULTS - {len(search_results)} items",
+            f'Query: "{search_request.query}"',
+            "=" * 80,
+            ""
+        ]
+
+        for idx, result in enumerate(search_results, 1):
+            doc = result.document
+            task = doc.get("task", "untitled-memory")
+
+            lines.append(f"[{idx}/{len(search_results)}] {task}")
+            lines.append("-" * 80)
+            lines.append(f"Similarity: {result.similarity * 100:.1f}%")
+
+            if doc.get("component"):
+                lines.append(f"Component: {doc['component']}")
+
+            if doc.get("date"):
+                date_str = str(doc['date']).split("T")[0]
+                lines.append(f"Date: {date_str}")
+
+            if doc.get("tags"):
+                tag_str = ", ".join(doc['tags'][:5])
+                lines.append(f"Tags: {tag_str}")
+
+            lines.append("")
+            if doc.get("summary"):
+                summary = doc['summary']
+                if len(summary) > 200:
+                    summary = summary[:197] + "..."
+                lines.append(summary)
+
+            lines.append("")
+
+        lines.append("=" * 80)
+        lines.append("End of Results")
+        lines.append("=" * 80)
+
+        formatted_text = "\n".join(lines)
+        return PlainTextResponse(content=formatted_text)
 
     except Exception as e:
         logger.error(f"Search failed: {e}")

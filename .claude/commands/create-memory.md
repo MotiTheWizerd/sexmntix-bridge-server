@@ -1,7 +1,7 @@
-Update your last task experience to semantix-brain\.
-using the following structure. Fill in each section based on the most recent task you completed.
-
-Do NOT change the structure. Use accurate and specific language. Keep it JSON-compatible.
+use your MCP tool to create a memory log
+using the following structure. 
+Fill in each section based on the most recent task you completed.
+DO NOT change the structure. Use accurate and specific language. Keep it JSON-compatible.
 
 ---
 
@@ -61,7 +61,7 @@ Do NOT change the structure. Use accurate and specific language. Keep it JSON-co
 ],
 
 "lesson": "<key insight for future work>",
-"tags": ["<searchable>", "<keywords>"],
+"tags": ["<searchable>", "<keywords> <max-tag : 5>"],
 
 "code_context": {
 "key_patterns": [
