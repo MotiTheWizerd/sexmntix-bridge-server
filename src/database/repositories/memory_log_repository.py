@@ -14,7 +14,7 @@ class MemoryLogRepository(BaseRepository[MemoryLog]):
         result = await self.session.execute(
             select(MemoryLog)
             .where(MemoryLog.agent == agent)
-            .order_by(desc(MemoryLog.date))
+            .order_by(desc(MemoryLog.created_at))
             .limit(limit)
         )
         return list(result.scalars().all())
@@ -24,8 +24,8 @@ class MemoryLogRepository(BaseRepository[MemoryLog]):
     ) -> List[MemoryLog]:
         result = await self.session.execute(
             select(MemoryLog)
-            .where(MemoryLog.date.between(start_date, end_date))
-            .order_by(desc(MemoryLog.date))
+            .where(MemoryLog.created_at.between(start_date, end_date))
+            .order_by(desc(MemoryLog.created_at))
             .limit(limit)
         )
         return list(result.scalars().all())

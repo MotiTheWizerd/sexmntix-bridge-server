@@ -102,17 +102,14 @@ class StoreMentalNoteTool(BaseTool):
             # Log execution details
             self._log_storage_execution(validated, context)
 
-            # Build raw_data structure
-            raw_data = self._build_raw_data(validated, context)
-
             # Store mental note in database
-            mental_note = await self._store_note(validated, raw_data, context)
+            mental_note = await self._store_note(validated, context)
 
             # Publish event for async vector storage
-            self._publish_creation_event(mental_note, validated, raw_data, context)
+            self._publish_creation_event(mental_note, validated, context)
 
             # Format and return response
-            return self._format_response(mental_note, validated, raw_data, context)
+            return self._format_response(mental_note, validated, context)
 
         except ValueError as e:
             # Validation errors return non-exceptional failures
@@ -177,40 +174,15 @@ class StoreMentalNoteTool(BaseTool):
             }
         )
 
-    def _build_raw_data(
-        self,
-        validated: Dict[str, Any],
-        context: ToolContext
-    ) -> Dict[str, Any]:
-        """Build raw_data structure for database storage
-
-        Args:
-            validated: Validated arguments
-            context: Execution context
-
-        Returns:
-            Complete raw_data dictionary
-        """
-        return self.formatter.create_raw_data(
-            content=validated["content"],
-            session_id=validated["session_id"],
-            note_type=validated["note_type"],
-            user_id=validated["user_id"],
-            project_id=validated["project_id"],
-            metadata=validated["metadata"]
-        )
-
     async def _store_note(
         self,
         validated: Dict[str, Any],
-        raw_data: Dict[str, Any],
         context: ToolContext
     ):
         """Store mental note in database with embedding
 
         Args:
             validated: Validated arguments
-            raw_data: Complete raw_data structure
             context: Execution context with user_id and project_id
 
         Returns:
@@ -228,8 +200,9 @@ class StoreMentalNoteTool(BaseTool):
 
             mental_note = await repo.create(
                 session_id=validated["session_id"],
-                start_time=raw_data["startTime"],
-                raw_data=raw_data,
+                content=validated["content"],
+                note_type=validated["note_type"],
+                meta_data=validated["meta_data"],
                 user_id=validated["user_id"],
                 project_id=validated["project_id"],
                 embedding=embedding_vector
@@ -242,7 +215,6 @@ class StoreMentalNoteTool(BaseTool):
         self,
         mental_note: Any,
         validated: Dict[str, Any],
-        raw_data: Dict[str, Any],
         context: ToolContext
     ) -> None:
         """Publish mental note stored event for async vector storage
@@ -250,14 +222,14 @@ class StoreMentalNoteTool(BaseTool):
         Args:
             mental_note: Stored mental note model
             validated: Validated arguments
-            raw_data: Complete raw_data structure
             context: Execution context
         """
         event_data = {
             "mental_note_id": mental_note.id,
             "session_id": validated["session_id"],
-            "start_time": raw_data["startTime"],
-            "raw_data": raw_data,
+            "content": validated["content"],
+            "note_type": validated["note_type"],
+            "meta_data": validated["meta_data"],
             "user_id": validated["user_id"],
             "project_id": validated["project_id"],
         }
@@ -271,7 +243,6 @@ class StoreMentalNoteTool(BaseTool):
         self,
         mental_note: Any,
         validated: Dict[str, Any],
-        raw_data: Dict[str, Any],
         context: ToolContext
     ) -> ToolResult:
         """Format storage result into ToolResult
@@ -279,21 +250,21 @@ class StoreMentalNoteTool(BaseTool):
         Args:
             mental_note: Stored mental note model
             validated: Validated arguments
-            raw_data: Complete raw_data structure
             context: Execution context
 
         Returns:
             ToolResult with formatted data
         """
-        response_data = self.formatter.create_response_data(
-            mental_note_id=mental_note.id,
-            session_id=validated["session_id"],
-            content=validated["content"],
-            note_type=validated["note_type"],
-            start_time=raw_data["startTime"],
-            created_at=mental_note.created_at.isoformat(),
-            user_id=validated["user_id"],
-            project_id=validated["project_id"]
-        )
+        response_data = {
+            "mental_note_id": mental_note.id,
+            "session_id": mental_note.session_id,
+            "content": mental_note.content,
+            "note_type": mental_note.note_type,
+            "meta_data": mental_note.meta_data,
+            "created_at": mental_note.created_at.isoformat(),
+            "message": "Mental note stored successfully. Vector indexing scheduled as background task.",
+            "user_id": mental_note.user_id,
+            "project_id": mental_note.project_id
+        }
 
         return ToolResult(success=True, data=response_data)

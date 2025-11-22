@@ -22,7 +22,7 @@ class MentalNoteRepository(BaseRepository[MentalNote]):
         result = await self.session.execute(
             select(MentalNote)
             .where(MentalNote.session_id == session_id)
-            .order_by(desc(MentalNote.start_time))
+            .order_by(desc(MentalNote.created_at))
             .limit(limit)
         )
         return list(result.scalars().all())
@@ -51,7 +51,7 @@ class MentalNoteRepository(BaseRepository[MentalNote]):
                     MentalNote.project_id == project_id
                 )
             )
-            .order_by(desc(MentalNote.start_time))
+            .order_by(desc(MentalNote.created_at))
             .limit(limit)
         )
         return list(result.scalars().all())
@@ -83,7 +83,7 @@ class MentalNoteRepository(BaseRepository[MentalNote]):
                     MentalNote.project_id == project_id
                 )
             )
-            .order_by(desc(MentalNote.start_time))
+            .order_by(desc(MentalNote.created_at))
             .limit(limit)
         )
         return list(result.scalars().all())

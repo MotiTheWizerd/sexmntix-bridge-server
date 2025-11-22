@@ -82,23 +82,13 @@ class SemanticContext(BaseModel):
 
 class MemoryLogData(BaseModel):
     """
-    Comprehensive memory log data structure.
+    Memory log data structure.
     
-    Required fields (by importance):
-    - task: Task identifier (required)
-    - agent: Agent identifier (required)
-    - date: Date string (required)
-    
-    All other fields are optional for flexibility.
+    Note: task, agent, date, and temporal_context are now stored as top-level columns,
+    not in this JSON structure. This contains only the actual memory content.
     """
-    # Required fields
-    task: str  # "task-name-kebab-case"
-    agent: str  # "claude-sonnet-4"
-    date: str  # "2025-01-15"
-    
     # Optional core fields
     component: Optional[str] = None  # "component-name"
-    temporal_context: Optional[TemporalContext] = None  # Auto-calculated if not provided
     complexity: Optional[Complexity] = None
     files_modified: Optional[Union[str, int]] = None  # Accept both string and int
     files_touched: Optional[List[str]] = None  # ["<file-path>"]
@@ -126,28 +116,30 @@ class MemoryLogData(BaseModel):
 
 class MemoryLogCreate(BaseModel):
     """
-    New comprehensive format for memory log creation
+    Simplified format for memory log creation
     
     Format:
     {
         "user_id": "uuid-string",
         "project_id": "default",
         "session_id": "string",
+        "task": "task-name-kebab-case",
+        "agent": "claude-sonnet-4", 
         "memory_log": {
-            "task": "task-name-kebab-case",
-            "agent": "claude-sonnet-4",
-            "date": "2025-01-15",
-            ... (all other fields optional)
+            "component": "...",
+            "summary": "...",
+            ... (all fields optional)
         }
     }
     
     The system will automatically:
-    - Add datetime field (ISO-8601 timestamp)
-    - Calculate temporal_context if not provided
+    - Set created_at timestamp automatically
     """
     user_id: str
     project_id: str
     session_id: Optional[str] = None
+    task: str
+    agent: str
     memory_log: MemoryLogData
 
 
@@ -155,8 +147,8 @@ class MemoryLogResponse(BaseModel):
     id: str
     task: str
     agent: str
-    date: datetime
-    raw_data: Dict[str, Any]
+    session_id: Optional[str] = None
+    memory_log: Dict[str, Any]
     embedding: Optional[List[float]] = None
     user_id: Optional[str] = None
     project_id: Optional[str] = None

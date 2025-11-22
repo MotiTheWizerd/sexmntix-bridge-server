@@ -1,301 +1,103 @@
 """
-Store Memory Tool - Main Implementation
+Store Memory Tool - Dumb Pipeline Implementation
 
-Tool for storing memory logs with automatic vector embedding generation.
-Orchestrates validation, data building, storage, and event publishing.
+ARCHITECTURAL PRINCIPLE: This tool is a DUMB PIPELINE.
+It forwards requests to the backend API at http://localhost:8000 with NO business logic.
+All validation, building, and formatting happens in the backend.
 """
 
 from typing import Dict, Any
-from datetime import datetime
 import httpx
 
 from src.modules.xcp_server.tools.base import BaseTool, ToolDefinition, ToolResult
 from src.modules.xcp_server.models.config import ToolContext
-from src.modules.xcp_server.exceptions import XCPToolExecutionError
 from src.modules.core import EventBus, Logger
 
 from src.modules.xcp_server.tools.store_memory.config import StoreMemoryConfig
-from src.modules.xcp_server.tools.store_memory.validators import MemoryArgumentValidator
-from src.modules.xcp_server.tools.store_memory.builders import MemoryDataBuilder
-from src.modules.xcp_server.tools.store_memory.formatters import MemoryResultFormatter
 
 
 class StoreMemoryTool(BaseTool):
-    """Tool for storing memory logs with automatic vector embedding
+    """
+    Store memory tool - Simple HTTP proxy
 
-    This tool allows AI assistants to store new memories in the system.
-    Memories are stored in PostgreSQL and automatically get vector embeddings
-    generated for semantic search via an event-driven workflow.
-
-    The tool follows a clean architecture with separated concerns:
-    - Config: Tool definition and constants
-    - Validators: Argument validation
-    - Builders: Raw data structure building
-    - Formatters: Response formatting
-    - Tool: Orchestration of all components
+    This tool forwards memory storage requests to the backend API.
+    NO business logic, validation, or formatting in this layer.
     """
 
-    def __init__(
-        self,
-        event_bus: EventBus,
-        logger: Logger
-    ):
-        """Initialize store memory tool
+    def __init__(self, event_bus: EventBus, logger: Logger):
+        """
+        Initialize store memory tool
 
         Args:
-            event_bus: Event bus for publishing events
+            event_bus: Event bus (required by BaseTool but not used in dumb pipeline)
             logger: Logger instance
         """
         super().__init__(event_bus, logger)
         self.api_base_url = "http://localhost:8000"
 
-        # Initialize components
-        self.config = StoreMemoryConfig()
-        self.validator = MemoryArgumentValidator()
-        self.builder = MemoryDataBuilder()
-        self.formatter = MemoryResultFormatter()
-
     def get_definition(self) -> ToolDefinition:
-        """Get tool definition for MCP registration
-
-        Returns:
-            ToolDefinition: Tool metadata and parameter schema
-        """
-        return self.config.get_tool_definition()
+        """Get tool definition for MCP registration"""
+        return StoreMemoryConfig.get_tool_definition()
 
     async def execute(
         self,
         context: ToolContext,
         arguments: Dict[str, Any]
     ) -> ToolResult:
-        """Execute memory storage
+        """
+        Execute memory storage by forwarding to backend API
 
-        This method orchestrates the complete storage workflow:
-        1. Validate arguments
-        2. Build raw_data structure
-        3. Store in database
-        4. Publish event for vector storage
-        5. Format and return response
+        This is a DUMB PIPELINE - just forwards the request to the backend.
+        No validation, no formatting, no business logic here.
 
         Args:
-            context: Execution context with user/project defaults
-            arguments: Validated arguments containing content, task, etc.
+            context: Execution context (user_id, project_id defaults)
+            arguments: Memory log parameters
 
         Returns:
-            ToolResult: Storage result with memory ID
+            ToolResult: Response from backend API
         """
         try:
-            # Step 1: Validate and extract arguments
-            validated_args = self._validate_arguments(arguments, context)
+            # Unwrap MCP "memory_log" parameter wrapper
+            # MCP SDK wraps all arguments with the parameter name from config
+            if "memory_log" in arguments:
+                request_payload = arguments["memory_log"]
+            else:
+                request_payload = arguments
 
-            # Step 2: Build raw_data structure
-            raw_data = self._build_raw_data(validated_args)
+            self.logger.info(f"[STORE_MEMORY] Forwarding request to backend API")
 
-            # Step 3: Log storage request
-            self._log_storage_request(validated_args, raw_data)
-
-            # Step 4: Store via API (API handles event publishing)
-            memory_log = await self._store_via_api(validated_args, raw_data)
-
-            # Step 5: Format and return success response
-            return self._format_success_response(memory_log, validated_args)
-
-        except ValueError as e:
-            # Validation errors
-            return self._handle_validation_error(e)
-
-        except Exception as e:
-            # Unexpected errors
-            return self._handle_execution_error(e)
-
-    # Private helper methods
-
-    def _validate_arguments(
-        self,
-        arguments: Dict[str, Any],
-        context: ToolContext
-    ) -> Dict[str, Any]:
-        """Validate and extract arguments using validator
-
-        Args:
-            arguments: Raw arguments from tool call
-            context: Execution context
-
-        Returns:
-            Dict[str, Any]: Validated arguments
-
-        Raises:
-            ValueError: If validation fails
-        """
-        return self.validator.extract_and_validate(arguments, context)
-
-    def _build_raw_data(self, validated_args: Dict[str, Any]) -> Dict[str, Any]:
-        """Build raw_data structure using builder
-
-        Args:
-            validated_args: Validated arguments (includes memory_log_data if comprehensive format)
-
-        Returns:
-            Dict[str, Any]: Complete raw_data structure
-        """
-        # Use comprehensive format if memory_log_data is provided
-        if "memory_log_data" in validated_args:
-            return self.builder.build_raw_data(
-                task=validated_args["task"],
-                agent=validated_args["agent"],
-                date=validated_args["date"],
-                user_id=validated_args["user_id"],
-                project_id=validated_args["project_id"],
-                datetime_iso=validated_args["datetime"],
-                session_id=validated_args.get("session_id"),
-                memory_log_data=validated_args["memory_log_data"]
-            )
-        else:
-            # Legacy format
-            return self.builder.build_raw_data(
-                task=validated_args["task"],
-                agent=validated_args["agent"],
-                date=validated_args["date"],
-                user_id=validated_args["user_id"],
-                project_id=validated_args["project_id"],
-                datetime_iso=validated_args["datetime"],
-                session_id=validated_args.get("session_id"),
-                tags=validated_args.get("tags", []),
-                metadata=validated_args.get("metadata", {}),
-                content=validated_args.get("content", "")
-            )
-
-    def _log_storage_request(
-        self,
-        validated_args: Dict[str, Any],
-        raw_data: Dict[str, Any]
-    ) -> None:
-        """Log memory storage request
-
-        Args:
-            validated_args: Validated arguments
-            raw_data: Built raw_data structure
-        """
-        content = validated_args["content"]
-        content_preview = content[:100] + "..." if len(content) > 100 else content
-
-        self.logger.info(
-            f"[STORE_MEMORY] Storing memory with content: {content_preview}",
-            extra={
-                "task": validated_args["task"],
-                "user_id": validated_args["user_id"],
-                "project_id": validated_args["project_id"],
-                "has_content": bool(content),
-                "raw_data_keys": list(raw_data.keys())
-            }
-        )
-
-    async def _store_via_api(
-        self,
-        validated_args: Dict[str, Any],
-        raw_data: Dict[str, Any]
-    ):
-        """Store memory via HTTP API
-
-        Args:
-            validated_args: Validated arguments
-            raw_data: Built raw_data structure
-
-        Returns:
-            dict: API response with memory log data
-        """
-        # Build API payload (remove datetime - API generates it)
-        api_payload = {
-            "user_id": raw_data["user_id"],
-            "project_id": raw_data["project_id"],
-            "session_id": raw_data.get("session_id"),
-            "memory_log": raw_data["memory_log"]
-        }
-
-        try:
+            # Forward request to backend API
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f"{self.api_base_url}/memory-logs",
-                    json=api_payload
+                    json=request_payload
                 )
                 response.raise_for_status()
-                memory_log = response.json()
 
-            self.logger.info(f"Memory log stored via API with id: {memory_log['id']}")
+            # Return response as-is (backend handles all formatting)
+            result_text = response.text
 
-            return memory_log
+            self.logger.info(f"[STORE_MEMORY] Memory stored successfully")
 
-        except httpx.HTTPStatusError as e:
-            self.logger.error(f"API returned error {e.response.status_code}: {e.response.text}")
-            raise XCPToolExecutionError(
-                tool_name="store_memory",
-                message=f"API error {e.response.status_code}: {e.response.text}",
-                original_error=e
-            )
-        except httpx.RequestError as e:
-            self.logger.error(f"Failed to connect to API at {self.api_base_url}: {str(e)}")
-            raise XCPToolExecutionError(
-                tool_name="store_memory",
-                message=f"Failed to connect to API: {str(e)}",
-                original_error=e
+            return ToolResult(
+                success=True,
+                data={"result": result_text},
+                message="Memory stored successfully"
             )
 
-    def _format_success_response(
-        self,
-        memory_log,
-        validated_args: Dict[str, Any]
-    ) -> ToolResult:
-        """Format success response using formatter
+        except httpx.HTTPError as e:
+            self.logger.error(f"[STORE_MEMORY] HTTP error: {e}")
+            return ToolResult(
+                success=False,
+                data={},
+                message=f"Storage failed: {str(e)}"
+            )
 
-        Args:
-            memory_log: Stored memory log object
-            validated_args: Validated arguments
-
-        Returns:
-            ToolResult: Success result with formatted data
-        """
-        response_data = self.formatter.format_success_response(
-            memory_log=memory_log,
-            task=validated_args["task"],
-            content=validated_args["content"],
-            user_id=validated_args["user_id"],
-            project_id=validated_args["project_id"]
-        )
-
-        return ToolResult(
-            success=True,
-            data=response_data["data"],
-            metadata=response_data["metadata"]
-        )
-
-    def _handle_validation_error(self, error: ValueError) -> ToolResult:
-        """Handle validation errors
-
-        Args:
-            error: Validation error
-
-        Returns:
-            ToolResult: Error result
-        """
-        self.logger.error(f"Memory validation failed: {str(error)}")
-        return ToolResult(
-            success=False,
-            error=str(error),
-            error_code="VALIDATION_ERROR"
-        )
-
-    def _handle_execution_error(self, error: Exception) -> ToolResult:
-        """Handle unexpected execution errors
-
-        Args:
-            error: Execution error
-
-        Raises:
-            XCPToolExecutionError: Wrapped execution error
-        """
-        self.logger.exception(f"Memory storage failed: {str(error)}")
-        raise XCPToolExecutionError(
-            tool_name="store_memory",
-            message=f"Failed to store memory: {str(error)}",
-            original_error=error
-        )
+        except Exception as e:
+            self.logger.error(f"[STORE_MEMORY] Unexpected error: {e}")
+            return ToolResult(
+                success=False,
+                data={},
+                message=f"Storage failed: {str(e)}"
+            )

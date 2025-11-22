@@ -54,7 +54,7 @@ class VectorStorageOrchestrator:
     async def store_memory_vector(
         self,
         memory_log_id: int,
-        raw_data: Dict[str, Any],
+        memory_log: Dict[str, Any],
         user_id: str,
         project_id: str
     ) -> Tuple[str, List[float]]:
@@ -63,7 +63,7 @@ class VectorStorageOrchestrator:
 
         Args:
             memory_log_id: Memory log ID from PostgreSQL
-            raw_data: Raw memory log data
+            memory_log: Raw memory log data
             user_id: User identifier
             project_id: Project identifier
 
@@ -84,7 +84,7 @@ class VectorStorageOrchestrator:
     async def store_mental_note_vector(
         self,
         mental_note_id: int,
-        raw_data: Dict[str, Any],
+        memory_log: Dict[str, Any],
         user_id: str,
         project_id: str
     ) -> Tuple[str, List[float]]:
@@ -93,7 +93,7 @@ class VectorStorageOrchestrator:
 
         Args:
             mental_note_id: Mental note ID from PostgreSQL
-            raw_data: Raw mental note data
+            memory_log: Raw mental note data
             user_id: User identifier
             project_id: Project identifier
 
@@ -114,7 +114,7 @@ class VectorStorageOrchestrator:
     async def store_conversation_vector(
         self,
         conversation_db_id: int,
-        raw_data: Dict[str, Any],
+        memory_log: Dict[str, Any],
         user_id: str,
         session_id: str = None,
         gemini_analysis: List[Dict[str, Any]] = None
@@ -127,7 +127,7 @@ class VectorStorageOrchestrator:
 
         Args:
             conversation_db_id: Conversation ID from PostgreSQL
-            raw_data: Raw conversation data (for metadata only)
+            memory_log: Raw conversation data (for metadata only)
             user_id: User identifier
             session_id: Optional session identifier for grouping conversations
             gemini_analysis: List of Gemini-enriched memory units

@@ -76,7 +76,7 @@ def upgrade() -> None:
             USING hnsw (embedding vector_cosine_ops)
         """)
 
-        print("✓ pgvector extension enabled and embeddings converted to vector(768)")
+        print("SUCCESS: pgvector extension enabled and embeddings converted to vector(768)")
     except Exception as e:
         print(f"⚠ Error during pgvector operations: {str(e)}")
         raise

@@ -67,57 +67,22 @@ async def create_memory_log(
     User and project IDs enable multi-tenant isolation in vector storage.
     The system automatically adds a datetime field and calculates temporal_context if not provided.
     """
-    # Extract required fields
-    task = data.memory_log.task
-    agent = data.memory_log.agent
-    date_str = data.memory_log.date
+    # Extract required fields from top level
+    task = data.task
+    agent = data.agent
 
     logger.info(f"Creating memory log for task: {task}")
 
-    # Parse date string to datetime
-    try:
-        # Try parsing date string (format: "2025-01-15")
-        date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-        date_datetime = datetime.combine(date_obj, datetime.min.time())
-    except ValueError:
-        # Fallback: try ISO format
-        try:
-            date_datetime = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-            date_obj = date_datetime.date()
-        except ValueError:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid date format: {date_str}. Expected format: YYYY-MM-DD"
-            )
-
     # Convert memory_log to dict, handling nested models
     memory_log_dict = data.memory_log.model_dump(exclude_none=True)
-    
-    # Calculate temporal_context if not provided
-    if "temporal_context" not in memory_log_dict or memory_log_dict["temporal_context"] is None:
-        temporal_context_data = TemporalContextCalculator.calculate_temporal_context(date_obj)
-        memory_log_dict['temporal_context'] = temporal_context_data
-
-    # Add datetime field (system-generated ISO-8601 timestamp)
-    current_datetime = datetime.utcnow()
-    current_datetime_iso = current_datetime.isoformat()
-
-    # Build top-level structure with session_id
-    raw_data = {
-        "user_id": str(data.user_id),
-        "project_id": data.project_id,
-        "session_id": data.session_id,
-        "datetime": current_datetime_iso,
-        "memory_log": memory_log_dict
-    }
 
     # Create memory log in PostgreSQL (synchronous for immediate response with ID)
     repo = MemoryLogRepository(db)
     memory_log = await repo.create(
         task=task,
         agent=agent,
-        date=date_datetime,
-        raw_data=raw_data,
+        session_id=data.session_id,
+        memory_log=memory_log_dict,
         user_id=str(data.user_id),
         project_id=data.project_id,
     )
@@ -129,8 +94,8 @@ async def create_memory_log(
         "memory_log_id": memory_log.id,
         "task": task,
         "agent": agent,
-        "date": date_datetime,
-        "raw_data": raw_data,
+        "session_id": data.session_id,
+        "memory_log": memory_log_dict,
         "user_id": str(data.user_id),
         "project_id": data.project_id,
     }
@@ -182,6 +147,7 @@ async def list_memory_logs(
 async def search_memory_logs(
     search_request: MemoryLogSearchRequest,
     request: Request,
+    format: str = "text",
     logger: Logger = Depends(get_logger),
 ):
     """
@@ -281,49 +247,54 @@ async def search_memory_logs(
 
         logger.info(f"Found {len(search_results)} matching memories")
 
-        # Format as terminal text
-        lines = [
-            "=" * 80,
-            f"SEARCH RESULTS - {len(search_results)} items",
-            f'Query: "{search_request.query}"',
-            "=" * 80,
-            ""
-        ]
+        # Return based on format parameter
+        if format == "json":
+            # Return JSON array for WebUI
+            return search_results
+        else:
+            # Format as terminal text for CLI/terminal usage
+            lines = [
+                "=" * 80,
+                f"SEARCH RESULTS - {len(search_results)} items",
+                f'Query: "{search_request.query}"',
+                "=" * 80,
+                ""
+            ]
 
-        for idx, result in enumerate(search_results, 1):
-            doc = result.document
-            task = doc.get("task", "untitled-memory")
+            for idx, result in enumerate(search_results, 1):
+                doc = result.document
+                task = doc.get("task", "untitled-memory")
 
-            lines.append(f"[{idx}/{len(search_results)}] {task}")
-            lines.append("-" * 80)
-            lines.append(f"Similarity: {result.similarity * 100:.1f}%")
+                lines.append(f"[{idx}/{len(search_results)}] {task}")
+                lines.append("-" * 80)
+                lines.append(f"Similarity: {result.similarity * 100:.1f}%")
 
-            if doc.get("component"):
-                lines.append(f"Component: {doc['component']}")
+                if doc.get("component"):
+                    lines.append(f"Component: {doc['component']}")
 
-            if doc.get("date"):
-                date_str = str(doc['date']).split("T")[0]
-                lines.append(f"Date: {date_str}")
+                if doc.get("date"):
+                    date_str = str(doc['date']).split("T")[0]
+                    lines.append(f"Date: {date_str}")
 
-            if doc.get("tags"):
-                tag_str = ", ".join(doc['tags'][:5])
-                lines.append(f"Tags: {tag_str}")
+                if doc.get("tags"):
+                    tag_str = ", ".join(doc['tags'][:5])
+                    lines.append(f"Tags: {tag_str}")
 
-            lines.append("")
-            if doc.get("summary"):
-                summary = doc['summary']
-                if len(summary) > 200:
-                    summary = summary[:197] + "..."
-                lines.append(summary)
+                lines.append("")
+                if doc.get("summary"):
+                    summary = doc['summary']
+                    if len(summary) > 200:
+                        summary = summary[:197] + "..."
+                    lines.append(summary)
 
-            lines.append("")
+                lines.append("")
 
-        lines.append("=" * 80)
-        lines.append("End of Results")
-        lines.append("=" * 80)
+            lines.append("=" * 80)
+            lines.append("End of Results")
+            lines.append("=" * 80)
 
-        formatted_text = "\n".join(lines)
-        return PlainTextResponse(content=formatted_text)
+            formatted_text = "\n".join(lines)
+            return PlainTextResponse(content=formatted_text)
 
     except Exception as e:
         logger.error(f"Search failed: {e}")
@@ -337,6 +308,7 @@ async def search_memory_logs(
 async def search_memory_logs_by_date(
     search_request: MemoryLogDateSearchRequest,
     request: Request,
+    format: str = "text",
     db: AsyncSession = Depends(get_db_session),
     logger: Logger = Depends(get_logger),
 ):
@@ -475,51 +447,56 @@ async def search_memory_logs_by_date(
 
         logger.info(f"Found {len(search_results)} matching memories")
 
-        # Format as terminal text
-        time_period_str = search_request.time_period or f"{start_date} to {end_date}"
-        lines = [
-            "=" * 80,
-            f"DATE-FILTERED SEARCH RESULTS - {len(search_results)} items",
-            f'Query: "{search_request.query}"',
-            f'Time Period: {time_period_str}',
-            "=" * 80,
-            ""
-        ]
+        # Return based on format parameter
+        if format == "json":
+            # Return JSON array for WebUI
+            return search_results
+        else:
+            # Format as terminal text for CLI/terminal usage
+            time_period_str = search_request.time_period or f"{start_date} to {end_date}"
+            lines = [
+                "=" * 80,
+                f"DATE-FILTERED SEARCH RESULTS - {len(search_results)} items",
+                f'Query: "{search_request.query}"',
+                f'Time Period: {time_period_str}',
+                "=" * 80,
+                ""
+            ]
 
-        for idx, result in enumerate(search_results, 1):
-            doc = result.document
-            task = doc.get("task", "untitled-memory")
+            for idx, result in enumerate(search_results, 1):
+                doc = result.document
+                task = doc.get("task", "untitled-memory")
 
-            lines.append(f"[{idx}/{len(search_results)}] {task}")
-            lines.append("-" * 80)
-            lines.append(f"Similarity: {result.similarity * 100:.1f}%")
+                lines.append(f"[{idx}/{len(search_results)}] {task}")
+                lines.append("-" * 80)
+                lines.append(f"Similarity: {result.similarity * 100:.1f}%")
 
-            if doc.get("component"):
-                lines.append(f"Component: {doc['component']}")
+                if doc.get("component"):
+                    lines.append(f"Component: {doc['component']}")
 
-            if doc.get("date"):
-                date_str = str(doc['date']).split("T")[0]
-                lines.append(f"Date: {date_str}")
+                if doc.get("date"):
+                    date_str = str(doc['date']).split("T")[0]
+                    lines.append(f"Date: {date_str}")
 
-            if doc.get("tags"):
-                tag_str = ", ".join(doc['tags'][:5])
-                lines.append(f"Tags: {tag_str}")
+                if doc.get("tags"):
+                    tag_str = ", ".join(doc['tags'][:5])
+                    lines.append(f"Tags: {tag_str}")
 
-            lines.append("")
-            if doc.get("summary"):
-                summary = doc['summary']
-                if len(summary) > 200:
-                    summary = summary[:197] + "..."
-                lines.append(summary)
+                lines.append("")
+                if doc.get("summary"):
+                    summary = doc['summary']
+                    if len(summary) > 200:
+                        summary = summary[:197] + "..."
+                    lines.append(summary)
 
-            lines.append("")
+                lines.append("")
 
-        lines.append("=" * 80)
-        lines.append("End of Results")
-        lines.append("=" * 80)
+            lines.append("=" * 80)
+            lines.append("End of Results")
+            lines.append("=" * 80)
 
-        formatted_text = "\n".join(lines)
-        return PlainTextResponse(content=formatted_text)
+            formatted_text = "\n".join(lines)
+            return PlainTextResponse(content=formatted_text)
 
     except Exception as e:
         logger.error(f"Date search failed: {e}")

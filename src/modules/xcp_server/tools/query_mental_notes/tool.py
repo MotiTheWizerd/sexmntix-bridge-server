@@ -74,7 +74,7 @@ class QueryMentalNotesTool(BaseTool):
         """
         try:
             # Validate and extract arguments
-            validated = self._validate_arguments(arguments)
+            validated = self._validate_arguments(arguments, context)
 
             # Log execution details
             self._log_query_execution(validated, context)
@@ -103,11 +103,16 @@ class QueryMentalNotesTool(BaseTool):
                 original_error=e
             )
 
-    def _validate_arguments(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    def _validate_arguments(
+        self,
+        arguments: Dict[str, Any],
+        context: ToolContext
+    ) -> Dict[str, Any]:
         """Validate arguments using ArgumentValidator
 
         Args:
             arguments: Raw arguments from client
+            context: Execution context for user_id and project_id
 
         Returns:
             Validated arguments dictionary

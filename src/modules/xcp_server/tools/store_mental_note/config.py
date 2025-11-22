@@ -66,7 +66,7 @@ class StoreMentalNoteConfig:
                 default=cls.DEFAULT_NOTE_TYPE
             ),
             ToolParameter(
-                name="metadata",
+                name="meta_data",
                 type="object",
                 description="Optional additional metadata as key-value pairs",
                 required=False

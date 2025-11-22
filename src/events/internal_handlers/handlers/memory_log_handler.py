@@ -97,7 +97,7 @@ class MemoryLogStorageHandler(BaseStorageHandler):
 
         memory_id, embedding = await self.orchestrator.store_memory_vector(
             memory_log_id=validated["memory_log_id"],
-            raw_data=validated["raw_data"],
+            memory_log=validated["memory_log"],
             user_id=validated["user_id"],
             project_id=validated["project_id"]
         )

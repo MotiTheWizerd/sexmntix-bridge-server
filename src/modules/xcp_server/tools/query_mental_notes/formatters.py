@@ -26,10 +26,9 @@ class MentalNoteFormatter:
         return {
             "id": note.id,
             "session_id": note.session_id,
-            "start_time": note.start_time,
-            "content": note.raw_data.get("content", ""),
-            "note_type": note.raw_data.get("note_type", "note"),
-            "raw_data": note.raw_data,
+            "content": note.content,
+            "note_type": note.note_type,
+            "meta_data": note.meta_data,
             "created_at": note.created_at.isoformat()
         }
 

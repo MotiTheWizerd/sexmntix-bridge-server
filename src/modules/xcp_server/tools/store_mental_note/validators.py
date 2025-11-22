@@ -55,8 +55,8 @@ class ArgumentValidator:
             arguments.get("note_type", StoreMentalNoteConfig.DEFAULT_NOTE_TYPE)
         )
 
-        # Extract optional metadata
-        metadata = cls._validate_metadata(arguments.get("metadata"))
+        # Extract optional meta_data
+        meta_data = cls._validate_meta_data(arguments.get("meta_data"))
 
         return {
             "user_id": user_id,
@@ -64,7 +64,7 @@ class ArgumentValidator:
             "content": content,
             "session_id": session_id,
             "note_type": note_type,
-            "metadata": metadata
+            "meta_data": meta_data
         }
 
     @classmethod
@@ -155,22 +155,22 @@ class ArgumentValidator:
         return note_type
 
     @classmethod
-    def _validate_metadata(cls, metadata: Any) -> Dict[str, Any]:
-        """Validate metadata parameter
+    def _validate_meta_data(cls, meta_data: Any) -> Dict[str, Any]:
+        """Validate meta_data parameter
 
         Args:
-            metadata: Raw metadata value
+            meta_data: Raw meta_data value
 
         Returns:
-            Validated metadata dictionary (empty dict if None)
+            Validated meta_data dictionary (empty dict if None)
 
         Raises:
-            ValueError: If metadata is invalid
+            ValueError: If meta_data is invalid
         """
-        if metadata is None:
+        if meta_data is None:
             return {}
 
-        if not isinstance(metadata, dict):
-            raise ValueError(f"metadata must be an object/dict, got {type(metadata).__name__}")
+        if not isinstance(meta_data, dict):
+            raise ValueError(f"meta_data must be an object/dict, got {type(meta_data).__name__}")
 
-        return metadata
+        return meta_data

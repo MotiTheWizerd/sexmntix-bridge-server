@@ -61,7 +61,7 @@ class MemoryStorer:
 
         # Convert raw data to the format expected by add_memory
         memory_log_data = {
-            "raw_data": memory_data,
+            "memory_log": memory_data,
             "content": searchable_text,
             "metadata": {
                 "document_type": "memory_log",

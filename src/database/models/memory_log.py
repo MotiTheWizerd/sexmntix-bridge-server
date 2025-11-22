@@ -14,8 +14,12 @@ class MemoryLog(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     task: Mapped[str] = mapped_column(String(255), index=True)
     agent: Mapped[str] = mapped_column(String(100), index=True)
-    date: Mapped[datetime] = mapped_column(DateTime, index=True)
-    raw_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+
+    # Session ID for grouping related memories
+    session_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+
+    # Memory log data (flattened from raw_data wrapper)
+    memory_log: Mapped[dict] = mapped_column(JSONB, nullable=False)
 
     # Document type for unified semantic space
     document_type: Mapped[str] = mapped_column(String(50), default="memory_log", index=True)
