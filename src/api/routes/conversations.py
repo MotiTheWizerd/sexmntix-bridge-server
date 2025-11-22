@@ -10,15 +10,17 @@ from typing import List
 from src.api.dependencies.database import get_db_session
 from src.api.dependencies.event_bus import get_event_bus
 from src.api.dependencies.logger import get_logger
+from src.api.dependencies.vector_storage import create_vector_storage_service
 from src.api.schemas.conversation import (
     ConversationCreate,
     ConversationResponse,
     ConversationSearchRequest,
     ConversationSearchResult
 )
+from src.api.formatters.conversation_formatter import ConversationFormatter
 from src.database.repositories.conversation_repository import ConversationRepository
+from src.services.conversation_service import ConversationService
 from src.modules.core import EventBus, Logger
-from datetime import datetime
 
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
@@ -59,51 +61,22 @@ async def create_conversation(
         ]
     }
     """
-    logger.info(f"Creating conversation: {data.conversation_id}")
-
-    # Build raw_data structure
-    raw_data = {
-        "user_id": data.user_id,
-        "project_id": data.project_id,
-        "conversation_id": data.conversation_id,
-        "model": data.model,
-        "conversation": [msg.model_dump() for msg in data.conversation],
-        "session_id": data.session_id,
-        "created_at": datetime.utcnow().isoformat()
-    }
-
-    # Create conversation in PostgreSQL (synchronous for immediate response with ID)
-    # Note: Allows duplicate conversation_id for versioning/updates
+    # Create service with required dependencies
     repo = ConversationRepository(db)
-
-    conversation = await repo.create(
-        conversation_id=data.conversation_id,
-        model=data.model,
-        raw_data=raw_data,
-        user_id=data.user_id,
-        project_id=data.project_id,
-        session_id=data.session_id,
+    service = ConversationService(
+        repository=repo,
+        event_bus=event_bus,
+        logger=logger
     )
 
-    logger.info(f"Conversation stored in PostgreSQL with id: {conversation.id}")
-
-    # Emit event for async vector storage (background task via event handler)
-    event_data = {
-        "conversation_db_id": conversation.id,
-        "conversation_id": data.conversation_id,
-        "model": data.model,
-        "raw_data": raw_data,
-        "user_id": data.user_id,
-        "project_id": data.project_id,
-        "session_id": data.session_id,
-    }
-
-    # Use publish (not publish_async) to schedule as background task
-    event_bus.publish("conversation.stored", event_data)
-
-    logger.info(
-        f"Conversation created with id {conversation.id}, "
-        f"vector storage scheduled as background task (separate collection)"
+    # Delegate to service layer
+    conversation = await service.create_conversation(
+        conversation_id=data.conversation_id,
+        model=data.model,
+        conversation_messages=[msg.model_dump() for msg in data.conversation],
+        user_id=data.user_id,
+        project_id=data.project_id,
+        session_id=data.session_id
     )
 
     return conversation
@@ -190,15 +163,7 @@ async def search_conversations(
     Returns:
         Conversations ranked by similarity with scores.
     """
-    logger.info(
-        f"Searching conversations for: '{search_request.query[:100]}' "
-        f"(user: {search_request.user_id})"
-    )
-
     try:
-        # Import here to avoid circular dependency
-        from src.api.dependencies.vector_storage import create_vector_storage_service
-
         # Create VectorStorageService for this specific user (conversations are user-scoped)
         vector_service = create_vector_storage_service(
             user_id=search_request.user_id,
@@ -208,40 +173,25 @@ async def search_conversations(
             logger=logger
         )
 
-        # Build filter for model and session_id if provided
-        combined_filter = {}
-        if search_request.model:
-            combined_filter["model"] = search_request.model
-        if search_request.session_id:
-            combined_filter["session_id"] = search_request.session_id
+        # Create service with vector dependencies
+        service = ConversationService(
+            vector_service=vector_service,
+            logger=logger
+        )
 
-        # Search conversations using separate collection (user-scoped only)
-        results = await vector_service.search_similar_conversations(
+        # Delegate search to service layer
+        results = await service.search_conversations(
             query=search_request.query,
             user_id=search_request.user_id,
             limit=search_request.limit,
-            where_filter=combined_filter,
-            min_similarity=search_request.min_similarity
+            min_similarity=search_request.min_similarity,
+            model=search_request.model,
+            session_id=search_request.session_id
         )
 
-        # Convert to response format
-        search_results = []
-        for result in results:
-            # Extract conversation_id from metadata
-            conversation_id = result.get("metadata", {}).get("conversation_id")
+        # Format results for API response
+        search_results = ConversationFormatter.format_search_results(results)
 
-            search_results.append(
-                ConversationSearchResult(
-                    id=result["id"],
-                    conversation_id=conversation_id,
-                    document=result["document"],
-                    metadata=result["metadata"],
-                    distance=result["distance"],
-                    similarity=result["similarity"]
-                )
-            )
-
-        logger.info(f"Found {len(search_results)} matching conversations")
         return search_results
 
     except Exception as e:
@@ -290,15 +240,8 @@ async def fetch_memory(
             "synthesized_memory": "Core Concept: ...\n\nI remember...\n\nKey Association: ..."
         }
     """
-    logger.info(
-        f"Fetching memory for: '{search_request.query[:100]}' "
-        f"(user: {search_request.user_id})"
-    )
-
     try:
-        # Step 1: Perform semantic search (same as /conversations/search)
-        from src.api.dependencies.vector_storage import create_vector_storage_service
-
+        # Create VectorStorageService for this specific user
         vector_service = create_vector_storage_service(
             user_id=search_request.user_id,
             project_id="conversations",  # Dedicated collection for conversations
@@ -307,52 +250,26 @@ async def fetch_memory(
             logger=logger
         )
 
-        # Build filter for model and session_id if provided
-        combined_filter = {}
-        if search_request.model:
-            combined_filter["model"] = search_request.model
-        if search_request.session_id:
-            combined_filter["session_id"] = search_request.session_id
+        # Create service with vector and LLM dependencies
+        llm_service = request.app.state.llm_service
+        service = ConversationService(
+            vector_service=vector_service,
+            llm_service=llm_service,
+            logger=logger
+        )
 
-        # Search conversations
-        results = await vector_service.search_similar_conversations(
+        # Delegate memory synthesis to service layer
+        synthesized_memory = await service.fetch_synthesized_memory(
             query=search_request.query,
             user_id=search_request.user_id,
             limit=search_request.limit,
-            where_filter=combined_filter,
-            min_similarity=search_request.min_similarity
+            min_similarity=search_request.min_similarity,
+            model=search_request.model,
+            session_id=search_request.session_id
         )
 
-        logger.info(f"Found {len(results)} search results for memory synthesis")
-
-        if not results:
-            logger.info("No search results found, returning empty memory")
-            return {"synthesized_memory": "No relevant memories found."}
-
-        # Step 2: Send results to Gemini for synthesis
-        from src.modules.SXThalamus.prompts import SXThalamusPromptBuilder
-
-        # Build prompt with search results
-        prompt_builder = SXThalamusPromptBuilder()
-        prompt = prompt_builder.build_memory_synthesis_prompt(results, query=search_request.query)
-
-        logger.info(f"Built memory synthesis prompt (length: {len(prompt)})")
-
-        # Call Gemini via centralized LLM service
-        llm_service = request.app.state.llm_service
-        synthesized_memory = await llm_service.generate_content(
-            prompt=prompt,
-            user_id=search_request.user_id,
-            worker_type="memory_synthesizer"
-        )
-
-        logger.info(
-            f"Gemini synthesis completed (length: {len(synthesized_memory)})",
-            extra={"preview": synthesized_memory[:200]}
-        )
-
-        # Step 3: Return only the synthesized memory
-        return {"synthesized_memory": synthesized_memory}
+        # Format response
+        return ConversationFormatter.format_memory_response(synthesized_memory)
 
     except Exception as e:
         logger.error(f"Memory fetch failed: {e}", exc_info=True)

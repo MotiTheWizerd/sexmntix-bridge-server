@@ -23,5 +23,6 @@ dist/
 # Database
 *.db
 *.sqlite
+*.sqlite3
 data/
 data
