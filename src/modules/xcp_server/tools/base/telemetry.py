@@ -79,6 +79,9 @@ class ToolTelemetry:
             duration_ms: Execution duration in milliseconds
             arguments: Tool arguments (for extracting user_id/project_id)
         """
+        # Log result data type before publishing
+        self.logger.info(f"[TELEMETRY] Publishing result.data type: {type(result.data)}")
+
         # Publish completion event
         self.event_bus.publish(
             EventType.XCP_TOOL_COMPLETED.value,

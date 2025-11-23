@@ -95,6 +95,9 @@ class SearchArgumentValidator:
         user_id = context_user_id
         project_id = context_project_id
 
+        # Auto-assign text format for MCP tool (not exposed as parameter)
+        format = "text"
+
         # Extract temporal decay settings
         enable_temporal_decay = bool(arguments.get("enable_temporal_decay", cls.DEFAULT_ENABLE_TEMPORAL_DECAY))
         half_life_days = float(arguments.get("half_life_days", cls.DEFAULT_HALF_LIFE_DAYS))
@@ -110,6 +113,7 @@ class SearchArgumentValidator:
             "min_similarity": min_similarity,
             "user_id": user_id,
             "project_id": project_id,
+            "format": format,
             "enable_temporal_decay": enable_temporal_decay,
             "half_life_days": half_life_days
         }

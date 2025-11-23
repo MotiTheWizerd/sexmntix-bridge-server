@@ -166,6 +166,7 @@ class MemoryLogSearchRequest(BaseModel):
     min_similarity: Optional[float] = 0.0
     filters: Optional[Dict[str, Any]] = None
     tag: Optional[str] = None  # Filter by individual tag (e.g., "chromadb")
+    format: Optional[Literal["json", "text"]] = "json"  # Output format: json or text
 
 
 class MemoryLogSearchResult(BaseModel):
@@ -190,3 +191,4 @@ class MemoryLogDateSearchRequest(BaseModel):
     start_date: Optional[datetime] = None  # Start date filter (ISO format)
     end_date: Optional[datetime] = None  # End date filter (ISO format)
     time_period: Optional[Literal["recent", "last-week", "last-month", "archived"]] = None  # Convenience shortcuts
+    format: Optional[Literal["json", "text"]] = "json"  # Output format: json or text

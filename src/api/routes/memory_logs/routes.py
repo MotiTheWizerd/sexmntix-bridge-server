@@ -102,7 +102,6 @@ async def list_memory_logs(
 async def search_memory_logs(
     search_request: MemoryLogSearchRequest,
     request: Request,
-    format: str = "text",
     logger: Logger = Depends(get_logger),
 ):
     """
@@ -112,13 +111,14 @@ async def search_memory_logs(
     Each user/project gets their own isolated ChromaDB database.
 
     Example:
-        POST /memory-logs/search?format=json
+        POST /memory-logs/search
         {
             "query": "authentication bug fix",
             "user_id": "user123",
             "project_id": "project456",
             "limit": 5,
             "min_similarity": 0.5,
+            "format": "text",
             "filters": {
                 "component": "auth-module",
                 "date": {"$gte": "2025-11-01"}
@@ -126,7 +126,7 @@ async def search_memory_logs(
         }
 
     Returns memories ranked by similarity with scores.
-    Format parameter: 'json' for structured data, 'text' for terminal output.
+    Format options: 'json' (complete JSON objects, default) or 'text' (formatted terminal output).
     """
     # Create vector service for this user/project
     vector_service = create_vector_storage_service(
@@ -141,7 +141,7 @@ async def search_memory_logs(
     service = MemoryLogService(None, vector_service, None, logger)
 
     return await SearchMemoryLogHandler.handle(
-        search_request, service, format, logger
+        search_request, service, logger
     )
 
 
@@ -149,7 +149,6 @@ async def search_memory_logs(
 async def search_memory_logs_by_date(
     search_request: MemoryLogDateSearchRequest,
     request: Request,
-    format: str = "text",
     logger: Logger = Depends(get_logger),
 ):
     """
@@ -162,13 +161,14 @@ async def search_memory_logs_by_date(
     - archived: Older than 30 days
 
     Example:
-        POST /memory-logs/search-by-date?format=json
+        POST /memory-logs/search-by-date
         {
             "query": "authentication bug fix",
             "user_id": "user123",
             "project_id": "project456",
             "limit": 10,
-            "time_period": "recent"
+            "time_period": "recent",
+            "format": "text"
         }
 
         OR with explicit dates:
@@ -177,10 +177,11 @@ async def search_memory_logs_by_date(
             "user_id": "user123",
             "project_id": "project456",
             "start_date": "2024-01-01T00:00:00",
-            "end_date": "2024-12-31T23:59:59"
+            "end_date": "2024-12-31T23:59:59",
+            "format": "json"
         }
 
-    Format parameter: 'json' for structured data, 'text' for terminal output.
+    Format options: 'json' (complete JSON objects, default) or 'text' (formatted terminal output).
     """
     # Create vector service for this user/project
     vector_service = create_vector_storage_service(
@@ -195,5 +196,5 @@ async def search_memory_logs_by_date(
     service = MemoryLogService(None, vector_service, None, logger)
 
     return await DateSearchMemoryLogHandler.handle(
-        search_request, service, format, logger
+        search_request, service, logger
     )

@@ -12,6 +12,7 @@ from src.modules.xcp_server.exceptions import XCPToolExecutionError
 from src.modules.core import EventBus, Logger
 from src.modules.embeddings import EmbeddingService
 from src.api.dependencies.vector_storage import create_vector_storage_service
+from src.api.formatters.memory_log_formatters import MemoryLogFormatter
 
 from .config import SemanticSearchConfig
 from .validators import SearchArgumentValidator
@@ -83,7 +84,9 @@ class SemanticSearchTool(BaseTool):
             results = await self._perform_search(validated_args)
 
             # Format and return results
-            return self._format_response(results, validated_args)
+            result = self._format_response(results, validated_args)
+            self.logger.info(f"[SEMANTIC_SEARCH] Final result type: {type(result.data)}")
+            return result
 
         except ValueError as e:
             # Validation errors
@@ -184,23 +187,25 @@ class SemanticSearchTool(BaseTool):
             validated_args: Validated search arguments
 
         Returns:
-            ToolResult with formatted data
+            ToolResult with formatted data (as clean text string)
         """
-        # Format individual results
-        formatted_results = self.formatter.format_search_results(results)
-
-        # Create complete response structure
-        response_data = self.formatter.create_response_data(
+        # Use shared formatter to create clean text output
+        formatted_text = MemoryLogFormatter.format_mcp_search_results_text(
             query=validated_args["query"],
-            formatted_results=formatted_results,
-            min_similarity=validated_args["min_similarity"],
-            limit=validated_args["limit"],
-            user_id=validated_args["user_id"],
-            project_id=validated_args["project_id"]
+            results=results,
+            filters_applied={
+                "min_similarity": validated_args["min_similarity"],
+                "limit": validated_args["limit"]
+            }
         )
 
+        self.logger.info(f"[SEMANTIC_SEARCH] Formatted text type: {type(formatted_text)}, length: {len(formatted_text)}")
+
+        # Return as array of lines so newlines aren't escaped in JSON
         return ToolResult(
             success=True,
-            data=response_data["data"],
-            metadata=response_data["metadata"]
+            data={
+                "text": formatted_text,
+                "content": [{"type": "text", "text": formatted_text}]
+            }
         )

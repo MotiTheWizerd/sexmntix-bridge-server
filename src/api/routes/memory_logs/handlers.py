@@ -3,7 +3,7 @@ Request/response handlers for memory log operations.
 
 Handles business logic orchestration between services, formatters, and validation.
 """
-from typing import List, Union
+from typing import List, Union, Dict, Any
 from fastapi import Request, HTTPException
 from fastapi.responses import PlainTextResponse
 from src.api.schemas.memory_log import (
@@ -13,7 +13,7 @@ from src.api.schemas.memory_log import (
     MemoryLogSearchResult,
     MemoryLogDateSearchRequest,
 )
-from src.api.formatters.memory_log_formatters import MemoryLogFormatter
+from src.api.routes.memory_logs.formatters import MemoryLogFormatter
 from src.database.repositories.memory_log_repository import MemoryLogRepository
 from src.services.memory_log_service import MemoryLogService
 from src.modules.core import Logger
@@ -144,20 +144,18 @@ class SearchMemoryLogHandler:
     async def handle(
         search_request: MemoryLogSearchRequest,
         service: MemoryLogService,
-        format: str,
         logger: Logger
     ) -> Union[List[MemoryLogSearchResult], PlainTextResponse]:
         """
         Handle memory log semantic search with format support.
 
         Args:
-            search_request: Search request parameters
+            search_request: Search request parameters (includes format field)
             service: Memory log service with vector search
-            format: Output format ('json' or 'text')
             logger: Logger instance
 
         Returns:
-            JSON array or formatted text based on format parameter
+            JSON array or formatted text based on request.format
 
         Raises:
             HTTPException: If search fails
@@ -174,17 +172,12 @@ class SearchMemoryLogHandler:
                 min_similarity=search_request.min_similarity
             )
 
-            # Format results
-            search_results = MemoryLogFormatter.format_search_results_json(results)
-
-            # Return based on format parameter
-            if format == "json":
-                return search_results
+            # Format based on request.format field
+            if search_request.format == "text":
+                formatted_text = MemoryLogFormatter.format_text(results, search_request.query)
+                return PlainTextResponse(content=formatted_text)
             else:
-                return MemoryLogFormatter.format_search_results_text(
-                    search_results,
-                    search_request.query
-                )
+                return MemoryLogFormatter.format_json(results)
 
         except Exception as e:
             logger.error(f"[HANDLER] Search failed: {e}")
@@ -201,20 +194,18 @@ class DateSearchMemoryLogHandler:
     async def handle(
         search_request: MemoryLogDateSearchRequest,
         service: MemoryLogService,
-        format: str,
         logger: Logger
     ) -> Union[List[MemoryLogSearchResult], PlainTextResponse]:
         """
         Handle memory log date-filtered search with format support.
 
         Args:
-            search_request: Date search request parameters
+            search_request: Date search request parameters (includes format field)
             service: Memory log service with vector search
-            format: Output format ('json' or 'text')
             logger: Logger instance
 
         Returns:
-            JSON array or formatted text based on format parameter
+            JSON array or formatted text based on request.format
 
         Raises:
             HTTPException: If search fails
@@ -231,21 +222,12 @@ class DateSearchMemoryLogHandler:
                 end_date=search_request.end_date
             )
 
-            # Format results
-            search_results = MemoryLogFormatter.format_search_results_json(results)
-
-            # Return based on format parameter
-            if format == "json":
-                return search_results
+            # Format based on request.format field
+            if search_request.format == "text":
+                formatted_text = MemoryLogFormatter.format_text(results, search_request.query)
+                return PlainTextResponse(content=formatted_text)
             else:
-                # Generate time period description
-                time_period_str = search_request.time_period or \
-                    f"{search_request.start_date} to {search_request.end_date}"
-                return MemoryLogFormatter.format_date_search_text(
-                    search_results,
-                    search_request.query,
-                    time_period_str
-                )
+                return MemoryLogFormatter.format_json(results)
 
         except Exception as e:
             logger.error(f"[HANDLER] Date search failed: {e}")
