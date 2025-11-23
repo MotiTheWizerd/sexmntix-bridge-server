@@ -174,8 +174,9 @@ class SearchMemoryLogHandler:
 
             # Format based on request.format field
             if search_request.format == "text":
+                # Return raw string for MCP tools (maintains newlines)
                 formatted_text = MemoryLogFormatter.format_text(results, search_request.query)
-                return PlainTextResponse(content=formatted_text)
+                return formatted_text
             else:
                 return MemoryLogFormatter.format_json(results)
 
@@ -224,8 +225,9 @@ class DateSearchMemoryLogHandler:
 
             # Format based on request.format field
             if search_request.format == "text":
+                # Return raw string for MCP tools (maintains newlines)
                 formatted_text = MemoryLogFormatter.format_text(results, search_request.query)
-                return PlainTextResponse(content=formatted_text)
+                return formatted_text
             else:
                 return MemoryLogFormatter.format_json(results)
 

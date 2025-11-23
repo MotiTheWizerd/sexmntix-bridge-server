@@ -28,8 +28,11 @@ class ResponseFormatter:
         Returns:
             List containing single TextContent with JSON-formatted data
         """
-        response_text = json.dumps(result.data, indent=2, default=str)
-        return [TextContent(type="text", text=response_text)]
+        if isinstance(result.data, str):
+            response_text = result.data
+        else:
+            response_text = json.dumps(result.data, indent=2, default=str)
+            return [TextContent(type="text", text=response_text)]
 
     @staticmethod
     def format_error(result: ToolResult) -> List[TextContent]:
