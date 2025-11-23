@@ -13,6 +13,7 @@ This module has been refactored to use smaller, focused components:
 
 from typing import Dict, List
 from mcp.server import Server
+from mcp.types import CallToolResult
 
 from src.modules.core import EventBus, Logger
 from src.modules.xcp_server.models.config import XCPConfig
@@ -137,7 +138,8 @@ class XCPMCPServer:
         @self.server.call_tool()
         async def call_tool(name: str, arguments: dict):
             """Execute a tool - delegates to ToolCallHandler"""
-            return await self.tool_call_handler.handle_call_tool(name, arguments)
+            content = await self.tool_call_handler.handle_call_tool(name, arguments)
+            return CallToolResult(content=content)
 
     async def run_stdio(self):
         """Run MCP server with stdio transport
