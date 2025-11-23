@@ -56,9 +56,17 @@ class MemorySearcher:
         embedding_result = await self.embedding_service.generate_embedding(query)
         query_embedding = embedding_result.embedding
 
-        # Add document_type filter to ensure we only search memory logs
-        combined_filter = where_filter.copy() if where_filter else {}
-        combined_filter["document_type"] = "memory_log"
+        # Build ChromaDB filter with $and operator (required when combining multiple conditions)
+        # ChromaDB requires exactly ONE top-level operator in where clauses
+        if where_filter:
+            combined_filter = {
+                "$and": [
+                    where_filter,
+                    {"document_type": "memory_log"}
+                ]
+            }
+        else:
+            combined_filter = {"document_type": "memory_log"}
 
         # Perform semantic search
         results = await self.vector_repository.search(

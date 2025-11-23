@@ -19,7 +19,8 @@
       "Bash(touch:*)",
       "Bash(alembic revision:*)",
       "Bash(poetry run alembic:*)",
-      "Bash(if not exist \"c:\\project\\semantix-bridge\\semantix-bridge-server\\src\\api\\formatters\" mkdir \"c:\\project\\semantix-bridge\\semantix-bridge-server\\src\\api\\formatters\")"
+      "Bash(if not exist \"c:\\project\\semantix-bridge\\semantix-bridge-server\\src\\api\\formatters\" mkdir \"c:\\project\\semantix-bridge\\semantix-bridge-server\\src\\api\\formatters\")",
+      "Bash(find:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

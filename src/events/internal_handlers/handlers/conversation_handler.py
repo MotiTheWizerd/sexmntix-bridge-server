@@ -171,7 +171,7 @@ class ConversationStorageHandler(BaseStorageHandler):
 
         conversation_ids, embeddings = await self.orchestrator.store_conversation_vector(
             conversation_db_id=validated["conversation_db_id"],
-            raw_data=validated["raw_data"],
+            memory_log=validated["raw_data"],
             user_id=validated["user_id"],
             session_id=validated.get("session_id"),
             gemini_analysis=validated.get("gemini_analysis", [])
