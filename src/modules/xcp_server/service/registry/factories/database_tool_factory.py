@@ -105,8 +105,7 @@ class DatabaseToolFactory(BaseToolFactory):
         """Create StoreMentalNoteTool with dependencies"""
         return StoreMentalNoteTool(
             event_bus=event_bus,
-            logger=logger,
-            db_session_factory=db_session_factory
+            logger=logger
         )
 
     @staticmethod
@@ -118,8 +117,7 @@ class DatabaseToolFactory(BaseToolFactory):
         """Create QueryMentalNotesTool with dependencies"""
         return QueryMentalNotesTool(
             event_bus=event_bus,
-            logger=logger,
-            db_session_factory=db_session_factory
+            logger=logger
         )
 
     @staticmethod

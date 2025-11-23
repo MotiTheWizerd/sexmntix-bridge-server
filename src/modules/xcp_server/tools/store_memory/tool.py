@@ -75,15 +75,17 @@ class StoreMemoryTool(BaseTool):
                 )
                 response.raise_for_status()
 
-            # Return response as-is (backend handles all formatting)
-            result_text = response.text
+                # Try to parse as JSON, fallback to text
+                try:
+                    result = response.json()
+                except:
+                    result = response.text
 
             self.logger.info(f"[STORE_MEMORY] Memory stored successfully")
 
             return ToolResult(
                 success=True,
-                data={"result": result_text},
-                message="Memory stored successfully"
+                data=result
             )
 
         except httpx.HTTPError as e:

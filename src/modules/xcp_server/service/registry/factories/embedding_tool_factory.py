@@ -1,13 +1,12 @@
 """
-Embedding Tool Factory - Creates tools that depend on EmbeddingService
+Semantic Search Tool Factory - Creates tools that depend on EmbeddingService
 """
 from typing import List
 from src.modules.core import EventBus, Logger
 from src.modules.embeddings import EmbeddingService
 from src.modules.xcp_server.tools import (
     BaseTool,
-    SemanticSearchTool,
-    EmbeddingTool
+    SemanticSearchTool
 )
 from .base_factory import BaseToolFactory
 
@@ -18,7 +17,6 @@ class EmbeddingToolFactory(BaseToolFactory):
 
     This factory creates:
     - SemanticSearchTool: Search memories using semantic similarity
-    - EmbeddingTool: Generate embeddings for text
     """
 
     def create_tools(
@@ -52,14 +50,6 @@ class EmbeddingToolFactory(BaseToolFactory):
         )
         tools.append(semantic_search_tool)
 
-        # Create Embedding Tool
-        embedding_tool = self._create_embedding_tool(
-            event_bus=event_bus,
-            logger=logger,
-            embedding_service=embedding_service
-        )
-        tools.append(embedding_tool)
-
         logger.debug(f"EmbeddingToolFactory created {len(tools)} tools")
         return tools
 
@@ -72,19 +62,5 @@ class EmbeddingToolFactory(BaseToolFactory):
         """Create SemanticSearchTool with dependencies"""
         return SemanticSearchTool(
             event_bus=event_bus,
-            logger=logger,
-            embedding_service=embedding_service
-        )
-
-    @staticmethod
-    def _create_embedding_tool(
-        event_bus: EventBus,
-        logger: Logger,
-        embedding_service: EmbeddingService
-    ) -> EmbeddingTool:
-        """Create EmbeddingTool with dependencies"""
-        return EmbeddingTool(
-            event_bus=event_bus,
-            logger=logger,
-            embedding_service=embedding_service
+            logger=logger
         )

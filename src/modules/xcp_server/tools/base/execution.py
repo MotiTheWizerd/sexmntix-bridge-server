@@ -9,7 +9,6 @@ from datetime import datetime
 from typing import Dict, Any, Callable, Awaitable
 
 from src.modules.xcp_server.tools.base.models import ToolResult, ToolDefinition
-from src.modules.xcp_server.tools.base.validation import ArgumentValidator
 from src.modules.xcp_server.tools.base.telemetry import ToolTelemetry
 from src.modules.xcp_server.models.config import ToolContext
 from src.modules.xcp_server.exceptions import XCPToolValidationError
@@ -25,7 +24,6 @@ class ToolExecutor:
             telemetry: Telemetry handler for events and logging
         """
         self.telemetry = telemetry
-        self.validator = ArgumentValidator()
 
     async def execute_with_telemetry(
         self,
@@ -58,23 +56,20 @@ class ToolExecutor:
         start_time = datetime.utcnow()
 
         try:
-            # Validate arguments
-            validated_args = self.validator.validate(tool_definition, arguments)
-
             # Log execution start
-            self.telemetry.log_execution_start(tool_name, context, validated_args)
+            self.telemetry.log_execution_start(tool_name, context, arguments)
 
             # Execute tool
-            result = await execute_fn(context, validated_args)
+            result = await execute_fn(context, arguments)
 
             # Calculate duration
             duration_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
 
             # Log based on result
             if result.success:
-                self.telemetry.log_execution_success(tool_name, context, result, duration_ms, validated_args)
+                self.telemetry.log_execution_success(tool_name, context, result, duration_ms, arguments)
             else:
-                self.telemetry.log_execution_failure(tool_name, context, result, validated_args)
+                self.telemetry.log_execution_failure(tool_name, context, result, arguments)
 
             return result
 

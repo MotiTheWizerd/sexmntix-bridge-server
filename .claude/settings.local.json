@@ -23,7 +23,8 @@
       "Bash(find:*)",
       "mcp__semantic-bridge__semantic_search",
       "mcp__semantic-bridge__query_mental_notes",
-      "mcp__semantic-bridge__search_memory_by_date"
+      "mcp__semantic-bridge__search_memory_by_date",
+      "mcp__semantic-bridge__store_memory"
     ]
   },
   "enableAllProjectMcpServers": true,

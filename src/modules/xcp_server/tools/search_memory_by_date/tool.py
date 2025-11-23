@@ -90,17 +90,17 @@ class SearchMemoryByDateTool(BaseTool):
                 )
                 response.raise_for_status()
 
-            # Return response as-is (backend handles all formatting)
-            result_text = response.text
+                # Try to parse as JSON, fallback to text
+                try:
+                    result = response.json()
+                except:
+                    result = response.text
 
-            self.logger.info(
-                f"[SEARCH_BY_DATE] Search completed successfully, "
-                f"returned {len(result_text)} characters"
-            )
+            self.logger.info(f"[SEARCH_BY_DATE] Search completed successfully")
 
             return ToolResult(
                 success=True,
-                data={"result": result_text},
+                data=result,
                 message="Search completed successfully"
             )
 

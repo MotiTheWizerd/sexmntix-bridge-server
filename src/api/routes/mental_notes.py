@@ -30,21 +30,22 @@ async def create_mental_note(
     """Create a new mental note with embedding stored in PostgreSQL."""
     logger.info(f"Creating mental note for session: {data.sessionId}")
 
-    # Build raw_data from input
-    raw_data = data.model_dump(mode="json")
-    logger.info(f"Creating mental note with raw_data: {raw_data}")
-
     # Create mental note in PostgreSQL without embedding
     # Embedding will be generated and stored in ChromaDB via event handler
     repo = MentalNoteRepository(db)
 
+    # Generate embedding for the mental note content
+    embedding_response = await embedding_service.generate_embedding(data.content)
+    embedding_vector = embedding_response.embedding  # Extract the actual vector from response
+
     mental_note = await repo.create(
         session_id=data.sessionId,
-        start_time=data.startTime,
-        raw_data=raw_data,
+        content=data.content,
+        note_type=data.note_type,
+        meta_data=data.meta_data or {},
         user_id=data.user_id,
         project_id=data.project_id,
-        embedding=None,  # Skip PostgreSQL embedding, will be stored in ChromaDB
+        embedding=embedding_vector,
     )
 
     logger.info(f"Mental note stored in PostgreSQL with id: {mental_note.id}")
@@ -53,8 +54,9 @@ async def create_mental_note(
     event_data = {
         "mental_note_id": mental_note.id,
         "session_id": data.sessionId,
-        "start_time": data.startTime,
-        "raw_data": raw_data,
+        "content": data.content,
+        "note_type": data.note_type,
+        "meta_data": data.meta_data or {},
         "user_id": data.user_id,
         "project_id": data.project_id,
     }
