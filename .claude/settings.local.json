@@ -20,7 +20,10 @@
       "Bash(alembic revision:*)",
       "Bash(poetry run alembic:*)",
       "Bash(if not exist \"c:\\project\\semantix-bridge\\semantix-bridge-server\\src\\api\\formatters\" mkdir \"c:\\project\\semantix-bridge\\semantix-bridge-server\\src\\api\\formatters\")",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "mcp__semantic-bridge__semantic_search",
+      "mcp__semantic-bridge__query_mental_notes",
+      "mcp__semantic-bridge__search_memory_by_date"
     ]
   },
   "enableAllProjectMcpServers": true,

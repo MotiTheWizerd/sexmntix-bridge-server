@@ -87,7 +87,8 @@ class VectorRepository:
         project_id: str,
         limit: int = 10,
         where_filter: Optional[Dict[str, Any]] = None,
-        collection_prefix: str = "memory_logs"
+        collection_prefix: str = "memory_logs",
+        min_similarity: Optional[float] = None
     ) -> List[SearchResult]:
         """
         Perform semantic similarity search.
@@ -99,6 +100,7 @@ class VectorRepository:
             limit: Maximum number of results
             where_filter: Optional metadata filter (ChromaDB where syntax)
             collection_prefix: Collection prefix to target (default: memory_logs)
+            min_similarity: Optional minimum similarity threshold (0.0 to 1.0)
 
         Returns:
             List of SearchResult objects sorted by similarity
@@ -116,7 +118,8 @@ class VectorRepository:
             project_id,
             limit,
             where_filter,
-            collection_prefix
+            collection_prefix,
+            min_similarity
         )
 
     async def get_by_id(

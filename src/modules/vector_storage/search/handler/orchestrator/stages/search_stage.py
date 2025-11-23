@@ -66,7 +66,8 @@ class SearchStage:
             project_id=request.project_id,
             limit=request.limit,
             where_filter=request.where_filter,
-            collection_prefix=request.collection_prefix
+            collection_prefix=request.collection_prefix,
+            min_similarity=request.min_similarity
         )
 
         # Log search completion

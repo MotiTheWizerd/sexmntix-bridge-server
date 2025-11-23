@@ -10,6 +10,7 @@ from src.database.repositories.memory_log_repository import MemoryLogRepository
 from src.modules.core import EventBus, Logger
 from src.modules.vector_storage import VectorStorageService
 from src.utils.date_range_calculator import DateRangeCalculator
+from src.infrastructure.chromadb.utils.filter_sanitizer import sanitize_filter
 
 
 class MemoryLogService:
@@ -164,7 +165,8 @@ class MemoryLogService:
         )
 
         # Build combined filter with tag if provided
-        combined_filter = filters or {}
+        # Sanitize filters FIRST to remove garbage like additionalProp1
+        combined_filter = sanitize_filter(filters)
         if tag:
             # Add tag filter - tags are stored in metadata as:
             # 1. tag_0, tag_1, tag_2, tag_3, tag_4 (individual fields)

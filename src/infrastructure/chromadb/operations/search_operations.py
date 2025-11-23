@@ -22,7 +22,8 @@ async def search(
     project_id: str,
     limit: int = 10,
     where_filter: Optional[Dict[str, Any]] = None,
-    collection_prefix: Optional[str] = None
+    collection_prefix: Optional[str] = None,
+    min_similarity: Optional[float] = None
 ) -> List[SearchResult]:
     """
     Perform semantic similarity search.
@@ -34,6 +35,7 @@ async def search(
         project_id: Project identifier
         limit: Maximum number of results
         where_filter: Optional metadata filter (ChromaDB where syntax)
+        min_similarity: Optional minimum similarity threshold (0.0 to 1.0)
 
     Returns:
         List of SearchResult objects sorted by similarity
@@ -90,6 +92,18 @@ async def search(
             document_dict = json.loads(documents[i]) if i < len(documents) else {}
             metadata_dict = metadatas[i] if i < len(metadatas) else {}
             distance = distances[i] if i < len(distances) else 2.0
+
+            # Calculate similarity score (1 - normalized distance)
+            # ChromaDB uses L2 distance, normalize to [0, 1] range
+            similarity = 1.0 - (distance / 2.0) if distance <= 2.0 else 0.0
+
+            # Apply minimum similarity filter if provided
+            if min_similarity is not None and similarity < min_similarity:
+                logger.debug(
+                    f"[VECTOR_REPO] search - Filtered out result {i} "
+                    f"(similarity {similarity:.4f} < {min_similarity})"
+                )
+                continue
 
             search_results.append(
                 SearchResult(

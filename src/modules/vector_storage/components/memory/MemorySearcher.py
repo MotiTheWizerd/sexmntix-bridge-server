@@ -6,6 +6,7 @@ from src.modules.core import EventBus, Logger
 from src.modules.embeddings import EmbeddingService
 from src.infrastructure.chromadb.repository import VectorRepository
 from src.modules.vector_storage.search import SimilarityFilter
+from src.infrastructure.chromadb.utils.filter_sanitizer import sanitize_filter
 
 
 class MemorySearcher:
@@ -56,6 +57,10 @@ class MemorySearcher:
         embedding_result = await self.embedding_service.generate_embedding(query)
         query_embedding = embedding_result.embedding
 
+        # Sanitize filter BEFORE combining with document_type
+        # This removes empty dicts like {'additionalProp1': {}} from Swagger examples
+        where_filter = sanitize_filter(where_filter)
+        
         # Build ChromaDB filter with $and operator (required when combining multiple conditions)
         # ChromaDB requires exactly ONE top-level operator in where clauses
         if where_filter:

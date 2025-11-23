@@ -181,21 +181,38 @@ class ConversationStorageHandler(BaseStorageHandler):
 
     async def _update_database(self, validated: Dict[str, Any], embedding: List[float]):
         """
-        Skip PostgreSQL embedding update for conversations.
+        Update conversation embedding in PostgreSQL.
 
-        Conversations do NOT store embeddings in PostgreSQL (no pgvector dependency).
-        Embeddings are ONLY stored in ChromaDB for semantic search.
+        Note: Conversations now support pgvector embeddings for PostgreSQL backup/redundancy.
+        ChromaDB remains the source of truth for semantic search, but PostgreSQL provides
+        backup and enables direct SQL-based similarity queries.
 
         Args:
             validated: Validated event data
-            embedding: Embedding vector (not used for conversations)
+            embedding: Embedding vector (768 dimensions)
         """
         conversation_db_id = validated["conversation_db_id"]
 
-        self.logger.info(
-            f"{self._get_log_prefix()} Skipping PostgreSQL embedding update for conversation {conversation_db_id} "
-            "(embeddings stored only in ChromaDB)"
-        )
+        try:
+            success = await self.db_embedding_updater.update_conversation(
+                conversation_db_id=conversation_db_id,
+                embedding=embedding
+            )
+
+            if success:
+                self.logger.info(
+                    f"{self._get_log_prefix()} PostgreSQL embedding updated for conversation {conversation_db_id}"
+                )
+            else:
+                self.logger.warning(
+                    f"{self._get_log_prefix()} PostgreSQL embedding update failed for conversation {conversation_db_id} "
+                    "(non-blocking, ChromaDB succeeded)"
+                )
+        except Exception as e:
+            self.logger.warning(
+                f"{self._get_log_prefix()} PostgreSQL embedding sync error for conversation {conversation_db_id}: {e} "
+                "(non-blocking, ChromaDB succeeded)"
+            )
 
     async def handle_stored_event(self, event_data: Dict[str, Any]):
         """

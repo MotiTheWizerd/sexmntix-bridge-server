@@ -13,7 +13,7 @@ class SearchArgumentValidator:
     # Constants for validation
     MAX_LIMIT = 50
     DEFAULT_LIMIT = 10
-    DEFAULT_MIN_SIMILARITY = 0.0
+    DEFAULT_MIN_SIMILARITY = 0.7  # Changed from 0.0 for better accuracy
     DEFAULT_HALF_LIFE_DAYS = 30.0
     DEFAULT_ENABLE_TEMPORAL_DECAY = False
 
