@@ -9,7 +9,6 @@ from typing import Optional
 import socketio
 from src.api.routes import (
     health,
-    mental_notes,
     users,
     socket_test,
     memory_logs_example,
@@ -19,6 +18,7 @@ from src.api.routes import (
     user_projects
 )
 from src.api.routes.memory_logs import router as memory_logs_router
+from src.api.routes.mental_notes.routes import router as mental_notes_router
 from src.services.socket_service import SocketService
 
 
@@ -44,7 +44,7 @@ class RouterRegistry:
         """Register core routes that are always available."""
         app.include_router(health.router)
         app.include_router(memory_logs_router)
-        app.include_router(mental_notes.router)
+        app.include_router(mental_notes_router)
         app.include_router(conversations.router)
         app.include_router(users.router)
         app.include_router(socket_test.router)

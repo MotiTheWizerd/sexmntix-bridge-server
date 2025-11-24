@@ -33,7 +33,8 @@ class StoreMentalNoteTool(BaseTool):
                 **arguments,
                 "user_id": context.user_id,
                 "project_id": context.project_id,
-                "session_id": getattr(context, 'session_id', None)
+                "session_id": getattr(context, 'session_id', None),
+                "format" : "text"
             }
 
             # HTTP call to server

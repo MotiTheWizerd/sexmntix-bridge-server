@@ -1,0 +1,178 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List
+from src.api.dependencies.database import get_db_session
+from src.api.dependencies.event_bus import get_event_bus
+from src.api.dependencies.logger import get_logger
+from src.api.dependencies.embedding import get_embedding_service
+from src.api.schemas.mental_note import (
+    MentalNoteCreate,
+    MentalNoteResponse,
+    MentalNoteSearchRequest,
+    MentalNoteSearchResult
+)
+from src.database.repositories import MentalNoteRepository
+from src.modules.core import EventBus, Logger
+from src.modules.embeddings import EmbeddingService
+
+router = APIRouter(prefix="/mental-notes", tags=["mental-notes"])
+
+
+@router.post("", response_model=MentalNoteResponse, status_code=201)
+async def create_mental_note(
+    data: MentalNoteCreate,
+    db: AsyncSession = Depends(get_db_session),
+    event_bus: EventBus = Depends(get_event_bus),
+    logger: Logger = Depends(get_logger),
+    embedding_service: EmbeddingService = Depends(get_embedding_service),
+):
+    """Create a new mental note with embedding stored in PostgreSQL."""
+    logger.info(f"Creating mental note for session: {data.sessionId}")
+
+    # Create mental note in PostgreSQL without embedding
+    # Embedding will be generated and stored in ChromaDB via event handler
+    repo = MentalNoteRepository(db)
+
+    # Generate embedding for the mental note content
+    embedding_response = await embedding_service.generate_embedding(data.content)
+    embedding_vector = embedding_response.embedding  # Extract the actual vector from response
+
+    mental_note = await repo.create(
+        session_id=data.sessionId,
+        content=data.content,
+        note_type=data.note_type,
+        meta_data=data.meta_data or {},
+        user_id=data.user_id,
+        project_id=data.project_id,
+        embedding=embedding_vector,
+    )
+
+    logger.info(f"Mental note stored in PostgreSQL with id: {mental_note.id}")
+
+    # Emit event for async vector storage (background task via event handler)
+    event_data = {
+        "mental_note_id": mental_note.id,
+        "session_id": data.sessionId,
+        "content": data.content,
+        "note_type": data.note_type,
+        "meta_data": data.meta_data or {},
+        "user_id": data.user_id,
+        "project_id": data.project_id,
+    }
+
+    # Use publish to schedule as background task
+    # This triggers the mental_note.stored event handler asynchronously
+    event_bus.publish("mental_note.stored", event_data)
+
+    logger.info(
+        f"Mental note created with id {mental_note.id}, "
+        f"vector storage scheduled as background task"
+    )
+
+    return mental_note
+
+
+@router.get("/{id}", response_model=MentalNoteResponse)
+async def get_mental_note(
+    id: str,
+    db: AsyncSession = Depends(get_db_session),
+    logger: Logger = Depends(get_logger),
+):
+    logger.info(f"Fetching mental note: {id}")
+    
+    repo = MentalNoteRepository(db)
+    mental_note = await repo.get_by_id(id)
+    
+    if not mental_note:
+        raise HTTPException(status_code=404, detail="Mental note not found")
+    
+    return mental_note
+
+
+@router.get("", response_model=List[MentalNoteResponse])
+async def list_mental_notes(
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db_session),
+    logger: Logger = Depends(get_logger),
+):
+    logger.info(f"Listing mental notes (limit: {limit})")
+
+    repo = MentalNoteRepository(db)
+    mental_notes = await repo.get_all(limit=limit)
+
+    return mental_notes
+
+
+@router.post("/search", response_model=List[MentalNoteSearchResult])
+async def search_mental_notes(
+    search_request: MentalNoteSearchRequest,
+    db: AsyncSession = Depends(get_db_session),
+    logger: Logger = Depends(get_logger),
+    embedding_service: EmbeddingService = Depends(get_embedding_service),
+):
+    """
+    Semantic search for mental notes by meaning, not keywords.
+
+    Uses PostgreSQL pgvector for semantic similarity search.
+    Queries mental notes with embeddings stored in PostgreSQL.
+
+    Example:
+        POST /mental-notes/search
+        {
+            "query": "bug fix discussion",
+            "user_id": "1",
+            "project_id": "default",
+            "limit": 10,
+            "min_similarity": 0.5
+        }
+
+    Returns mental notes ranked by similarity with scores.
+    """
+    logger.info(
+        f"Searching mental notes for: '{search_request.query[:100]}' "
+        f"(user: {search_request.user_id}, project: {search_request.project_id})"
+    )
+
+    try:
+        # Generate embedding for the query
+        embedding_response = await embedding_service.generate_embedding(search_request.query)
+        query_embedding = embedding_response.embedding
+
+        # Search PostgreSQL using pgvector
+        repo = MentalNoteRepository(db)
+        results = await repo.search_similar(
+            query_embedding=query_embedding,
+            user_id=search_request.user_id,
+            project_id=search_request.project_id,
+            limit=search_request.limit,
+            min_similarity=search_request.min_similarity
+        )
+
+        # Transform results to MentalNoteSearchResult format
+        search_results = [
+            MentalNoteSearchResult(
+                id=str(note.id),
+                mental_note_id=str(note.id),
+                document={
+                    "content": note.content,
+                    "note_type": note.note_type,
+                    "session_id": note.session_id,
+                    "created_at": note.created_at.isoformat(),
+                },
+                metadata={
+                    "user_id": note.user_id,
+                    "project_id": note.project_id,
+                    "meta_data": note.meta_data or {},
+                },
+                distance=1.0 - similarity,  # Convert similarity to distance
+                similarity=similarity
+            )
+            for note, similarity in results
+        ]
+
+        logger.info(f"Found {len(search_results)} mental notes matching query")
+        return search_results
+
+    except Exception as e:
+        logger.error(f"Error searching mental notes: {e}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")

@@ -39,6 +39,7 @@ class MentalNoteSearchRequest(BaseModel):
     limit: Optional[int] = 10
     min_similarity: Optional[float] = 0.0
     note_type: Optional[str] = None  # Filter by note_type if provided
+    format: Optional[str] = "json"  # Response format: 'json' or 'text'
 
 
 class MentalNoteSearchResult(BaseModel):

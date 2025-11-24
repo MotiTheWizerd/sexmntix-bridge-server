@@ -104,3 +104,53 @@ class MentalNoteRepository(BaseRepository[MentalNote]):
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def search_similar(
+        self,
+        query_embedding: List[float],
+        user_id: str,
+        project_id: str,
+        limit: int = 10,
+        min_similarity: float = 0.0
+    ) -> List[tuple[MentalNote, float]]:
+        """
+        Perform semantic similarity search using pgvector.
+
+        Args:
+            query_embedding: The embedding vector to search for (768 dimensions)
+            user_id: Filter by user_id
+            project_id: Filter by project_id
+            limit: Maximum number of results to return
+            min_similarity: Minimum similarity threshold (0.0 to 1.0)
+
+        Returns:
+            List of tuples: (MentalNote, similarity_score)
+            similarity_score is between 0.0 and 1.0 (higher = more similar)
+        """
+        # Build where conditions
+        conditions = [
+            MentalNote.embedding.is_not(None),
+            MentalNote.user_id == user_id,
+            MentalNote.project_id == project_id
+        ]
+
+        # Cosine distance: 0 = identical, 2 = opposite
+        # Convert to similarity: 1 - (distance / 2) gives 0-1 range
+        distance_expr = MentalNote.embedding.cosine_distance(query_embedding)
+        similarity_expr = (1 - (distance_expr / 2)).label('similarity')
+
+        # Execute query
+        result = await self.session.execute(
+            select(MentalNote, similarity_expr)
+            .where(and_(*conditions))
+            .order_by(distance_expr)  # Order by distance (ascending = most similar first)
+            .limit(limit)
+        )
+
+        # Filter by minimum similarity and return
+        rows = result.all()
+        return [
+            (row.MentalNote, row.similarity)
+            for row in rows
+            if row.similarity >= min_similarity
+        ]
