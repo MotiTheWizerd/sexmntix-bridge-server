@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from src.database.models import UserProject
-from .base_repository import BaseRepository
+from ..base.base_repository import BaseRepository
 from typing import List
 
 class UserProjectRepository(BaseRepository[UserProject]):

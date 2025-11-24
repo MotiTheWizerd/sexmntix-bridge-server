@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, and_
 from src.database.models import MemoryLog
-from .base_repository import BaseRepository
+from ..base.base_repository import BaseRepository
 from typing import List, Tuple, Optional
 from datetime import datetime
 
@@ -85,6 +85,80 @@ class MemoryLogRepository(BaseRepository[MemoryLog]):
             select(MemoryLog, similarity_expr)
             .where(and_(*conditions))
             .order_by(distance_expr)  # Order by distance (ascending = most similar first)
+            .limit(limit)
+        )
+
+        # Filter by minimum similarity and return
+        rows = result.all()
+        return [
+            (row.MemoryLog, row.similarity)
+            for row in rows
+            if row.similarity >= min_similarity
+        ]
+
+    async def search_similar_by_date(
+        self,
+        query_embedding: List[float],
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        user_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+        limit: int = 10,
+        min_similarity: float = 0.0,
+        distance_metric: str = "cosine"
+    ) -> List[Tuple[MemoryLog, float]]:
+        """
+        Perform semantic similarity search with date filtering using pgvector.
+
+        Args:
+            query_embedding: The embedding vector to search for (768 dimensions)
+            start_date: Filter records created on or after this date
+            end_date: Filter records created on or before this date
+            user_id: Filter by user_id (optional)
+            project_id: Filter by project_id (optional)
+            limit: Maximum number of results to return
+            min_similarity: Minimum similarity threshold (0.0 to 1.0)
+            distance_metric: Distance metric to use ('cosine', 'l2', or 'inner_product')
+
+        Returns:
+            List of tuples: (MemoryLog, similarity_score)
+            similarity_score is between 0.0 and 1.0 (higher = more similar)
+        """
+        # Build where conditions
+        conditions = [MemoryLog.embedding.is_not(None)]
+
+        # Add date filters
+        if start_date and end_date:
+            conditions.append(MemoryLog.created_at.between(start_date, end_date))
+        elif start_date:
+            conditions.append(MemoryLog.created_at >= start_date)
+        elif end_date:
+            conditions.append(MemoryLog.created_at <= end_date)
+
+        # Add user/project filters
+        if user_id:
+            conditions.append(MemoryLog.user_id == user_id)
+        if project_id:
+            conditions.append(MemoryLog.project_id == project_id)
+
+        # Select distance operator based on metric
+        if distance_metric == "cosine":
+            distance_expr = MemoryLog.embedding.cosine_distance(query_embedding)
+            similarity_expr = (1 - (distance_expr / 2)).label('similarity')
+        elif distance_metric == "l2":
+            distance_expr = MemoryLog.embedding.l2_distance(query_embedding)
+            similarity_expr = (1 / (1 + distance_expr)).label('similarity')
+        elif distance_metric == "inner_product":
+            distance_expr = MemoryLog.embedding.max_inner_product(query_embedding)
+            similarity_expr = distance_expr.label('similarity')
+        else:
+            raise ValueError(f"Unknown distance metric: {distance_metric}")
+
+        # Execute query
+        result = await self.session.execute(
+            select(MemoryLog, similarity_expr)
+            .where(and_(*conditions))
+            .order_by(distance_expr)
             .limit(limit)
         )
 

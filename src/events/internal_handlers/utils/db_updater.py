@@ -7,9 +7,7 @@ ChromaDB storage succeeds, with non-blocking failure handling.
 
 from typing import List, Callable
 from src.modules.core import Logger
-from src.database.repositories.memory_log_repository import MemoryLogRepository
-from src.database.repositories.mental_note_repository import MentalNoteRepository
-from src.database.repositories.conversation_repository import ConversationRepository
+from src.database.repositories import MemoryLogRepository, MentalNoteRepository, ConversationRepository
 
 
 class DatabaseEmbeddingUpdater:

@@ -18,7 +18,7 @@ from src.api.schemas.conversation import (
     ConversationSearchResult
 )
 from src.api.formatters.conversation_formatter import ConversationFormatter
-from src.database.repositories.conversation_repository import ConversationRepository
+from src.database.repositories import ConversationRepository
 from src.services.conversation_service import ConversationService
 from src.modules.core import EventBus, Logger
 

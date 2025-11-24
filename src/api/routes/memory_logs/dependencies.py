@@ -9,7 +9,7 @@ from src.api.dependencies.database import get_db_session
 from src.api.dependencies.event_bus import get_event_bus
 from src.api.dependencies.logger import get_logger
 from src.api.dependencies.vector_storage import create_vector_storage_service
-from src.database.repositories.memory_log_repository import MemoryLogRepository
+from src.database.repositories import MemoryLogRepository
 from src.services.memory_log_service import MemoryLogService
 from src.modules.core import EventBus, Logger
 from src.modules.vector_storage import VectorStorageService
@@ -111,4 +111,31 @@ async def get_search_service(
         vector_service=vector_service,
         event_bus=None,
         logger=logger
+    )
+
+
+async def get_postgres_search_service(
+    repository: MemoryLogRepository = Depends(get_memory_log_repository),
+    request: Request = None,
+    logger: Logger = Depends(get_logger)
+) -> MemoryLogService:
+    """
+    Create memory log service with PostgreSQL semantic search capability.
+
+    Args:
+        repository: Memory log repository
+        request: FastAPI request (for app.state access)
+        logger: Logger instance
+
+    Returns:
+        MemoryLogService instance with repository and embedding service
+    """
+    embedding_service = request.app.state.embedding_service if request else None
+
+    return MemoryLogService(
+        repository=repository,
+        vector_service=None,
+        event_bus=None,
+        logger=logger,
+        embedding_service=embedding_service
     )

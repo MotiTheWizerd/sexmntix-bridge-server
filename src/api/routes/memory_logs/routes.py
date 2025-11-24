@@ -25,7 +25,7 @@ from src.api.routes.memory_logs.dependencies import (
     get_memory_log_repository,
     get_memory_log_service,
 )
-from src.database.repositories.memory_log_repository import MemoryLogRepository
+from src.database.repositories import MemoryLogRepository
 from src.services.memory_log_service import MemoryLogService
 from src.modules.core import Logger
 from src.api.dependencies.vector_storage import create_vector_storage_service
@@ -150,9 +150,10 @@ async def search_memory_logs_by_date(
     search_request: MemoryLogDateSearchRequest,
     request: Request,
     logger: Logger = Depends(get_logger),
+    repository: MemoryLogRepository = Depends(get_memory_log_repository),
 ):
     """
-    Search memory logs with date filtering.
+    Search memory logs with date filtering using PostgreSQL pgvector.
 
     Supports both explicit date ranges and convenience time period shortcuts:
     - recent: Last 7 days
@@ -182,18 +183,17 @@ async def search_memory_logs_by_date(
         }
 
     Format options: 'json' (complete JSON objects, default) or 'text' (formatted terminal output).
-    """
-    # Create vector service for this user/project
-    vector_service = create_vector_storage_service(
-        user_id=search_request.user_id,
-        project_id=search_request.project_id,
-        embedding_service=request.app.state.embedding_service,
-        event_bus=request.app.state.event_bus,
-        logger=logger
-    )
 
-    # Create service with vector capability
-    service = MemoryLogService(None, vector_service, None, logger)
+    Note: This endpoint now uses PostgreSQL pgvector for semantic search instead of ChromaDB.
+    """
+    # Create service with PostgreSQL search capability
+    service = MemoryLogService(
+        repository=repository,
+        vector_service=None,
+        event_bus=None,
+        logger=logger,
+        embedding_service=request.app.state.embedding_service
+    )
 
     return await DateSearchMemoryLogHandler.handle(
         search_request, service, logger

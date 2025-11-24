@@ -1,13 +1,15 @@
-from .base_repository import BaseRepository
-from .user_repository import UserRepository
-from .memory_log_repository import MemoryLogRepository
-from .mental_note_repository import MentalNoteRepository
-from .conversation_repository import ConversationRepository
+from .base.base_repository import BaseRepository
+from .mental_note.repository import MentalNoteRepository
+from .memory_log.repository import MemoryLogRepository
+from .conversation.repository import ConversationRepository
+from .user.repository import UserRepository
+from .user_project.repository import UserProjectRepository
 
 __all__ = [
     "BaseRepository",
-    "UserRepository",
-    "MemoryLogRepository",
     "MentalNoteRepository",
-    "ConversationRepository"
+    "MemoryLogRepository",
+    "ConversationRepository",
+    "UserRepository",
+    "UserProjectRepository"
 ]

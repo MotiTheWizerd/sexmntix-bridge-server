@@ -6,7 +6,7 @@ Orchestrates interactions between repository, vector storage, and event bus.
 """
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-from src.database.repositories.memory_log_repository import MemoryLogRepository
+from src.database.repositories import MemoryLogRepository
 from src.modules.core import EventBus, Logger
 from src.modules.vector_storage import VectorStorageService
 from src.utils.date_range_calculator import DateRangeCalculator
@@ -21,7 +21,8 @@ class MemoryLogService:
         repository: MemoryLogRepository,
         vector_service: VectorStorageService,
         event_bus: EventBus,
-        logger: Logger
+        logger: Logger,
+        embedding_service=None
     ):
         """
         Initialize memory log service.
@@ -31,11 +32,13 @@ class MemoryLogService:
             vector_service: Vector storage service for semantic search
             event_bus: Event bus for async operations
             logger: Logger instance
+            embedding_service: Embedding service for generating query embeddings (optional)
         """
         self.repository = repository
         self.vector_service = vector_service
         self.event_bus = event_bus
         self.logger = logger
+        self.embedding_service = embedding_service
 
     def unwrap_request_body(self, body: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -210,7 +213,7 @@ class MemoryLogService:
         end_date: Optional[datetime] = None
     ) -> List[Dict[str, Any]]:
         """
-        Search memory logs with date filtering.
+        Search memory logs with date filtering using PostgreSQL pgvector.
 
         Args:
             query: Search query
@@ -222,12 +225,18 @@ class MemoryLogService:
             end_date: Explicit end date
 
         Returns:
-            List of search results
+            List of search results in ChromaDB-compatible format
         """
         self.logger.info(
-            f"Searching memory logs by date for: '{query[:100]}' "
+            f"Searching memory logs by date (PostgreSQL) for: '{query[:100]}' "
             f"(user: {user_id}, project: {project_id})"
         )
+
+        # Validate dependencies
+        if not self.repository:
+            raise ValueError("Repository is required for PostgreSQL search")
+        if not self.embedding_service:
+            raise ValueError("Embedding service is required for PostgreSQL search")
 
         # Calculate date range using utility
         start_date, end_date = DateRangeCalculator.calculate(
@@ -236,28 +245,42 @@ class MemoryLogService:
             end_date=end_date
         )
 
-        # Build ChromaDB filter for date range
-        # ChromaDB stores dates as Unix timestamps (integers), not ISO strings
-        where_filter = {}
-        if start_date:
-            where_filter["date"] = {"$gte": int(start_date.timestamp())}
-        if end_date and start_date:
-            where_filter["date"] = {
-                "$gte": int(start_date.timestamp()),
-                "$lte": int(end_date.timestamp())
-            }
-        elif end_date:
-            where_filter["date"] = {"$lte": int(end_date.timestamp())}
+        # Generate embedding from query
+        self.logger.debug(f"Generating embedding for query: '{query[:50]}'")
+        embedding_response = await self.embedding_service.generate_embedding(query)
+        query_embedding = embedding_response.embedding
 
-        # Perform semantic search with date filter
-        results = await self.vector_service.search_similar_memories(
-            query=query,
+        # Perform semantic search with date filter using PostgreSQL
+        results = await self.repository.search_similar_by_date(
+            query_embedding=query_embedding,
+            start_date=start_date,
+            end_date=end_date,
             user_id=user_id,
             project_id=project_id,
             limit=limit,
-            where_filter=where_filter if where_filter else None,
-            min_similarity=0.0
+            min_similarity=0.0,
+            distance_metric="cosine"
         )
 
-        self.logger.info(f"Found {len(results)} matching memories")
-        return results
+        self.logger.info(f"Found {len(results)} matching memories from PostgreSQL")
+
+        # Transform PostgreSQL results to ChromaDB-compatible format
+        formatted_results = []
+        for memory_log, similarity in results:
+            formatted_results.append({
+                "id": str(memory_log.id),
+                "memory_log_id": str(memory_log.id),
+                "document": memory_log.memory_log,
+                "metadata": {
+                    "task": memory_log.task,
+                    "agent": memory_log.agent,
+                    "session_id": memory_log.session_id,
+                    "user_id": memory_log.user_id,
+                    "project_id": memory_log.project_id,
+                    "created_at": memory_log.created_at.isoformat(),
+                },
+                "distance": 1.0 - similarity,  # Convert similarity to distance
+                "similarity": similarity
+            })
+
+        return formatted_results

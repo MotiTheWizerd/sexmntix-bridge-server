@@ -14,7 +14,7 @@ from src.api.schemas.memory_log import (
     MemoryLogDateSearchRequest,
 )
 from src.api.routes.memory_logs.formatters import MemoryLogFormatter
-from src.database.repositories.memory_log_repository import MemoryLogRepository
+from src.database.repositories import MemoryLogRepository
 from src.services.memory_log_service import MemoryLogService
 from src.modules.core import Logger
 

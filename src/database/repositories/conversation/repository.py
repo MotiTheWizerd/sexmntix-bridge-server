@@ -7,7 +7,7 @@ Provides CRUD operations and semantic search for conversations.
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, and_, func, text
 from src.database.models import Conversation
-from .base_repository import BaseRepository
+from ..base.base_repository import BaseRepository
 from typing import List, Tuple, Optional
 from datetime import datetime
 

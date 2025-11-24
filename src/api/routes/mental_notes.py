@@ -12,7 +12,7 @@ from src.api.schemas.mental_note import (
     MentalNoteSearchRequest,
     MentalNoteSearchResult
 )
-from src.database.repositories.mental_note_repository import MentalNoteRepository
+from src.database.repositories import MentalNoteRepository
 from src.modules.core import EventBus, Logger
 from src.modules.embeddings import EmbeddingService
 
@@ -109,6 +109,7 @@ async def search_mental_notes(
     search_request: MentalNoteSearchRequest,
     logger: Logger = Depends(get_logger),
     event_bus: EventBus = Depends(get_event_bus),
+    embedding_service: EmbeddingService = Depends(get_embedding_service),
 ):
     """
     Semantic search for mental notes by meaning, not keywords.
@@ -131,28 +132,12 @@ async def search_mental_notes(
 
     Returns mental notes ranked by similarity with scores.
     """
-    from src.api.dependencies.embedding_service import get_embedding_service
-    from fastapi import Request
-
     logger.info(
         f"Searching mental notes for: '{search_request.query[:100]}' "
         f"(user: {search_request.user_id}, project: {search_request.project_id})"
     )
 
     try:
-        # Get embedding service from app state
-        # For now, we'll create it manually - this should be injected via dependency
-        from src.modules.embeddings import EmbeddingService
-        from src.modules.embeddings.providers.google import GoogleEmbeddingProvider
-        from src.modules.embeddings.caching import EmbeddingCache
-        from src.modules.core.telemetry import Logger as TelemetryLogger
-
-        # Create embedding service (this should be dependency injected in production)
-        provider = GoogleEmbeddingProvider()
-        cache = EmbeddingCache()
-        embedding_logger = TelemetryLogger("embedding_service")
-        embedding_service = EmbeddingService(provider, cache, event_bus, embedding_logger)
-
         # Create VectorStorageService for this specific user/project
         vector_service = create_vector_storage_service(
             user_id=search_request.user_id,

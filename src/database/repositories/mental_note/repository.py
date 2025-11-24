@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, and_
 from src.database.models import MentalNote
-from .base_repository import BaseRepository
+from ..base.base_repository import BaseRepository
 from typing import List, Optional
 
 

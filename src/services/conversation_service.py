@@ -7,7 +7,7 @@ Extracted from conversations.py routes following service layer pattern.
 
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-from src.database.repositories.conversation_repository import ConversationRepository
+from src.database.repositories import ConversationRepository
 from src.modules.core import EventBus, Logger
 from src.modules.vector_storage import VectorStorageService
 from src.modules.SXThalamus.prompts import SXThalamusPromptBuilder

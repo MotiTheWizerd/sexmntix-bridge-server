@@ -37,9 +37,9 @@ class QueryMentalNotesTool(BaseTool):
 
             # HTTP call to server
             async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{self.server_url}/mental-notes",
-                    params=params,
+                response = await client.post(
+                    f"{self.server_url}/mental-notes/search",
+                    json=params,
                     timeout=30.0
                 )
                 response.raise_for_status()

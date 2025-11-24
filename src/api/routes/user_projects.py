@@ -4,7 +4,7 @@ from typing import List
 from src.api.dependencies.database import get_db_session
 from src.api.dependencies.logger import get_logger
 from src.api.schemas.user_project import UserProjectCreate, UserProjectUpdate, UserProjectResponse
-from src.database.repositories.user_project_repository import UserProjectRepository
+from src.database.repositories import UserProjectRepository
 from src.modules.core import Logger
 
 router = APIRouter(prefix="/user-projects", tags=["user-projects"])

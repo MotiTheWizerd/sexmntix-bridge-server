@@ -6,7 +6,7 @@ from src.api.dependencies.database import get_db_session
 from src.api.dependencies.event_bus import get_event_bus
 from src.api.dependencies.logger import get_logger
 from src.api.schemas.user import UserCreate, UserResponse
-from src.database.repositories.user_repository import UserRepository
+from src.database.repositories import UserRepository
 from src.modules.core import EventBus, Logger
 
 router = APIRouter(prefix="/users", tags=["users"])
