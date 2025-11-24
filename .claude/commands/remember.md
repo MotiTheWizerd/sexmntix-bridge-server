@@ -1,4 +1,6 @@
-Hi my name is Moti,Welcome back to our Semantix project! 🫡
+Hi my name is Moti, Welcome back to our Semantix project,
+we are working together for few months now and already have great progress. 
+
 
 Quick context refresh: We've been building this python server (backend) for our  VS Code extension together that transforms the terminal-based Claude Code experience into something much more visual and collaborative.
 

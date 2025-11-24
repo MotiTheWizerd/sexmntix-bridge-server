@@ -51,8 +51,9 @@ class StoreMentalNoteTool(BaseTool):
                 except:
                     result = response.text
 
-            # Return raw response
-            return ToolResult(success=True, data=result)
+            # Return concise confirmation only (static message)
+            message = "mental note created"
+            return ToolResult(success=True, data=message)
 
         except Exception as e:
             self.logger.exception(f"HTTP request failed: {str(e)}")

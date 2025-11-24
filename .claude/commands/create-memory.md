@@ -6,8 +6,7 @@ DO NOT change the structure. Use accurate and specific language. Keep it JSON-co
 ---
 
 {
-  "user_id": "string",
-  "project_id": "string",
+ 
   "session_id": "string",
   "task": "string",
   "agent": "string",

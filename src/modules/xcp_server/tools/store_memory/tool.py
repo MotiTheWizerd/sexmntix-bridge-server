@@ -5,7 +5,7 @@ ARCHITECTURAL PRINCIPLE: This tool is a DUMB PIPELINE.
 It forwards requests to the backend API at http://localhost:8000 with NO business logic.
 All validation, building, and formatting happens in the backend.
 """
-
+import os
 from typing import Dict, Any
 import httpx
 
@@ -60,10 +60,23 @@ class StoreMemoryTool(BaseTool):
         try:
             # Unwrap MCP "memory_log" parameter wrapper
             # MCP SDK wraps all arguments with the parameter name from config
-            if "memory_log" in arguments:
-                request_payload = arguments["memory_log"]
-            else:
-                request_payload = arguments
+            request_payload = arguments.get("memory_log", arguments)
+
+            # Inject required IDs from context/environment to avoid random/placeholder values
+            # Prefer explicit env vars (XCP_USER_ID/XCP_PROJECT_ID) and fall back to context
+            env_user_id = os.getenv("XCP_USER_ID") or context.user_id
+            env_project_id = os.getenv("XCP_PROJECT_ID") or context.project_id
+
+            enriched_payload = {
+                **request_payload,
+                "user_id": env_user_id,
+                "project_id": env_project_id,
+                
+            }
+
+            # Only add session_id if provided in context and not already present
+            if context.session_id and "session_id" not in enriched_payload:
+                enriched_payload["session_id"] = context.session_id
 
             self.logger.info(f"[STORE_MEMORY] Forwarding request to backend API")
 
@@ -71,7 +84,7 @@ class StoreMemoryTool(BaseTool):
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f"{self.api_base_url}/memory-logs",
-                    json=request_payload
+                    json=enriched_payload
                 )
                 response.raise_for_status()
 
@@ -83,9 +96,17 @@ class StoreMemoryTool(BaseTool):
 
             self.logger.info(f"[STORE_MEMORY] Memory stored successfully")
 
+            # Return a concise confirmation while keeping the raw response in metadata
+            if isinstance(result, dict):
+                memory_id = result.get("id") or result.get("memory_log_id")
+                message = f"memory log created{f' (id: {memory_id})' if memory_id else ''}"
+            else:
+                message = "memory log created"
+
             return ToolResult(
                 success=True,
-                data=result
+                data=message,
+                metadata={"response": result}
             )
 
         except httpx.HTTPError as e:

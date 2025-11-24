@@ -237,16 +237,17 @@ class MemoryLogService:
         )
 
         # Build ChromaDB filter for date range
+        # ChromaDB stores dates as Unix timestamps (integers), not ISO strings
         where_filter = {}
         if start_date:
-            where_filter["date"] = {"$gte": start_date.isoformat()}
+            where_filter["date"] = {"$gte": int(start_date.timestamp())}
         if end_date and start_date:
             where_filter["date"] = {
-                "$gte": start_date.isoformat(),
-                "$lte": end_date.isoformat()
+                "$gte": int(start_date.timestamp()),
+                "$lte": int(end_date.timestamp())
             }
         elif end_date:
-            where_filter["date"] = {"$lte": end_date.isoformat()}
+            where_filter["date"] = {"$lte": int(end_date.timestamp())}
 
         # Perform semantic search with date filter
         results = await self.vector_service.search_similar_memories(

@@ -21,7 +21,7 @@ class StoreMemoryConfig:
        All fields in memory_log are optional and you can add custom fields.
          USE EXACTLY THIS TEMPLATE:               
                         
-      { "user_id": "string", "project_id": "string",
+      {
                          "session_id": "string", "task": "string",
                          "agent": "string", 
                         "memory_log": { "component": "string", "complexity": { "technical": "string", "business": "string", "coordination": "string" }, "files_modified": "string", "files_touched": [ "string" ], "tests_added": "string", "related_tasks": [ "string" ], "outcomes": { "performance_impact": "string", "test_coverage_delta": "string", "technical_debt_reduced": "string", "follow_up_needed": true }, "summary": "string", "root_cause": "string", "solution": { "approach": "string", "key_changes": [ "string" ] }, "validation": "string", "gotchas": [ { "issue": "string", "solution": "string", "category": "string", "severity": "string" } ], "lesson": "string", "tags": [ "string" ], "code_context": { "key_patterns": [ "string" ], "api_surface": [ "string" ], "dependencies_added": [ "string" ], "breaking_changes": [ "string" ] }, "future_planning": { "next_logical_steps": [ "string" ], "architecture_decisions": { "additionalProp1": "string", "additionalProp2": "string", "additionalProp3": "string" }, "extension_points": [ "string" ] }, "user_context": { "development_style": "string", "naming_preferences": "string", "architecture_philosophy": "string", "quality_standards": "string" }, "semantic_context": { "domain_concepts": [ "string" ], "technical_patterns": [ "string" ], "integration_points": [ "string" ] }, "content": "string", "metadata": {}, "additionalProp1": {} } 
