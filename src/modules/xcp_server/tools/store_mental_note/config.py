@@ -47,28 +47,9 @@ class StoreMentalNoteConfig:
         """
         return [
             ToolParameter(
-                name="content",
+                name="query",
                 type="string",
-                description="The content of the mental note",
+                description="semantic query to remember about something",
                 required=True
-            ),
-            ToolParameter(
-                name="session_id",
-                type="string",
-                description="Session identifier to group related mental notes (defaults to context session_id if available)",
-                required=False
-            ),
-            ToolParameter(
-                name="note_type",
-                type="string",
-                description="Type or category of the note (e.g., 'observation', 'decision', 'insight', 'context')",
-                required=False,
-                default=cls.DEFAULT_NOTE_TYPE
-            ),
-            ToolParameter(
-                name="meta_data",
-                type="object",
-                description="Optional additional metadata as key-value pairs",
-                required=False
             )
         ]

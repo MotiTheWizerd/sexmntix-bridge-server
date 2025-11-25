@@ -2,7 +2,7 @@
 Mental note formatters - Transform search results into different output formats.
 """
 from typing import List, Dict, Any
-from src.api.schemas.mental_note import MentalNoteSearchResult
+from src.api.schemas.mental_note import MentalNoteSearchResult, MentalNoteResponse
 
 
 class MentalNoteFormatter:
@@ -92,5 +92,37 @@ class MentalNoteFormatter:
         lines.append("=" * 80)
         lines.append("End of Results")
         lines.append("=" * 80)
+
+        return "\n".join(lines)
+
+    @staticmethod
+    def format_creation_text(mental_note: MentalNoteResponse) -> str:
+        """
+        Format mental note creation response as concise text confirmation.
+
+        Returns a brief confirmation message with key details.
+        Perfect for CLI/terminal usage where full JSON is unnecessary.
+
+        Args:
+            mental_note: Created mental note response
+
+        Returns:
+            Formatted text confirmation
+        """
+        lines = []
+
+        lines.append("✓ Mental note created successfully")
+        lines.append("")
+        lines.append(f"ID: {mental_note.id}")
+
+        if mental_note.session_id:
+            lines.append(f"Session: {mental_note.session_id}")
+
+        lines.append(f"Type: {mental_note.note_type}")
+
+        # Format timestamp
+        if mental_note.created_at:
+            timestamp = mental_note.created_at.strftime("%Y-%m-%d %H:%M:%S")
+            lines.append(f"Created: {timestamp}")
 
         return "\n".join(lines)

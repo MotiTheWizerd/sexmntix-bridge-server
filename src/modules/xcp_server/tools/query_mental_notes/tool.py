@@ -32,7 +32,8 @@ class QueryMentalNotesTool(BaseTool):
             params = {
                 **arguments,
                 "user_id": context.user_id,
-                "project_id": context.project_id
+                "project_id": context.project_id,
+                "format": "text"
             }
 
             # HTTP call to server

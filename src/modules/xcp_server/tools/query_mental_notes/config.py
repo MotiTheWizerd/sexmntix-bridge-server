@@ -48,22 +48,9 @@ class QueryMentalNotesConfig:
         """
         return [
             ToolParameter(
-                name="session_id",
+                name="query",
                 type="string",
-                description="Optional session ID to filter notes from a specific session",
+                description="remember you last mental notes",
                 required=False
-            ),
-            ToolParameter(
-                name="mental_note_id",
-                type="number",
-                description="Optional specific mental note ID to retrieve",
-                required=False
-            ),
-            ToolParameter(
-                name="limit",
-                type="number",
-                description=f"Maximum number of notes to return (default: {cls.DEFAULT_LIMIT}, max: {cls.MAX_LIMIT})",
-                required=False,
-                default=cls.DEFAULT_LIMIT
             )
         ]

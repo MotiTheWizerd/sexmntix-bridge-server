@@ -50,7 +50,7 @@ if str(ROOT) not in sys.path:
 from sqlalchemy import text as sql_text
 from src.api.bootstrap.config import load_app_config, load_service_config
 from src.database import DatabaseManager
-from src.database.repositories.conversation_repository import ConversationRepository
+from src.database.repositories.conversation.repository import ConversationRepository
 from src.database.models import Conversation
 from src.modules.core import EventBus, Logger
 from src.modules.embeddings import (
@@ -188,33 +188,69 @@ def parse_args():
     return parser.parse_args()
 
 
+def _extract_message_text(msg: Any) -> str:
+    """Return plain text from a message dict with flexible schemas."""
+    if not isinstance(msg, dict):
+        return ""
+
+    # Common fields
+    if isinstance(msg.get("text"), str):
+        return msg["text"]
+
+    if isinstance(msg.get("content"), str):
+        return msg["content"]
+
+    if isinstance(msg.get("content"), list):
+        parts = msg["content"]
+        return " ".join(
+            part.get("text", "") if isinstance(part, dict) else str(part)
+            for part in parts
+        ).strip()
+
+    if isinstance(msg.get("parts"), list):
+        return " ".join(
+            part.get("text", "") if isinstance(part, dict) else str(part)
+            for part in msg["parts"]
+        ).strip()
+
+    return ""
+
+
 def prepare_conversation_text(conversation: Conversation) -> str:
     """
-    Extract text fields from conversation messages.
+    Extract text fields from conversation messages across old/new schemas.
 
-    Creates structured representation of user/assistant exchanges:
-    [{"user": "prompt"}, {"assistant": "response"}, ...]
+    Accepts any of:
+    - raw_data["conversation"]: list[dict] with role/text
+    - raw_data["messages"]: list[dict] with role/text/content/parts
+    - raw_data["memory_log"]["conversation"]: list[dict] (fallback)
 
-    Args:
-        conversation: Conversation instance with raw_data containing messages
-
-    Returns:
-        JSON string of user/assistant message pairs
+    Returns JSON list of role->text pairs for embedding.
     """
-    messages = []
+    messages: List[Dict[str, str]] = []
 
-    # Extract conversation messages from raw_data
-    raw_conversation = conversation.raw_data.get('conversation', [])
+    raw = conversation.raw_data or {}
+    candidates = []
 
-    for msg in raw_conversation:
-        role = msg.get('role', '')
-        text = msg.get('text', '').strip()
+    if isinstance(raw, list):
+        candidates = raw
+    elif isinstance(raw, dict):
+        if isinstance(raw.get("conversation"), list):
+            candidates = raw["conversation"]
+        elif isinstance(raw.get("messages"), list):
+            candidates = raw["messages"]
+        elif isinstance(raw.get("memory_log"), dict):
+            mem_log = raw["memory_log"]
+            if isinstance(mem_log.get("conversation"), list):
+                candidates = mem_log["conversation"]
 
-        # Only include user and assistant messages with text content
-        if role in ['user', 'assistant'] and text:
+    for msg in candidates:
+        role = msg.get("role", "").strip() if isinstance(msg, dict) else ""
+        text = _extract_message_text(msg).strip()
+
+        if role in ("user", "assistant") and text:
             messages.append({role: text})
 
-    # Return as JSON string for embedding
     return json.dumps(messages, ensure_ascii=False, sort_keys=True)
 
 

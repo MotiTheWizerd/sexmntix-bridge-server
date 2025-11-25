@@ -30,11 +30,10 @@ class StoreMentalNoteTool(BaseTool):
         try:
             # Add context to arguments
             payload = {
-                **arguments,
+                "content": arguments.get("query"),  # Map 'query' param to 'content' field
                 "user_id": context.user_id,
                 "project_id": context.project_id,
-                "session_id": getattr(context, 'session_id', None),
-                "format" : "text"
+                "session_id": getattr(context, 'session_id', None)
             }
 
             # HTTP call to server
