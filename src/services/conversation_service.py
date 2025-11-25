@@ -108,6 +108,7 @@ class ConversationService:
             "user_id": user_id,
             "project_id": project_id,
             "session_id": session_id,
+            "created_at": conversation.created_at,
         }
 
         # Use publish (not publish_async) to schedule as background task

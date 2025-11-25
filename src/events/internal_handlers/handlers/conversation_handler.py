@@ -8,8 +8,8 @@ This fires AFTER SXThalamus has processed conversations with Gemini.
 from typing import Dict, Any, Optional, Tuple, List
 from .base_handler import BaseStorageHandler
 from ..config import InternalHandlerConfig
-
-
+from src.services.conversation_embedding_builder import build_conversation_embedding_text
+from src.modules.SXPrefrontal import CompressionBrain
 
 class ConversationStorageHandler(BaseStorageHandler):
     """
@@ -26,6 +26,11 @@ class ConversationStorageHandler(BaseStorageHandler):
         """Initialize handler with file storage support"""
         super().__init__(*args, **kwargs)
         # Initialize file storage for saving conversations as JSON
+        try:
+            self.compression_brain = CompressionBrain()
+        except Exception:
+            self.compression_brain = None
+            self.logger.warning(f"{self._get_log_prefix()} CompressionBrain unavailable; using raw turns for pgvector embedding")
 
 
     def _get_log_prefix(self) -> str:
@@ -59,6 +64,7 @@ class ConversationStorageHandler(BaseStorageHandler):
         conversation_db_id = event_data.get("conversation_db_id")
         raw_data = event_data.get("raw_data")
         session_id = event_data.get("session_id")
+        created_at = event_data.get("created_at")
 
         # Validation
         if not user_id or not project_id:
@@ -151,6 +157,7 @@ class ConversationStorageHandler(BaseStorageHandler):
             "project_id": project_id,
             "raw_data": raw_data,
             "session_id": session_id,
+            "created_at": created_at,
             "gemini_analysis": gemini_analysis
         }
 
@@ -194,9 +201,23 @@ class ConversationStorageHandler(BaseStorageHandler):
         conversation_db_id = validated["conversation_db_id"]
 
         try:
-            success = await self.db_embedding_updater.update_conversation(
+            compressed_text = build_conversation_embedding_text(
+                raw_data=validated.get("raw_data"),
+                created_at=validated.get("created_at"),
+                compression_brain=self.compression_brain
+            )
+
+            if not compressed_text:
+                self.logger.warning(
+                    f"{self._get_log_prefix()} No embeddable text for conversation {conversation_db_id}, skipping pgvector update"
+                )
+                return
+
+            embedding_result = await self.embedding_service.generate_embedding(compressed_text)
+
+            success = await self.db_updater.update_conversation(
                 conversation_db_id=conversation_db_id,
-                embedding=embedding
+                embedding=embedding_result.embedding
             )
 
             if success:

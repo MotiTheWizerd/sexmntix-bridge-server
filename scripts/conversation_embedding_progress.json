@@ -1,9 +1,9 @@
 {
   "last_offset": 0,
-  "total_processed": 2835,
+  "total_processed": 2863,
   "total_errors": 0,
   "total_skipped": 0,
-  "last_run": "2025-11-25T10:48:18.017007",
+  "last_run": "2025-11-25T13:34:07.630761",
   "failed_ids": [],
   "oversized_ids": [
     "4dbd8e78-258f-4074-96d9-74f90de69dde",
