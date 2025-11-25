@@ -30,6 +30,7 @@ import sys
 import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+import re
 from datetime import datetime
 
 try:
@@ -59,6 +60,7 @@ from src.modules.embeddings import (
     ProviderConfig,
     EmbeddingCache,
 )
+from src.modules.SXPrefrontal import CompressionBrain
 
 
 BATCH_SIZE = 50
@@ -185,6 +187,11 @@ def parse_args():
         action="store_true",
         help="Reset progress file before starting"
     )
+    parser.add_argument(
+        "--no-compress",
+        action="store_true",
+        help="Disable compression; embed raw turns instead of semantic units"
+    )
     return parser.parse_args()
 
 
@@ -216,18 +223,25 @@ def _extract_message_text(msg: Any) -> str:
     return ""
 
 
-def prepare_conversation_text(conversation: Conversation) -> str:
+def prepare_conversation_text(
+    conversation: Conversation,
+    compression_brain: Optional[CompressionBrain] = None
+) -> str:
     """
-    Extract text fields from conversation messages across old/new schemas.
+    Normalize conversation turns into paired user/assistant objects for embedding.
 
-    Accepts any of:
-    - raw_data["conversation"]: list[dict] with role/text
-    - raw_data["messages"]: list[dict] with role/text/content/parts
-    - raw_data["memory_log"]["conversation"]: list[dict] (fallback)
-
-    Returns JSON list of role->text pairs for embedding.
+    Output is a JSON list of:
+    {
+      "user": "message in natural language here.",
+      "assistant": "response in natural language here.",
+      "metadata": {
+        "timestamp": "...",
+        "conversation_id": "...",
+        "source": "conversation"
+      }
+    }
     """
-    messages: List[Dict[str, str]] = []
+    turns: List[Dict[str, Any]] = []
 
     raw = conversation.raw_data or {}
     candidates = []
@@ -244,14 +258,93 @@ def prepare_conversation_text(conversation: Conversation) -> str:
             if isinstance(mem_log.get("conversation"), list):
                 candidates = mem_log["conversation"]
 
+    pending_user: Optional[str] = None
     for msg in candidates:
-        role = msg.get("role", "").strip() if isinstance(msg, dict) else ""
-        text = _extract_message_text(msg).strip()
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role", "").strip()
+        text = _strip_memory_blocks(_extract_message_text(msg)).strip()
+        if not role or not text:
+            continue
 
-        if role in ("user", "assistant") and text:
-            messages.append({role: text})
+        timestamp = (
+            msg.get("timestamp")
+            or msg.get("created_at")
+            or (conversation.created_at.isoformat() if conversation.created_at else None)
+        )
 
-    return json.dumps(messages, ensure_ascii=False, sort_keys=True)
+        metadata = {
+            "timestamp": timestamp,
+            "conversation_id": conversation.conversation_id,
+            "source": "conversation",
+        }
+
+        if role == "user":
+            pending_user = text
+        elif role == "assistant":
+            if pending_user is not None:
+                turns.append(
+                    {
+                        "user": pending_user,
+                        "assistant": text,
+                        "metadata": metadata,
+                    }
+                )
+                pending_user = None
+            else:
+                turns.append(
+                    {
+                        "user": "",
+                        "assistant": text,
+                        "metadata": metadata,
+                    }
+                )
+
+    # Capture trailing user message without assistant reply
+    if pending_user:
+        turns.append(
+            {
+                "user": pending_user,
+                "assistant": "",
+                "metadata": {
+                    "timestamp": conversation.created_at.isoformat() if conversation.created_at else None,
+                    "conversation_id": conversation.conversation_id,
+                    "source": "conversation",
+                },
+            }
+        )
+
+    if compression_brain:
+        semantic_units: List[str] = []
+        for turn in turns:
+            user_text = turn.get("user", "")
+            assistant_text = turn.get("assistant", "")
+            try:
+                compressed = compression_brain.compress(user_text, assistant_text)
+                unit = compressed.get("semantic_unit", "").strip()
+                if unit:
+                    semantic_units.append(unit)
+            except Exception:
+                continue
+        if semantic_units:
+            return "\n".join(semantic_units)
+        # Fallback to original turns if compression fails
+
+    return json.dumps(turns, ensure_ascii=False, sort_keys=True)
+
+
+def _strip_memory_blocks(text: str) -> str:
+    """
+    Remove [semantix-memory-block] ... [semantix-end-memory-block] content.
+    """
+    if not text:
+        return ""
+    return re.sub(
+        r"\[semantix-memory-block\].*?\[semantix-end-memory-block\]",
+        "",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
 
 
 async def update_conversation_embedding(
@@ -297,7 +390,8 @@ async def populate_embeddings(
     resume: bool,
     start_from: Optional[int],
     delay: float,
-    reset_progress: bool
+    reset_progress: bool,
+    use_compression: bool
 ):
     """Main function to populate conversation embeddings."""
 
@@ -387,7 +481,7 @@ async def populate_embeddings(
             if sample_conversations:
                 print("Sample conversations:")
                 for i, conv in enumerate(sample_conversations, 1):
-                    text = prepare_conversation_text(conv)
+                    text = prepare_conversation_text(conv, compression_brain=compression_brain)
                     msg_count = len(conv.raw_data.get('conversation', []))
                     print(f"\n{i}. Conversation ID: {conv.id}")
                     print(f"   Model: {conv.model}")
@@ -432,6 +526,18 @@ async def populate_embeddings(
         cache=EmbeddingCache(),
         cache_enabled=False  # Disable cache for batch processing
     )
+
+    # Compression brain (optional)
+    compression_brain = None
+    if use_compression:
+        try:
+            compression_brain = CompressionBrain()
+            print("Compression: ENABLED (semantic units)")
+        except Exception as e:
+            print(f"Warning: CompressionBrain init failed, falling back to raw turns. Error: {e}")
+            compression_brain = None
+    else:
+        print("Compression: DISABLED (raw turns)")
 
     print("Services initialized")
     print(f"Embedding model: {embedding_config.model_name}")
@@ -483,7 +589,7 @@ async def populate_embeddings(
 
             for conv in conversations:
                 try:
-                    text = prepare_conversation_text(conv)
+                    text = prepare_conversation_text(conv, compression_brain=compression_brain)
 
                     if not text or text == "[]":
                         print(f"  ⊘ Skipped {conv.id[:8]}... (no text content)")
@@ -645,7 +751,8 @@ def main():
         resume=args.resume,
         start_from=args.start_from,
         delay=args.delay,
-        reset_progress=args.reset_progress
+        reset_progress=args.reset_progress,
+        use_compression=not args.no_compress
     ))
 
 
