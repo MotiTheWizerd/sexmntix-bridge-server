@@ -6,17 +6,23 @@ from typing import Any, Dict, Optional
 from src.modules.SXPrefrontal import ICMBrain, TimeICMBrain
 from src.modules.core import Logger
 from src.database.connection import DatabaseManager
-from src.database.repositories.icm_log import IcmLogRepository
-from src.database.repositories.retrieval_log import RetrievalLogRepository
-from src.database.repositories.conversation.repository import ConversationRepository
 from src.services.conversation_memory_retrieval_service import ConversationMemoryRetrievalService
-from src.services.world_view_service import WorldViewService
 from src.services.identity_service import IdentityICMService
 
 from .session_state import compute_session_state
 from .world_view import compute_world_view
 from .identity import compute_identity
-from .logging_utils import log_icm, log_retrieval_payload
+from .logging_utils import (
+    log_identity_icm,
+    log_retrieval_icm,
+    log_retrieval_payload,
+    log_session_icm,
+    log_intent_icm,
+    log_time_icm,
+    log_world_view_icm,
+)
+from .strategies import resolve_retrieval, parse_time_iso
+from .short_circuit import handle_short_circuit
 
 
 class ConversationMemoryPipeline:
@@ -72,21 +78,10 @@ class ConversationMemoryPipeline:
             logger=self.logger,
         )
 
-        start_time = _parse_iso(time_result.get("start_time"))
-        end_time = _parse_iso(time_result.get("end_time"))
+        start_time = parse_time_iso(time_result.get("start_time"))
+        end_time = parse_time_iso(time_result.get("end_time"))
 
-        retrieval_strategy = intent_result.get("retrieval_strategy", "none")
-        required_memory = intent_result.get("required_memory", [])
-
-        # If intent says none, switch to world_view to pull recent context
-        if retrieval_strategy == "none":
-            retrieval_strategy = "world_view"
-        # If intent returned no required_memory, seed with query for logging
-        if not required_memory:
-            required_memory = [query]
-        # If any required item contains the no-memory sentinel, treat as no retrieval
-        if required_memory and any(_contains_no_memory_sentinel(item) for item in required_memory):
-            sentinel_hit = True
+        retrieval_strategy, required_memory, sentinel_hit = resolve_retrieval(intent_result, query)
 
         identity_payload = compute_identity(identity_service=self.identity_service, user_id=user_id, project_id=project_id, logger=self.logger)
 
@@ -120,10 +115,9 @@ class ConversationMemoryPipeline:
             self.logger.info(f"[FETCH_MEMORY_PIPELINE] intent/time resolution: {json.dumps(payload, default=str, ensure_ascii=False)}")
 
         if world_view_payload is not None:
-            await log_icm(
+            await log_world_view_icm(
                 db_manager=self.db_manager,
                 logger=self.logger,
-                icm_type="world_view",
                 request_id=request_id,
                 query=query,
                 user_id=user_id,
@@ -138,10 +132,9 @@ class ConversationMemoryPipeline:
             )
 
         if identity_payload is not None:
-            await log_icm(
+            await log_identity_icm(
                 db_manager=self.db_manager,
                 logger=self.logger,
-                icm_type="identity",
                 request_id=request_id,
                 query=query,
                 user_id=user_id,
@@ -157,10 +150,9 @@ class ConversationMemoryPipeline:
 
         # Short-circuit if strategy is none OR sentinel indicates no memory retrieval should occur
         if retrieval_strategy == "none" or sentinel_hit:
-            await log_icm(
+            return await handle_short_circuit(
                 db_manager=self.db_manager,
                 logger=self.logger,
-                icm_type="session",
                 request_id=request_id,
                 query=query,
                 user_id=user_id,
@@ -168,73 +160,20 @@ class ConversationMemoryPipeline:
                 session_id=session_id,
                 retrieval_strategy=retrieval_strategy,
                 required_memory=required_memory,
-                confidence=None,
-                payload=session_state,
+                intent_result=intent_result,
+                time_result=time_result,
+                session_state=session_state,
+                start_time=start_time,
+                end_time=end_time,
                 limit=limit,
                 min_similarity=min_similarity,
+                identity_payload=identity_payload,
+                world_view_payload=world_view_payload,
             )
-            await log_icm(
-                db_manager=self.db_manager,
-                logger=self.logger,
-                icm_type="intent",
-                request_id=request_id,
-                query=query,
-                user_id=user_id,
-                project_id=project_id,
-                session_id=session_id,
-                retrieval_strategy=retrieval_strategy,
-                required_memory=required_memory,
-                confidence=intent_result.get("confidence"),
-                payload={"intent": intent_result, "session_state": session_state},
-                limit=limit,
-                min_similarity=min_similarity,
-            )
-            await log_icm(
-                db_manager=self.db_manager,
-                logger=self.logger,
-                icm_type="time",
-                request_id=request_id,
-                query=query,
-                user_id=user_id,
-                project_id=project_id,
-                session_id=session_id,
-                retrieval_strategy=retrieval_strategy,
-                required_memory=required_memory,
-                confidence=time_result.get("resolution_confidence"),
-                payload=time_result,
-                time_window_start=start_time,
-                time_window_end=end_time,
-                limit=limit,
-                min_similarity=min_similarity,
-            )
-            await log_retrieval_payload(
-                db_manager=self.db_manager,
-                logger=self.logger,
-                request_id=request_id,
-                query=query,
-                user_id=user_id,
-                project_id=project_id,
-                session_id=session_id,
-                required_memory=required_memory,
-                results=[],
-                results_count=0,
-                limit=limit,
-                min_similarity=min_similarity,
-                target="skipped",
-            )
-            return {
-                "intent": intent_result,
-                "time": time_result,
-                "session": session_state,
-                "identity": identity_payload,
-                "world_view": world_view_payload,
-                "results": [],
-            }
 
-        await log_icm(
+        await log_session_icm(
             db_manager=self.db_manager,
             logger=self.logger,
-            icm_type="session",
             request_id=request_id,
             query=query,
             user_id=user_id,
@@ -248,10 +187,9 @@ class ConversationMemoryPipeline:
             min_similarity=min_similarity,
         )
 
-        await log_icm(
+        await log_intent_icm(
             db_manager=self.db_manager,
             logger=self.logger,
-            icm_type="intent",
             request_id=request_id,
             query=query,
             user_id=user_id,
@@ -265,10 +203,9 @@ class ConversationMemoryPipeline:
             min_similarity=min_similarity,
         )
 
-        await log_icm(
+        await log_time_icm(
             db_manager=self.db_manager,
             logger=self.logger,
-            icm_type="time",
             request_id=request_id,
             query=query,
             user_id=user_id,
@@ -285,10 +222,9 @@ class ConversationMemoryPipeline:
         )
 
         if session_state is not None:
-            await log_icm(
+            await log_session_icm(
                 db_manager=self.db_manager,
                 logger=self.logger,
-                icm_type="session",
                 request_id=request_id,
                 query=query,
                 user_id=user_id,
@@ -349,10 +285,9 @@ class ConversationMemoryPipeline:
             }
             self.logger.info(f"[FETCH_MEMORY_PIPELINE] retrieval completed: {json.dumps(result_payload, default=str, ensure_ascii=False)}")
 
-        await log_icm(
+        await log_retrieval_icm(
             db_manager=self.db_manager,
             logger=self.logger,
-            icm_type="retrieval",
             request_id=request_id,
             query=query,
             user_id=user_id,
@@ -393,18 +328,3 @@ class ConversationMemoryPipeline:
             "world_view": world_view_payload,
             "results": results,
         }
-
-
-def _contains_no_memory_sentinel(text: Optional[str]) -> bool:
-    if not text:
-        return False
-    return "[semantix-memory-block]" in text and "No relevant memories found" in text
-
-
-def _parse_iso(value: Any) -> Optional[datetime]:
-    if not value or not isinstance(value, str):
-        return None
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None)
-    except Exception:
-        return None

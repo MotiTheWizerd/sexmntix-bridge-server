@@ -1,0 +1,102 @@
+from typing import Any, Dict, Optional, List
+
+from .logging_utils import (
+    log_session_icm,
+    log_intent_icm,
+    log_time_icm,
+    log_retrieval_payload,
+)
+
+
+async def handle_short_circuit(
+    *,
+    db_manager,
+    logger,
+    request_id: str,
+    query: Optional[str],
+    user_id: Optional[str],
+    project_id: Optional[str],
+    session_id: Optional[str],
+    retrieval_strategy: Optional[str],
+    required_memory: List[str],
+    intent_result: Dict[str, Any],
+    time_result: Dict[str, Any],
+    session_state: Optional[Dict[str, Any]],
+    start_time,
+    end_time,
+    limit: int,
+    min_similarity: float,
+    identity_payload: Optional[Dict[str, Any]],
+    world_view_payload: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    await log_session_icm(
+        db_manager=db_manager,
+        logger=logger,
+        request_id=request_id,
+        query=query,
+        user_id=user_id,
+        project_id=project_id,
+        session_id=session_id,
+        retrieval_strategy=retrieval_strategy,
+        required_memory=required_memory,
+        confidence=None,
+        payload=session_state,
+        limit=limit,
+        min_similarity=min_similarity,
+    )
+    await log_intent_icm(
+        db_manager=db_manager,
+        logger=logger,
+        request_id=request_id,
+        query=query,
+        user_id=user_id,
+        project_id=project_id,
+        session_id=session_id,
+        retrieval_strategy=retrieval_strategy,
+        required_memory=required_memory,
+        confidence=intent_result.get("confidence"),
+        payload={"intent": intent_result, "session_state": session_state},
+        limit=limit,
+        min_similarity=min_similarity,
+    )
+    await log_time_icm(
+        db_manager=db_manager,
+        logger=logger,
+        request_id=request_id,
+        query=query,
+        user_id=user_id,
+        project_id=project_id,
+        session_id=session_id,
+        retrieval_strategy=retrieval_strategy,
+        required_memory=required_memory,
+        confidence=time_result.get("resolution_confidence"),
+        payload=time_result,
+        time_window_start=start_time,
+        time_window_end=end_time,
+        limit=limit,
+        min_similarity=min_similarity,
+    )
+    await log_retrieval_payload(
+        db_manager=db_manager,
+        logger=logger,
+        request_id=request_id,
+        query=query,
+        user_id=user_id,
+        project_id=project_id,
+        session_id=session_id,
+        required_memory=required_memory,
+        results=[],
+        results_count=0,
+        limit=limit,
+        min_similarity=min_similarity,
+        target="skipped",
+    )
+
+    return {
+        "intent": intent_result,
+        "time": time_result,
+        "session": session_state,
+        "identity": identity_payload,
+        "world_view": world_view_payload,
+        "results": [],
+    }
