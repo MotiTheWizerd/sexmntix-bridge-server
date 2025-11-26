@@ -24,6 +24,8 @@ from src.services.conversation_memory_pipeline import ConversationMemoryPipeline
 from src.services.conversation_memory_retrieval_service import ConversationMemoryRetrievalService
 from src.modules.SXThalamus.prompts import SXThalamusPromptBuilder
 from src.modules.core import EventBus, Logger
+from src.database.repositories.request_log import RequestLogRepository
+import uuid
 
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
@@ -244,13 +246,36 @@ async def fetch_memory(
         }
     """
     try:
+        # Log raw request to request_logs
+        request_id = str(uuid.uuid4())
+        try:
+            async with request.app.state.db_manager.session_factory() as session:
+                repo = RequestLogRepository(session)
+                await repo.create(
+                    request_id=request_id,
+                    path=str(request.url.path),
+                    method=request.method,
+                    user_id=search_request.user_id,
+                    project_id=search_request.project_id,
+                    session_id=search_request.session_id,
+                    query_params=dict(request.query_params),
+                    headers=dict(request.headers),
+                    body=search_request.model_dump(),
+                )
+        except Exception as e:
+            logger.warning("[REQUEST_LOG] failed to write request log", extra={"error": str(e)})
+
         # Build retrieval service (pgvector) and pipeline (intent + time)
         retrieval_service = ConversationMemoryRetrievalService(
             db_manager=request.app.state.db_manager,
             embedding_service=request.app.state.embedding_service,
             logger=logger,
         )
-        pipeline = ConversationMemoryPipeline(retrieval_service=retrieval_service, logger=logger)
+        pipeline = ConversationMemoryPipeline(
+            retrieval_service=retrieval_service,
+            db_manager=request.app.state.db_manager,
+            logger=logger,
+        )
 
         # Run pipeline
         pipeline_result = await pipeline.run(

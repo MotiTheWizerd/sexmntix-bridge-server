@@ -4,6 +4,9 @@ from .memory_log.repository import MemoryLogRepository
 from .conversation.repository import ConversationRepository
 from .user.repository import UserRepository
 from .user_project.repository import UserProjectRepository
+from .icm_log.repository import IcmLogRepository
+from .retrieval_log.repository import RetrievalLogRepository
+from .request_log.repository import RequestLogRepository
 
 __all__ = [
     "BaseRepository",
@@ -11,5 +14,8 @@ __all__ = [
     "MemoryLogRepository",
     "ConversationRepository",
     "UserRepository",
-    "UserProjectRepository"
+    "UserProjectRepository",
+    "IcmLogRepository",
+    "RetrievalLogRepository",
+    "RequestLogRepository",
 ]

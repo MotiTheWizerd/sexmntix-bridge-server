@@ -143,6 +143,26 @@ class ConversationRepository(BaseRepository[Conversation]):
         )
         return list(result.scalars().all())
 
+    async def count_by_session(
+        self,
+        session_id: str,
+        user_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+    ) -> int:
+        """
+        Count conversations within a session (optionally scoped by user/project).
+        """
+        conditions = [Conversation.session_id == session_id]
+        if user_id:
+            conditions.append(Conversation.user_id == user_id)
+        if project_id:
+            conditions.append(Conversation.project_id == project_id)
+
+        result = await self.session.execute(
+            select(func.count(Conversation.id)).where(and_(*conditions))
+        )
+        return result.scalar() or 0
+
     async def get_by_session_and_user(
         self,
         session_id: str,
