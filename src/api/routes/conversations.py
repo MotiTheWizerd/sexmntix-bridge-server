@@ -248,20 +248,20 @@ async def fetch_memory(
         retrieval_service = ConversationMemoryRetrievalService(
             db_manager=request.app.state.db_manager,
             embedding_service=request.app.state.embedding_service,
+            logger=logger,
         )
         pipeline = ConversationMemoryPipeline(retrieval_service=retrieval_service, logger=logger)
 
         # Run pipeline
         pipeline_result = await pipeline.run(
             query=search_request.query,
-            user_id="84e17260-ff03-409b-bf30-0b5ba52a2ab4",  # temporary fixed user scope
-            project_id="11",  # temporary hardcoded project scope
+            user_id=search_request.user_id,
+            project_id=search_request.project_id,
             limit=search_request.limit,
-            min_similarity=0.0,  # temporary lowered threshold
+            min_similarity=search_request.min_similarity,
             model=search_request.model,
             session_id=search_request.session_id,
             tz_offset_minutes=None,
-            force_conversations=True,
         )
 
         results = pipeline_result.get("results", [])

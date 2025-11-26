@@ -41,7 +41,6 @@ class ConversationMemoryPipeline:
         session_id: Optional[str] = None,
         tz_offset_minutes: Optional[int] = None,
         now: Optional[datetime] = None,
-        force_conversations: bool = False,
     ) -> Dict[str, Any]:
         now = now or datetime.now(timezone.utc)
 
@@ -56,8 +55,6 @@ class ConversationMemoryPipeline:
         end_time = self._parse_iso(time_result.get("end_time"))
 
         retrieval_strategy = intent_result.get("retrieval_strategy", "none")
-        if force_conversations:
-            retrieval_strategy = "conversations"
         required_memory = intent_result.get("required_memory", [])
 
         # Fallback: if intent returned no required_memory, use the raw query
@@ -102,27 +99,6 @@ class ConversationMemoryPipeline:
             tz_offset_minutes=tz_offset_minutes,
             now=now,
         )
-
-        # Fallback: if no results, retry with the raw query as required_memory
-        if not results:
-            results = await self.retrieval_service.fetch_required_memory(
-                required_memory=[query],
-                retrieval_strategy="conversations",
-                user_id=user_id,
-                project_id=project_id,
-                limit=limit,
-                min_similarity=min_similarity,
-                start_time=start_time,
-                end_time=end_time,
-                time_text=query,
-                tz_offset_minutes=tz_offset_minutes,
-                now=now,
-            )
-            if self.logger:
-                self.logger.info(
-                    f"[FETCH_MEMORY_PIPELINE] fallback search with raw query",
-                    extra={"results_count": len(results), "query": query},
-                )
 
         if self.logger:
             result_payload = {

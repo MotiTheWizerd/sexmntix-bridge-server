@@ -6,6 +6,7 @@ from src.database.connection import DatabaseManager
 from src.database.repositories.conversation.repository import ConversationRepository
 from src.modules.embeddings import EmbeddingService
 from src.modules.SXPrefrontal import TimeICMBrain
+from src.modules.core import Logger
 
 
 class ConversationMemoryRetrievalService:
@@ -20,12 +21,14 @@ class ConversationMemoryRetrievalService:
         default_limit: int = 5,
         default_min_similarity: float = 0.5,
         time_icm: Optional[TimeICMBrain] = None,
+        logger: Optional[Logger] = None,
     ):
         self.db_manager = db_manager
         self.embedding_service = embedding_service
         self.default_limit = default_limit
         self.default_min_similarity = default_min_similarity
         self.time_icm = time_icm or TimeICMBrain()
+        self.logger = logger
 
     async def fetch_required_memory(
         self,
@@ -76,10 +79,33 @@ class ConversationMemoryRetrievalService:
         start_time = self._to_naive_utc(start_time)
         end_time = self._to_naive_utc(end_time)
 
-        results: List[Dict[str, Any]] = []
-
         async with self.db_manager.session_factory() as session:
             repo = ConversationRepository(session)
+
+            # First: time window only fetch for observability and hard gating
+            if start_time and end_time:
+                time_window_matches = await repo.get_by_time_range(
+                    start_time=start_time,
+                    end_time=end_time,
+                    user_id=user_id,
+                    project_id=project_id,
+                    limit=effective_limit,
+                )
+                if self.logger:
+                    self.logger.info(
+                        "[FETCH_MEMORY_TIMESLICE] resolved window",
+                        extra={
+                            "start_time": start_time.isoformat(),
+                            "end_time": end_time.isoformat(),
+                            "matches": len(time_window_matches),
+                            "user_id": user_id,
+                            "project_id": project_id,
+                        },
+                    )
+                if not time_window_matches:
+                    return []
+
+            results: List[Dict[str, Any]] = []
 
             for item in required_memory:
                 embedding_result = await self.embedding_service.generate_embedding(item)

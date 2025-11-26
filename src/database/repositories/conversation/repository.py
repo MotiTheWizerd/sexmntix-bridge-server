@@ -105,6 +105,44 @@ class ConversationRepository(BaseRepository[Conversation]):
         )
         return list(result.scalars().all())
 
+    async def get_by_time_range(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        user_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Conversation]:
+        """
+        Get conversations within a specific time window (no similarity filtering).
+
+        Args:
+            start_time: Start of time range (inclusive)
+            end_time: End of time range (exclusive)
+            user_id: Filter by user_id (optional)
+            project_id: Filter by project_id (optional)
+            limit: Maximum number of results
+
+        Returns:
+            List of conversations in the time window
+        """
+        conditions = [
+            Conversation.created_at >= start_time,
+            Conversation.created_at < end_time,
+        ]
+        if user_id:
+            conditions.append(Conversation.user_id == user_id)
+        if project_id:
+            conditions.append(Conversation.project_id == project_id)
+
+        result = await self.session.execute(
+            select(Conversation)
+            .where(and_(*conditions))
+            .order_by(desc(Conversation.created_at))
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     async def get_by_session_and_user(
         self,
         session_id: str,
