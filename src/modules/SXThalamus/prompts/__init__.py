@@ -5,7 +5,7 @@ This module contains all prompt building functions used by the SXThalamus servic
 plus the SXThalamusPromptBuilder orchestrator class.
 """
 
-from typing import Any
+from typing import Any, Dict, Optional
 
 from .semantic_grouping import build_semantic_grouping_prompt
 from .default import build_default_prompt
@@ -68,21 +68,34 @@ class SXThalamusPromptBuilder:
         return build_custom_prompt(template, **kwargs)
 
     @staticmethod
-    def build_memory_synthesis_prompt(search_results: list, query: str = None) -> str:
+    def build_memory_synthesis_prompt(
+        search_results: list,
+        query: str = None,
+        world_view: Optional[Dict[str, Any]] = None,
+        identity: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """
         Build a prompt for synthesizing search results into natural language memory.
 
         Takes raw semantic search results and creates a prompt for Gemini
-        to synthesize them into a coherent memory summary.
+        to synthesize them into a coherent memory summary. Optionally injects
+        world view context (short-term memory and recent conversation summaries).
 
         Args:
             search_results: List of search results from vector storage
             query: The original user query that triggered this search (optional)
+            world_view: Optional dict with short_term_memory/recent_conversations
+            identity: Optional dict with user/assistant identity context
 
         Returns:
             Formatted prompt for memory synthesis
         """
-        return build_memory_synthesis_prompt(search_results, query=query)
+        return build_memory_synthesis_prompt(
+            search_results,
+            query=query,
+            world_view=world_view,
+            identity=identity,
+        )
 
 
 __all__ = [

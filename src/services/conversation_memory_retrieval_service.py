@@ -50,7 +50,7 @@ class ConversationMemoryRetrievalService:
         if not required_memory or retrieval_strategy == "none":
             return []
 
-        if retrieval_strategy not in {"conversations", "hybrid"}:
+        if retrieval_strategy not in {"conversations", "hybrid", "world_view"}:
             return []
 
         effective_limit = limit or self.default_limit
@@ -81,6 +81,32 @@ class ConversationMemoryRetrievalService:
 
         async with self.db_manager.session_factory() as session:
             repo = ConversationRepository(session)
+
+            # World-view strategy: recent conversations, no embedding search
+            if retrieval_strategy == "world_view":
+                recent = await repo.get_recent_by_user_project(
+                    user_id=user_id,
+                    project_id=project_id,
+                    limit=effective_limit,
+                )
+                results = []
+                for conv in recent:
+                    turns = self._normalize_turns(conv)
+                    results.append(
+                        {
+                            "source": "world_view",
+                            "similarity": 1.0,
+                            "conversation_id": conv.conversation_id,
+                            "created_at": conv.created_at.isoformat() if conv.created_at else None,
+                            "model": conv.model,
+                            "project_id": conv.project_id,
+                            "user_id": conv.user_id,
+                            "turns": turns,
+                            "topic": conv.raw_data.get("topic") if conv.raw_data else None,
+                            "required_item": "world_view",
+                        }
+                    )
+                return results
 
             # First: time window only fetch for observability and hard gating
             if start_time and end_time:

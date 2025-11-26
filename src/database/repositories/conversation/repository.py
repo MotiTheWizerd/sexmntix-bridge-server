@@ -301,6 +301,28 @@ class ConversationRepository(BaseRepository[Conversation]):
         )
         return list(result.scalars().all())
 
+    async def get_recent_by_user_project(
+        self,
+        user_id: str,
+        project_id: str,
+        limit: int = 5,
+    ) -> List[Conversation]:
+        """
+        Get most recent conversations for a user/project.
+        """
+        result = await self.session.execute(
+            select(Conversation)
+            .where(
+                and_(
+                    Conversation.user_id == user_id,
+                    Conversation.project_id == project_id,
+                )
+            )
+            .order_by(desc(Conversation.created_at))
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     async def count_without_embeddings(self) -> int:
         """
         Count conversations without embeddings.

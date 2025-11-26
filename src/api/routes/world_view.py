@@ -14,7 +14,7 @@ async def get_world_view(
     user_id: str,
     project_id: str,
     session_id: str | None = None,
-    summarize_with_llm: bool = False,
+    summarize_with_llm: bool = True,
     request: Request = None,
     logger: Logger = Depends(get_logger),
 ):
@@ -26,7 +26,8 @@ async def get_world_view(
 
     request_id = str(uuid.uuid4())
     db_manager = request.app.state.db_manager
-    service = WorldViewService(db_manager=db_manager, logger=logger)
+    llm_service = getattr(request.app.state, "llm_service", None)
+    service = WorldViewService(db_manager=db_manager, logger=logger, llm_service=llm_service)
     payload = await service.build_world_view(
         user_id=user_id,
         project_id=project_id,
