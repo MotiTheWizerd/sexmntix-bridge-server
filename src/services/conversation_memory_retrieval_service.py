@@ -107,6 +107,23 @@ class ConversationMemoryRetrievalService:
                         distance_metric="cosine",
                     )
 
+                # Debug logging
+                try:
+                    print(
+                        f"[FETCH_MEMORY_DEBUG] item='{item}', "
+                        f"matches={len(matches)}, "
+                        f"user_id={user_id}, project_id={project_id}, "
+                        f"start_time={start_time}, end_time={end_time}, "
+                        f"min_similarity={effective_min_sim}"
+                    )
+                    for idx, (conv, sim) in enumerate(matches[:3]):
+                        print(
+                            f"[FETCH_MEMORY_DEBUG] top{idx+1} conv_id={conv.id}, "
+                            f"created_at={conv.created_at}, similarity={sim}"
+                        )
+                except Exception:
+                    pass
+
                 for conv, similarity in matches:
                     turns = self._normalize_turns(conv)
                     results.append(

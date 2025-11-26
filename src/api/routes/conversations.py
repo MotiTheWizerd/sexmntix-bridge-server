@@ -20,6 +20,9 @@ from src.api.schemas.conversation import (
 from src.api.formatters.conversation_formatter import ConversationFormatter
 from src.database.repositories import ConversationRepository
 from src.services.conversation_service import ConversationService
+from src.services.conversation_memory_pipeline import ConversationMemoryPipeline
+from src.services.conversation_memory_retrieval_service import ConversationMemoryRetrievalService
+from src.modules.SXThalamus.prompts import SXThalamusPromptBuilder
 from src.modules.core import EventBus, Logger
 
 
@@ -241,34 +244,40 @@ async def fetch_memory(
         }
     """
     try:
-        # Create VectorStorageService for this specific user
-        vector_service = create_vector_storage_service(
-            user_id=search_request.user_id,
-            project_id="conversations",  # Dedicated collection for conversations
+        # Build retrieval service (pgvector) and pipeline (intent + time)
+        retrieval_service = ConversationMemoryRetrievalService(
+            db_manager=request.app.state.db_manager,
             embedding_service=request.app.state.embedding_service,
-            event_bus=request.app.state.event_bus,
-            logger=logger
         )
+        pipeline = ConversationMemoryPipeline(retrieval_service=retrieval_service, logger=logger)
 
-        # Create service with vector and LLM dependencies
-        llm_service = request.app.state.llm_service
-        service = ConversationService(
-            vector_service=vector_service,
-            llm_service=llm_service,
-            logger=logger
-        )
-
-        # Delegate memory synthesis to service layer
-        synthesized_memory = await service.fetch_synthesized_memory(
+        # Run pipeline
+        pipeline_result = await pipeline.run(
             query=search_request.query,
-            user_id=search_request.user_id,
+            user_id="84e17260-ff03-409b-bf30-0b5ba52a2ab4",  # temporary fixed user scope
+            project_id="11",  # temporary hardcoded project scope
             limit=search_request.limit,
-            min_similarity=search_request.min_similarity,
+            min_similarity=0.0,  # temporary lowered threshold
             model=search_request.model,
-            session_id=search_request.session_id
+            session_id=search_request.session_id,
+            tz_offset_minutes=None,
+            force_conversations=True,
         )
 
-        # Format response
+        results = pipeline_result.get("results", [])
+        if not results:
+            return ConversationFormatter.format_memory_response("No relevant memories found.")
+
+        # Synthesize using LLM over the retrieved results
+        llm_service = request.app.state.llm_service
+        prompt_builder = SXThalamusPromptBuilder()
+        prompt = prompt_builder.build_memory_synthesis_prompt(results, query=search_request.query)
+        synthesized_memory = await llm_service.generate_content(
+            prompt=prompt,
+            user_id=search_request.user_id or "default",
+            worker_type="memory_synthesizer"
+        )
+
         return ConversationFormatter.format_memory_response(synthesized_memory)
 
     except Exception as e:
