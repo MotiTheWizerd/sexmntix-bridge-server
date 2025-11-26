@@ -18,6 +18,7 @@ from src.api.routes import (
     user_projects,
     icm_logs,
     retrieval_logs,
+    world_view,
 )
 from src.api.routes.memory_logs import router as memory_logs_router
 from src.api.routes.mental_notes.routes import router as mental_notes_router
@@ -55,6 +56,7 @@ class RouterRegistry:
         app.include_router(user_projects.router)
         app.include_router(icm_logs.router)
         app.include_router(retrieval_logs.router)
+        app.include_router(world_view.router)
 
     @staticmethod
     def _register_optional_routes(app: FastAPI, embedding_service: Optional[object]):

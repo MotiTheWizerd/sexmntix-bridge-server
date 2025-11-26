@@ -18,6 +18,7 @@ from .conversation import (
 )
 from .icm_log import IcmLogResponse
 from .retrieval_log import RetrievalLogResponse
+from .world_view import WorldViewResponse
 
 __all__ = [
     "MemoryLogCreate",
@@ -34,4 +35,5 @@ __all__ = [
     "ConversationSearchResult",
     "IcmLogResponse",
     "RetrievalLogResponse",
+    "WorldViewResponse",
 ]
