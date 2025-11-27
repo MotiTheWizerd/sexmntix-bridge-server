@@ -1,0 +1,198 @@
+{
+  "task": "indicator-template-swap-on-stream-start",
+  "agent": "claude-sonnet-4",
+  "date": "2025-10-18",
+  "component": "ui-streaming-indicator-system",
+
+  "temporal_context": {
+    "date_iso": "2025-10-18",
+    "year": 2025,
+    "month": 10,
+    "week_number": 42,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "2: Simple template swap logic using existing templateManager infrastructure",
+    "business": "3: User-visible improvement to streaming feedback - shows correct status at each stage",
+    "coordination": "1: Single developer, straightforward fix to existing system"
+  },
+
+  "files_modified": "2",
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/stream-initializer/transformers/PlaceholderTransformer.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/StreamInitializer.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "indicator-streaming-separation-failed-attempt",
+    "typing-indicator-template-system-implementation",
+    "stream-initializer-ultra-modular-refactoring"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - same number of DOM operations, just different template",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "Indicator template stuck on 'waiting-for' during streaming → Template swaps from 'waiting-for' to 'claude-cooking' when stream starts",
+
+  "root_cause": "PlaceholderTransformer was stripped down in previous session (separation-failed-attempt) - removed all template swapping logic, leaving only CSS class addition. Agent misunderstood 'separate systems' to mean 'remove indicator logic from streaming' instead of 'logically separate but render together'",
+
+  "solution": {
+    "approach": "Restore template swapping in PlaceholderTransformer.transform() using existing TemplateManager infrastructure. Swap from 'waiting-for' to 'claude-cooking' template when streaming starts.",
+    "key_changes": [
+      "PlaceholderTransformer.js: Added template swap logic - finds .waiting-for-indicator, generates 'claude-cooking' HTML via templateManager.generateHTML(), swaps using outerHTML",
+      "PlaceholderTransformer.js: Store templateManager and providerNameResolver in constructor for template generation",
+      "StreamInitializer.js: Updated PlaceholderTransformer constructor call - removed unused providerDetector parameter"
+    ]
+  },
+
+  "validation": "User tested and confirmed 'fucking perfect. finally' - template now swaps correctly on stream start",
+
+  "gotchas": [
+    {
+      "issue": "Previous session agent confused 'separate systems' with 'remove indicators entirely' - broke working code by removing template swapping",
+      "solution": "Understand that 'separate systems' means logically separate concerns but they still render together in the same DOM. Indicator system manages templates, streaming system manages text chunks, but they coordinate via events and DOM updates",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "Need to pass providerName to template for personalization (e.g., 'Claude is cooking...')",
+      "solution": "Use providerNameResolver.getProviderName() to get current provider, pass to templateManager.generateHTML('claude-cooking', { providerName })",
+      "category": "integration",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "When user says 'everything works fine, just need X' - believe them! Don't overthink or refactor working code. Add only the ONE missing piece. Use memory to understand existing flow before making changes.",
+
+  "tags": [
+    "template-swapping",
+    "indicator-system",
+    "streaming-ui",
+    "placeholder-transformation",
+    "claude-cooking",
+    "waiting-for-template",
+    "stream-start-event",
+    "ui-feedback",
+    "recovery-from-failure",
+    "listen-to-user"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "templateManager.generateHTML(templateId, data) - Generates HTML from template registry with placeholder substitution",
+      "indicatorContainer.outerHTML = newHTML - Swaps entire DOM element including wrapper",
+      "placeholder.querySelector('.waiting-for-indicator') - Finds specific indicator type to swap",
+      "providerNameResolver.getProviderName() - Gets current provider for template personalization"
+    ],
+    "api_surface": [
+      "PlaceholderTransformer.transform(placeholder): Promise<void> - Swaps indicator template and marks streaming active",
+      "TemplateManager.generateHTML(templateId: string, data: object): Promise<string> - Returns HTML with placeholders replaced"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "PlaceholderTransformer constructor signature changed: removed providerDetector parameter (was unused)"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Add fade-out animation when first chunk arrives (MatrixGridFader currently disabled)",
+      "Consider adding template swap for other providers (Codex, Gemini, etc.) with provider-specific templates",
+      "Add event emission when template swaps for debugging/telemetry"
+    ],
+    "architecture_decisions": {
+      "separate_systems_philosophy": "Indicator system and streaming system are architecturally separate (different concerns, different lifecycles) but coordinate via events and shared DOM. They don't couple their internal logic but render together visually.",
+      "template_swap_timing": "Swap happens on stream start (chat.stream.start event) not on first chunk - gives immediate feedback that provider is working",
+      "use_outerHTML_not_innerHTML": "outerHTML replaces entire container including CSS classes, ensuring clean state transition between templates"
+    },
+    "extension_points": [
+      "TypingIndicatorTemplateManager.templates - Add new template types for different provider states",
+      "PlaceholderTransformer.transform() - Add provider detection to swap to provider-specific templates",
+      "StreamInitializer.buildComponents() - Wire additional transformers for new streaming states"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "natural-conversational",
+    "architecture_philosophy": "event-driven-separation-of-concerns",
+    "quality_standards": "maintainability-focus-ultra-modular"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "placeholder-transformation",
+      "streaming-states",
+      "indicator-templates",
+      "provider-feedback",
+      "user-status-communication"
+    ],
+    "technical_patterns": [
+      "template-system",
+      "event-driven-coordination",
+      "dom-manipulation",
+      "orchestrator-pattern",
+      "dependency-injection"
+    ],
+    "integration_points": [
+      "TypingIndicatorTemplateManager",
+      "ProviderNameResolver",
+      "EventBus-chat.stream.start",
+      "DOM-placeholder-element"
+    ]
+  },
+
+  "system_architecture": {
+    "indicator_system": {
+      "responsibility": "Manages indicator templates and visual status feedback to user",
+      "components": [
+        "TypingIndicatorTemplateManager - Template registry and HTML generation",
+        "PlaceholderCreator - Creates initial 'waiting-for' placeholder",
+        "PlaceholderTransformer - Swaps templates on state changes"
+      ],
+      "templates": [
+        "waiting-for: Matrix grid + 'Waiting for {provider}...' - Initial state when user sends message",
+        "claude-cooking: Pulse animation + '{provider} is cooking...' - Active streaming state",
+        "matrix-grid: Matrix grid + '{provider} WORKING' - Alternative working state",
+        "minimal-dots: Three dots - Minimal visual feedback",
+        "pulse-wave: Wave animation - Alternative animation style",
+        "provider-working: Provider icon + working text - Generic working state"
+      ]
+    },
+    "streaming_system": {
+      "responsibility": "Manages text chunks and markdown rendering",
+      "components": [
+        "StreamInitializer - Orchestrates stream start",
+        "ChunkProcessor - Processes incoming text chunks",
+        "MatrixGridFader - Handles indicator fade animations"
+      ],
+      "flow": "Receives chunks → processes markdown → appends to .stream-text → updates DOM"
+    },
+    "coordination": {
+      "events": [
+        "ui.agent.state.change.v1 (state='busy') - Triggers PlaceholderCreator",
+        "chat.stream.start - Triggers PlaceholderTransformer template swap",
+        "chat.stream.chunk - Triggers ChunkProcessor text append"
+      ],
+      "shared_dom": "Both systems render into same placeholder element but manage different concerns"
+    }
+  },
+
+  "complete_flow": {
+    "step_1": "User sends message → ui.agent.state.change.v1 event fires",
+    "step_2": "EventBinder routes to StateChangeRouter → AgentMessagesManager.createPlaceholder()",
+    "step_3": "PlaceholderCreator generates 'waiting-for' template HTML and creates placeholder DOM",
+    "step_4": "Stream starts → chat.stream.start event fires",
+    "step_5": "EventBinder routes to StreamingChunkRouter → AgentMessagesManager.startStreamingMessage()",
+    "step_6": "StreamInitializer.start() → PlaceholderTransformer.transform()",
+    "step_7": "PlaceholderTransformer swaps template: 'waiting-for' → 'claude-cooking'",
+    "step_8": "Chunks arrive → ChunkProcessor.append() renders text in .stream-text element",
+    "step_9": "(Future) MatrixGridFader.fadeOut() removes indicator on first chunk"
+  }
+}

@@ -4,7 +4,7 @@ Request/response handlers for memory log operations.
 Handles business logic orchestration between services, formatters, and validation.
 """
 from typing import List, Union, Dict, Any
-from fastapi import Request, HTTPException
+from fastapi import HTTPException
 from fastapi.responses import PlainTextResponse
 from src.api.schemas.memory_log import (
     MemoryLogCreate,
@@ -24,7 +24,7 @@ class CreateMemoryLogHandler:
 
     @staticmethod
     async def handle(
-        request: Request,
+        payload: MemoryLogCreate,
         service: MemoryLogService,
         logger: Logger
     ) -> MemoryLogResponse:
@@ -32,7 +32,7 @@ class CreateMemoryLogHandler:
         Handle memory log creation.
 
         Args:
-            request: FastAPI request
+            payload: Validated memory log request body
             service: Memory log service
             logger: Logger instance
 
@@ -43,28 +43,19 @@ class CreateMemoryLogHandler:
             HTTPException: If creation fails
         """
         try:
-            # Get request body
-            body = await request.json()
-            logger.debug("[HANDLER] Unwrapping request body")
-
-            # Unwrap request body (handles MCP-wrapped format)
-            data_dict = service.unwrap_request_body(body)
-
-            # Validate with Pydantic
-            data = MemoryLogCreate(**data_dict)
-            logger.debug(f"[HANDLER] Validated: task={data.task}, agent={data.agent}")
+            logger.debug(f"[HANDLER] Validated: task={payload.task}, agent={payload.agent}")
 
             # Convert memory_log to dict, handling nested models
-            memory_log_dict = data.memory_log.model_dump(exclude_none=True)
+            memory_log_dict = payload.memory_log.model_dump(exclude_none=True)
 
             # Create memory log via service
             memory_log = await service.create_memory_log(
-                task=data.task,
-                agent=data.agent,
-                session_id=data.session_id,
+                task=payload.task,
+                agent=payload.agent,
+                session_id=payload.session_id,
                 memory_log=memory_log_dict,
-                user_id=str(data.user_id),
-                project_id=data.project_id,
+                user_id=str(payload.user_id),
+                project_id=payload.project_id,
             )
 
             return memory_log

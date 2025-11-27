@@ -1,0 +1,156 @@
+{
+  "task": "provider-icon-per-message-isolation-incomplete",
+  "agent": "claude-sonnet-4",
+  "date": "2025-10-27",
+  "component": "provider-icon-builder-system",
+
+  "temporal_context": {
+    "date_iso": "2025-10-27",
+    "year": 2025,
+    "month": 10,
+    "week_number": 43,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: Changed ProviderIconBuilder API to accept parameter, updated 4 callers, hit architectural boundary",
+    "business": "4: Critical - provider icon still showing wrong provider in multi-tab",
+    "coordination": "3: Required changes across message builders, placeholder system, and provider tracking"
+  },
+
+  "files_modified": "4",
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/providers/ProviderIconBuilder.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/placeholder/placeholder-creator/PlaceholderDOMManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/placeholder/placeholder-creator/PlaceholderCreator.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/builders/AgentMessageBuilder.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "provider-active-v1-event-removal",
+    "provider-icon-multi-tab-isolation-investigation"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Provider icon showing wrong provider after removing global provider.active.v1 event → Changed ProviderIconBuilder to accept providerId parameter, but INCOMPLETE: payload.provider is undefined when placeholder created from agent.state='busy' event",
+  "root_cause": "After removing provider.active.v1 global event, ProviderTracker no longer updates. ProviderIconBuilder.build() reads from stale ProviderTracker.activeProvider (always 'claude'). Attempted to pass providerId from payload/chunk, but placeholder creation happens from agent.state='busy' event which doesn't include provider info.",
+
+  "solution": {
+    "approach": "Changed ProviderIconBuilder.build() to accept providerId parameter and updated all callers to pass it from payload/chunk data",
+    "key_changes": [
+      "ProviderIconBuilder.js:27: Added providerId parameter to build() method with fallback to ProviderTracker for backward compatibility",
+      "ProviderIconBuilder.js:43: Use providerToUse variable instead of hardcoded activeProvider",
+      "PlaceholderDOMManager.js:51: Added providerId parameter to setPlaceholderContent() and pass to providerIconBuilder.build()",
+      "PlaceholderCreator.js:60: Extract providerId from payload.provider and pass to setPlaceholderContent()",
+      "AgentMessageBuilder.js:36: Extract providerId from payload.message.provider || payload.provider and pass to build()"
+    ]
+  },
+
+  "validation": "Logs show '[PlaceholderDOMManager] Set placeholder content with provider header: undefined' - provider still not working",
+
+  "gotchas": [
+    {
+      "issue": "Placeholder created from agent.state='busy' event which doesn't include provider field, so payload.provider is undefined",
+      "solution": "INCOMPLETE - Need to inject ChatStore and look up provider from ChatStore.get(chatId).providerId instead of relying on payload",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "User frustrated: 'you fix by add junk code same result' - changes had no visible effect",
+      "solution": "Logs revealed payload.provider is undefined, need different data source (ChatStore)",
+      "category": "debugging",
+      "severity": "high"
+    },
+    {
+      "issue": "ProviderIconBuilder and PlaceholderCreator don't have access to ChatStore - architectural boundary",
+      "solution": "Need to inject ChatStore through ComponentFactory or find alternative approach",
+      "category": "architecture",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "When removing global state (provider.active.v1 event), must ensure ALL code paths have access to per-context state (ChatStore.providerId). Events that don't carry provider info (like agent.state='busy') need alternate data source. Check logs FIRST to verify data availability before making changes.",
+
+  "tags": [
+    "INCOMPLETE",
+    "provider-isolation",
+    "multi-tab",
+    "ProviderIconBuilder",
+    "payload-undefined",
+    "ChatStore-access",
+    "architectural-boundary",
+    "dependency-injection",
+    "per-message-provider",
+    "placeholder-creation"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "ProviderIconBuilder.build(providerId) - Now accepts parameter instead of reading global ProviderTracker",
+      "payload.provider - Extension sends this in streaming chunks, but NOT in agent.state events",
+      "ChatStore.get(chatId).providerId - Per-tab provider storage, but not accessible from ProviderIconBuilder",
+      "PlaceholderCreator.create(payload) - Receives payload from agent.state='busy' event (no provider field)"
+    ],
+    "api_surface": [
+      "ProviderIconBuilder.build(providerId?: string): string - Build provider icon HTML with optional providerId parameter",
+      "PlaceholderDOMManager.setPlaceholderContent(placeholder: HTMLElement, indicatorHTML: string, providerIconBuilder: ProviderIconBuilder, providerId?: string): void - Set placeholder content with provider header",
+      "ChatStore.get(chatId: string).providerId: string - Get provider ID for specific chat"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "ProviderIconBuilder.build() signature changed from () to (providerId?: string) - backward compatible with fallback",
+      "PlaceholderDOMManager.setPlaceholderContent() signature changed to accept providerId parameter"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Inject ChatStore into ComponentFactory and pass to ProviderIconBuilder constructor",
+      "Update PlaceholderCreator to get chatId from payload, look up providerId from ChatStore",
+      "Verify all message builders can access correct providerId",
+      "Remove fallback to ProviderTracker once ChatStore integration complete"
+    ],
+    "architecture_decisions": {
+      "parameter-over-global": "Pass providerId as parameter instead of reading from global ProviderTracker - enables per-message provider isolation",
+      "chatstore-as-source": "ChatStore is single source of truth for per-tab provider - need to make it accessible to message builders",
+      "backward-compatible-migration": "Added fallback to ProviderTracker during migration to avoid breaking existing code"
+    },
+    "extension_points": [
+      "ComponentFactory.buildComponents() - Inject ChatStore here to make it available to all components",
+      "ProviderIconBuilder constructor - Add ChatStore parameter for provider lookup",
+      "PlaceholderCreator.create() - Look up providerId from ChatStore if not in payload"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "rapid-fix-under-extreme-pressure",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "per-context-state-isolation",
+    "quality_standards": "must-verify-with-logs"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "per-tab-provider-isolation",
+      "placeholder-creation-timing",
+      "agent-state-events"
+    ],
+    "technical_patterns": [
+      "dependency-injection",
+      "parameter-passing",
+      "fallback-for-migration"
+    ],
+    "integration_points": [
+      "ChatStore-per-tab-state",
+      "agent-state-event-system",
+      "streaming-chunk-payload"
+    ]
+  }
+}

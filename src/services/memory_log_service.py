@@ -10,7 +10,6 @@ from src.database.repositories import MemoryLogRepository
 from src.modules.core import EventBus, Logger
 from src.modules.vector_storage import VectorStorageService
 from src.utils.date_range_calculator import DateRangeCalculator
-from src.infrastructure.chromadb.utils.filter_sanitizer import sanitize_filter
 
 
 class MemoryLogService:
@@ -148,15 +147,15 @@ class MemoryLogService:
         min_similarity: float = 0.0
     ) -> List[Dict[str, Any]]:
         """
-        Semantic search for memory logs.
+        Semantic search for memory logs using PostgreSQL pgvector.
 
         Args:
             query: Search query
             user_id: User identifier
             project_id: Project identifier
             limit: Maximum number of results
-            filters: Optional metadata filters
-            tag: Optional tag filter
+            filters: Optional metadata filters (currently unused for PostgreSQL path)
+            tag: Optional tag filter (currently unused for PostgreSQL path)
             min_similarity: Minimum similarity threshold
 
         Returns:
@@ -167,40 +166,64 @@ class MemoryLogService:
             f"(user: {user_id}, project: {project_id})"
         )
 
-        # Build combined filter with tag if provided
-        # Sanitize filters FIRST to remove garbage like additionalProp1
-        combined_filter = sanitize_filter(filters)
-        if tag:
-            # Add tag filter - tags are stored in metadata as:
-            # 1. tag_0, tag_1, tag_2, tag_3, tag_4 (individual fields)
-            # 2. tags (comma-separated string)
-            tag_filter = {
-                "$or": [
-                    {"tag_0": tag},
-                    {"tag_1": tag},
-                    {"tag_2": tag},
-                    {"tag_3": tag},
-                    {"tag_4": tag},
-                    {"tags": {"$contains": tag}}
-                ]
-            }
-            # Combine with existing filters using $and
-            if combined_filter:
-                combined_filter = {"$and": [combined_filter, tag_filter]}
-            else:
-                combined_filter = tag_filter
+        # Validate dependencies
+        if not self.repository:
+            raise ValueError("Repository is required for PostgreSQL search")
+        if not self.embedding_service:
+            raise ValueError("Embedding service is required for PostgreSQL search")
 
-        results = await self.vector_service.search_similar_memories(
-            query=query,
+        # Generate embedding for the query
+        self.logger.debug(f"Generating embedding for query: '{query[:50]}'")
+        embedding_response = await self.embedding_service.generate_embedding(query)
+        query_embedding = embedding_response.embedding
+
+        # Perform semantic search using pgvector
+        results = await self.repository.search_similar(
+            query_embedding=query_embedding,
             user_id=user_id,
             project_id=project_id,
             limit=limit,
-            where_filter=combined_filter,
-            min_similarity=min_similarity
+            min_similarity=min_similarity,
+            distance_metric="cosine"
         )
 
-        self.logger.info(f"Found {len(results)} matching memories")
-        return results
+        # If no results and a project_id was provided, retry without project filter to avoid
+        # tenant mismatch issues (e.g., differing project IDs across imports).
+        if not results and project_id:
+            self.logger.info(
+                f"No results for project_id={project_id}, retrying without project filter"
+            )
+            results = await self.repository.search_similar(
+                query_embedding=query_embedding,
+                user_id=user_id,
+                project_id=None,
+                limit=limit,
+                min_similarity=min_similarity,
+                distance_metric="cosine"
+            )
+
+        self.logger.info(f"Found {len(results)} matching memories from PostgreSQL")
+
+        # Transform results to match Chroma-like response shape
+        formatted_results = []
+        for memory_log, similarity in results:
+            formatted_results.append({
+                "id": str(memory_log.id),
+                "memory_log_id": str(memory_log.id),
+                "document": memory_log.memory_log,
+                "metadata": {
+                    "task": memory_log.task,
+                    "agent": memory_log.agent,
+                    "session_id": memory_log.session_id,
+                    "user_id": memory_log.user_id,
+                    "project_id": memory_log.project_id,
+                    "created_at": memory_log.created_at.isoformat(),
+                },
+                "distance": 1.0 - similarity,  # Convert similarity to distance for compatibility
+                "similarity": similarity
+            })
+
+        return formatted_results
 
     async def search_by_date(
         self,

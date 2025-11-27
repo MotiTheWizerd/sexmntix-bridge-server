@@ -75,6 +75,7 @@ class ConversationOrchestrator:
 
         results = pipeline_result.get("results", [])
         world_view = pipeline_result.get("world_view")
+        inject_world_view = pipeline_result.get("inject_world_view", True)
         identity = pipeline_result.get("identity")
 
         if not results:
@@ -87,9 +88,10 @@ class ConversationOrchestrator:
             query=search_request.query,
             world_view=world_view,
             identity=identity,
+            inject_full_world_view=inject_world_view,
         )
 
-        log_fetch_memory_state(world_view, identity, results, prompt)
+        log_fetch_memory_state(world_view, identity, results, prompt, inject_world_view)
 
         synthesized_memory = await llm_service.generate_content(
             prompt=prompt,

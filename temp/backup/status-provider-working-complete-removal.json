@@ -1,0 +1,187 @@
+{
+  "task": "status-provider-working-complete-removal",
+  "agent": "claude-sonnet-4",
+  "date": "2025-10-18",
+  "component": "indicator-system-cleanup",
+
+  "temporal_context": {
+    "date_iso": "2025-10-18",
+    "year": 2025,
+    "month": 10,
+    "week_number": 42,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: Cross-codebase cleanup spanning TypeScript Extension and JavaScript UI with event system traces",
+    "business": "4: Critical UX bug - cart icon appearing during streaming confused users and broke indicator flow",
+    "coordination": "2: Required tracing event flow across Extension→UI bridge but no external team coordination"
+  },
+
+  "files_modified": "3",
+  "files_touched": [
+    "src/ext/modules/logic-manager/message-router/events/UIEventEmitter.ts",
+    "src/ui/modules/core/events/bridge-handler/mapping/event-mapper/incoming/ProviderEventMappers.js",
+    "src/ui/modules/core/events/categories/status/StatusEventConstants.js"
+  ],
+  "files_deleted": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/message-manager-router/routers/ProviderWorkingRouter.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/indicator/ProviderWorkingIndicator.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/indicator/ClaudeWorkingIndicator.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/indicator/CodexWorkingIndicator.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/stream-initializer/transformers/CookingIndicatorHandler.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/stream-initializer/transformers/FallbackIndicatorHandler.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "provider-start-event-detector-and-indicator-fix",
+    "provider-working-indicator-implementation",
+    "typing-indicator-template-system-implementation"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Cart icon appearing briefly during streaming (remnants of old STATUS_PROVIDER_WORKING event system) → Complete removal of all STATUS_PROVIDER_WORKING traces across Extension and UI codebases",
+
+  "root_cause": "STATUS_PROVIDER_WORKING event system was built in Oct 2024 to show 'CODEX WORKING' / 'CLAUDE WORKING' indicators, then simplified and partially removed, but complete cleanup was never finished. Event was no longer being listened to on UI side (listener removed in previous cleanup) but Extension side was still emitting it, and orphaned indicator component files still existed, creating dead code that could cause bugs.",
+
+  "solution": {
+    "approach": "Systematic trace of entire event flow from Extension emission → Bridge mapping → UI handling, then complete removal of all remnants including event emission, mapping, constants, routers, indicator components, and handler files",
+    "key_changes": [
+      "UIEventEmitter.ts: Removed emitProviderWorking() method that emitted status.provider.working.v1 event",
+      "ProviderEventMappers.js: Removed mapProviderWorking() method and mapper registration from getMappings()",
+      "StatusEventConstants.js: Removed STATUS_PROVIDER_WORKING constant and event map entry",
+      "ProviderWorkingRouter.js: DELETED - Dead router that was no longer bound to events",
+      "ProviderWorkingIndicator.js: DELETED - Component that created cart icon indicators",
+      "ClaudeWorkingIndicator.js: DELETED - Claude-specific cart icon indicator using getCurrentTemplate() which defaulted to 'claude-cooking' template with provider icon",
+      "CodexWorkingIndicator.js: DELETED - Codex-specific cart icon indicator",
+      "CookingIndicatorHandler.js: DELETED - Orchestrator calling ClaudeWorkingIndicator/CodexWorkingIndicator (already deleted)",
+      "FallbackIndicatorHandler.js: DELETED - Generic provider indicator handler for non-cooking providers"
+    ]
+  },
+
+  "validation": "TypeScript build successful with no errors. Clean indicator flow now: PlaceholderCreator uses 'waiting-for' template (no cart) → PlaceholderTransformer swaps to 'matrix-grid' template (no cart). Cart icon source completely removed.",
+
+  "gotchas": [
+    {
+      "issue": "Initial cleanup only removed UI-side event listener and component factory references, but Extension side was still emitting the event and orphaned files still existed",
+      "solution": "Traced complete event flow from Extension UIEventEmitter → ProviderEventMappers → (deleted) EventBinder listener. Removed emission source, mapper, and all component files.",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "ClaudeWorkingIndicator.js used getCurrentTemplate() which returned default 'claude-cooking' template with provider icon (cart), causing cart to appear even though we want to preserve claude-cooking template for future use",
+      "solution": "Deleted ClaudeWorkingIndicator component entirely rather than modifying template system. Template 'claude-cooking' preserved for future use as requested.",
+      "category": "configuration",
+      "severity": "medium"
+    },
+    {
+      "issue": "CookingIndicatorHandler and FallbackIndicatorHandler files still existed even after being removed from PlaceholderTransformer dependency injection",
+      "solution": "Deleted both orphaned handler files that were no longer imported anywhere",
+      "category": "integration",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "When removing an event-driven feature: (1) Trace the COMPLETE event flow from emission source through all bridges/mappers to final handlers, (2) Remove from BOTH directions (stop emitting AND stop listening), (3) Delete all orphaned component files even if not actively imported, (4) Don't assume partial cleanup is complete - verify no remnants exist. Event systems create coupling across multiple layers that requires systematic cleanup.",
+
+  "tags": [
+    "event-system-cleanup",
+    "status-provider-working",
+    "cart-icon-bug",
+    "indicator-system",
+    "dead-code-removal",
+    "extension-ui-bridge",
+    "typescript-javascript-cleanup",
+    "orphaned-files",
+    "claude-cooking-template",
+    "provider-working-indicators",
+    "typing-indicators",
+    "technical-debt-reduction",
+    "cross-codebase-cleanup",
+    "event-emission",
+    "event-mapping"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "UIEventEmitter.emit() - Extension-side event emission to UI via postMessage bridge",
+      "ProviderEventMappers.getMappings() - Registry pattern for bridge event mapping",
+      "EventBinder.setupEventListeners() - UI-side event listener binding (already cleaned up)",
+      "TypingIndicatorTemplateManager.generateHTML(templateId, data) - Template system for indicators",
+      "getCurrentTemplate() - Returns default template 'claude-cooking' (preserved for future use)"
+    ],
+    "api_surface": [
+      "UIEventEmitter.emitProviderWorking(providerId, chatId) - REMOVED - emitted status.provider.working.v1",
+      "ProviderEventMappers.mapProviderWorking(payload) - REMOVED - mapped bridge event to UI event",
+      "STATUS_EVENTS.STATUS_PROVIDER_WORKING - REMOVED - constant 'status.provider.working.v1'",
+      "ProviderWorkingIndicator.create(payload) - REMOVED - created cart icon indicator",
+      "ClaudeWorkingIndicator.create(payload) - REMOVED - used getCurrentTemplate() with claude-cooking",
+      "CookingIndicatorHandler.createIndicator(category) - REMOVED - orchestrated indicator creation"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "STATUS_PROVIDER_WORKING event no longer emitted from Extension",
+      "ProviderWorkingIndicator component removed from AgentMessagesManager",
+      "Claude/Codex working indicator components deleted",
+      "Cooking/Fallback indicator handlers deleted"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Test indicator flow to verify cart icon is completely gone",
+      "Verify no regression in multi-provider support (Claude, Codex, Gemini, Qwen)",
+      "Consider implementing claude-cooking template properly when needed for future use",
+      "Review ProviderWorkingDetector.ts - currently detects provider start but emits emitStreamStart(), not emitProviderWorking() - consider renaming for clarity"
+    ],
+    "architecture_decisions": {
+      "preserve-claude-cooking-template": "User explicitly requested to keep 'claude-cooking' template for future use despite it containing the cart icon that was causing issues. Solution was to delete components using it rather than remove template.",
+      "complete-event-system-removal": "Rather than just removing listeners, traced and removed entire event flow from emission source through mapping to handlers to prevent partial cleanup issues",
+      "delete-orphaned-files": "Even though CookingIndicatorHandler/FallbackIndicatorHandler were no longer imported, deleted them to prevent confusion and ensure clean codebase"
+    },
+    "extension_points": [
+      "TypingIndicatorTemplateManager - 'claude-cooking' template preserved at line 21-33 for future provider indicator features",
+      "PlaceholderCreator - uses 'waiting-for' template explicitly (line 47)",
+      "PlaceholderTransformer - swaps to 'matrix-grid' template explicitly (line 37)"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "thorough-investigation-before-changes",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "ultra-modular-single-responsibility",
+    "quality_standards": "zero-breaking-changes-backward-compatibility",
+    "debugging_approach": "step-by-step-tracing-with-memory-search",
+    "work_rhythm": "research-first-plan-second-code-last"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "typing-indicators",
+      "provider-working-state",
+      "streaming-lifecycle",
+      "placeholder-transformation",
+      "cart-icon-provider-branding"
+    ],
+    "technical_patterns": [
+      "event-driven-architecture",
+      "extension-ui-bridge-pattern",
+      "template-system",
+      "orchestrator-pattern",
+      "dependency-injection"
+    ],
+    "integration_points": [
+      "Extension-UI-bridge-messaging",
+      "EventBus-event-routing",
+      "ProviderTracker-active-provider-detection",
+      "TypingIndicatorTemplateManager-template-generation"
+    ]
+  }
+}

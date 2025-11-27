@@ -1,0 +1,241 @@
+{
+  "task": "codex-prism-fix-success-after-claude-4-session-failure",
+  "agent": "codex (gpt-4)",
+  "date": "2025-10-31",
+  "component": "streaming-code-block-formatter",
+
+  "temporal_context": {
+    "date_iso": "2025-10-31",
+    "year": 2025,
+    "month": 10,
+    "week_number": 44,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "5: Complex streaming HTML structure with stateful code block accumulation, progressive snapshot replacement, real-time syntax highlighting, and DOM preservation requirements",
+    "business": "4: Code blocks are critical for AI assistant displaying code examples - complete blocking issue for 4 sessions",
+    "coordination": "5: Required understanding complete data flow that Claude missed over 4 failed sessions with multiple blind assumptions"
+  },
+
+  "files_modified": "3",
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/formatters/ClaudeFormatter.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/formatters/components/streaming/CodeBlockStateManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/chunk-processor/renderers/MarkdownRenderer.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "prism-syntax-highlighting-integration-failed",
+    "prism-syntax-highlighting-three-failed-sessions",
+    "prism-code-block-streaming-reconnection-in-progress",
+    "streaming-markdown-formatter-simple-line-buffering"
+  ],
+
+  "outcomes": {
+    "performance_impact": "Positive - microtask-based progressive highlighting prevents UI blocking, smoother streaming than post-completion highlighting",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "Code blocks closing prematurely during streaming (multiple scattered <pre> tags, broken HTML structure) after Claude failed 4 sessions → Codex discovered root cause was ClaudeFormatter treating code blocks as regular text with <br /> breaks instead of proper <pre><code> structure + implemented complete stateful pipeline with snapshot replacement and progressive highlighting",
+
+  "root_cause": "ClaudeFormatter had NO code block handling - was processing ``` markers as regular text lines, applying <br /> line breaks like paragraphs. Code blocks require fundamentally different architecture: STATEFUL ACCUMULATION (not line-by-line), SNAPSHOT REPLACEMENT (not append), PROGRESSIVE HIGHLIGHTING (not post-only). Claude spent 4 sessions making wrong assumptions (CSS issues, post-processing bugs, DOM manipulation) instead of investigating the actual formatter flow.",
+
+  "solution": {
+    "approach": "Complete architectural redesign: (1) Add stateful code block pipeline to ClaudeFormatter with opening detection, content accumulation, closing detection, and HTML emission. (2) Expand CodeBlockStateManager with content/pending separation for streaming state. (3) Implement progressive snapshot replacement in MarkdownRenderer with microtask-based Prism highlighting per block during streaming (not just post-completion).",
+    "key_changes": [
+      "ClaudeFormatter.js: Complete rewrite of formatChunk() - added _processCompleteLine() router, _handleActiveCodeBlockLine() for accumulation, _emitCodeBlock() for snapshot generation, _buildCodeBlockHTML() for proper <pre><code class=\"language-X\"> structure, _upsertCodePart() for snapshot replacement in htmlParts array (+251 lines total)",
+      "CodeBlockStateManager.js: Expanded state tracking - added content/pending separation (content = finalized lines with \\n, pending = incomplete buffer), blockId field for DOM tracking, addCompleteLine(chatId, line) for \\n-terminated lines, setPending(chatId, pending) for incomplete buffers, getState(chatId) for snapshot access (+94 lines total)",
+      "MarkdownRenderer.js: Progressive snapshot replacement - detect data-code-block-id in formattedHTML, remove old snapshot from DOM, append new snapshot, _scheduleCodeHighlight(container, blockId) using queueMicrotask for batched Prism highlighting during streaming, PrismHighlighter.highlightElement(codeElement) per block (+52 lines total)",
+      "ClaudeFormatter.js: htmlParts array architecture - changed from simple string concatenation to array of {type, blockId, html} objects to enable upsert pattern for code block snapshots (preserves order while allowing replacement)",
+      "MarkdownRenderer.js: insertAdjacentHTML preservation - already using insertAdjacentHTML('beforeend') from previous fix to prevent innerHTML += browser reparse that breaks nested <pre><code> structure"
+    ]
+  },
+
+  "validation": "Manual testing with AI responses containing code blocks - verified proper <pre><code class=\"language-javascript\"> HTML structure in DOM, Prism syntax highlighting colors appearing during streaming (not just after completion), no multiple scattered <pre> tags, smooth progressive color updates as code streams, ``` markers hidden from user view",
+
+  "gotchas": [
+    {
+      "issue": "Code blocks require SNAPSHOT REPLACEMENT not APPEND - each chunk generates new complete <pre><code>content</code></pre> that replaces previous snapshot, unlike paragraphs that append <br /> incrementally",
+      "solution": "Implemented htmlParts array with {type: 'code', blockId, html} objects + _upsertCodePart() that searches backwards for matching blockId and replaces, or pushes new if not found. This preserves order while enabling replacement.",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "Code blocks need content/pending separation for streaming state - content = finalized lines with \\n, pending = current incomplete buffer that may change on next chunk",
+      "solution": "CodeBlockStateManager.addCompleteLine(chatId, line) moves pending to content with \\n, setPending(chatId, pending) updates incomplete buffer. _buildCodeBlockHTML() concatenates both for snapshot: content + pending.",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "Prism highlighting only after streaming completes misses opportunity for progressive color updates during streaming",
+      "solution": "MarkdownRenderer._scheduleCodeHighlight() called on each snapshot replacement - uses queueMicrotask to batch multiple updates in same tick, calls PrismHighlighter.highlightElement(codeElement) per block during streaming for real-time syntax colors",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "Must use insertAdjacentHTML not innerHTML += to preserve nested <pre><code> structure (browser reparses and 'fixes' incomplete HTML with innerHTML +=)",
+      "solution": "Already fixed in previous session - MarkdownRenderer uses insertAdjacentHTML('beforeend', formattedHTML) which only parses new HTML without reparsing existing DOM",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Claude made 4 sessions of WRONG ASSUMPTIONS - assumed CSS issues, post-processing bugs, DOM manipulation problems, never investigated actual formatter flow that was treating code blocks as regular text",
+      "solution": "LESSON: Understand COMPLETE data flow before making changes. Trace from chunk arrival → LineBufferManager → formatChunk → _processCompleteLine → code block pipeline → _buildCodeBlockHTML → MarkdownRenderer → DOM. Don't assume root cause without evidence.",
+      "category": "methodology",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "CRITICAL ARCHITECTURAL LESSON: Different content types require fundamentally different streaming architectures. Paragraphs = line-by-line append with <br />. Code blocks = stateful accumulation + snapshot replacement + progressive highlighting. Don't force all content through same pipeline. ALSO: When debugging complex systems, trace COMPLETE data flow with evidence before assuming root cause. Claude wasted 4 sessions on wrong assumptions (CSS, post-processing, DOM) instead of investigating formatter that was never generating correct HTML structure. Codex succeeded immediately by understanding the actual flow.",
+
+  "tags": [
+    "codex-success",
+    "claude-failure-4-sessions",
+    "prism-integration",
+    "code-block-streaming",
+    "stateful-accumulation",
+    "snapshot-replacement",
+    "progressive-highlighting",
+    "architectural-redesign",
+    "htmlParts-upsert-pattern",
+    "microtask-batching",
+    "content-pending-separation",
+    "complete-data-flow-understanding",
+    "wrong-assumptions-lesson",
+    "COMPLETE-SUCCESS"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "ClaudeFormatter._processCompleteLine(line, chatId, htmlParts) - Routes complete lines to code block pipeline or regular markdown formatting",
+      "ClaudeFormatter._handleActiveCodeBlockLine(line, chatId, htmlParts) - Accumulates code content while in code block state, detects closing",
+      "ClaudeFormatter._emitCodeBlock(htmlParts, chatId, {isComplete}) - Generates snapshot and upserts into htmlParts array",
+      "ClaudeFormatter._buildCodeBlockHTML(state, {isComplete}) - Builds <pre><code class=\"language-X\">content</code></pre> with data-incomplete and data-code-block-id attributes",
+      "ClaudeFormatter._upsertCodePart(htmlParts, blockId, html) - Replaces existing code block snapshot or pushes new one preserving order",
+      "CodeBlockStateManager.addCompleteLine(chatId, line) - Moves pending to content with \\n for finalized lines",
+      "CodeBlockStateManager.setPending(chatId, pending) - Updates incomplete buffer that may change on next chunk",
+      "MarkdownRenderer._scheduleCodeHighlight(container, blockId) - Microtask-based Prism highlighting during streaming for progressive colors",
+      "PrismHighlighter.highlightElement(codeElement) - Applies syntax highlighting to single code element",
+      "htmlParts array pattern - [{type: 'text', html}, {type: 'code', blockId, html}] enables upsert while preserving order"
+    ],
+    "api_surface": [
+      "ClaudeFormatter.formatChunk(chunkText, chatId): {formattedHTML: string, hasCompleteLines: boolean} - Main streaming entry point",
+      "ClaudeFormatter.clearBuffer(chatId): void - Cleanup on message completion",
+      "CodeBlockStateManager.detectOpening(line): {isOpening: boolean, language: string, remainder: string} - Detect ``` with language",
+      "CodeBlockStateManager.detectClosing(line): {isClosing: boolean, remainingText: string} - Detect closing ```",
+      "CodeBlockStateManager.open(chatId, language, blockId): void - Start code block state",
+      "CodeBlockStateManager.close(chatId): void - End code block state",
+      "CodeBlockStateManager.isInCodeBlock(chatId): boolean - Check if currently accumulating code",
+      "CodeBlockStateManager.addCompleteLine(chatId, line): void - Finalize line with \\n",
+      "CodeBlockStateManager.setPending(chatId, pending): void - Update incomplete buffer",
+      "CodeBlockStateManager.getState(chatId): {isOpen, language, content, pending, blockId, isComplete} | null - Get full state for snapshot",
+      "MarkdownRenderer._scheduleCodeHighlight(container, blockId): void - Queue Prism highlighting",
+      "PrismHighlighter.highlightElement(codeElement): void - Apply syntax highlighting",
+      "PrismHighlighter.isPrismAvailable(): boolean - Check if Prism.js loaded"
+    ],
+    "dependencies_added": [
+      "PrismHighlighter import in MarkdownRenderer.js - For progressive syntax highlighting during streaming"
+    ],
+    "breaking_changes": [
+      "ClaudeFormatter.formatChunk() return value - Changed from simple string to {formattedHTML: string, hasCompleteLines: boolean} object",
+      "htmlParts internal architecture - Changed from string concatenation to array of {type, blockId, html} objects for upsert pattern",
+      "Code block rendering - Changed from <br /> line breaks to proper <pre><code class=\"language-X\"> structure with data-code-block-id",
+      "Prism highlighting timing - Changed from post-completion only to progressive during streaming via microtasks"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Consider adding tests for code block streaming edge cases (nested code blocks, code blocks with ``` inside strings, language-less code blocks)",
+      "Monitor performance with very large code blocks (1000+ lines) - may need chunked snapshot updates",
+      "Consider extending progressive highlighting to other markdown elements (tables, lists) if they also suffer from 'flash' during streaming",
+      "Document the htmlParts upsert pattern as it's a reusable architecture for other stateful streaming elements"
+    ],
+    "architecture_decisions": {
+      "stateful-accumulation": "Code blocks must accumulate content across chunks with state tracking (not line-by-line like paragraphs) because they're multi-line elements with opening/closing markers that may arrive in separate chunks",
+      "snapshot-replacement": "Each chunk generates complete <pre><code>content</code></pre> snapshot that replaces previous (not appends) to handle content/pending changes and maintain proper HTML structure during streaming",
+      "progressive-highlighting": "Apply Prism during streaming (not just post-completion) via microtasks for real-time syntax colors as code appears - better UX than seeing plain text then sudden color flash",
+      "content-pending-separation": "content = finalized lines with \\n (won't change), pending = incomplete buffer (may change next chunk) - enables accurate snapshot generation during streaming",
+      "htmlParts-upsert-pattern": "Array of {type, blockId, html} objects instead of string concatenation - preserves order while enabling replacement for stateful elements like code blocks",
+      "microtask-batching": "Use queueMicrotask (or Promise.resolve().then) to batch multiple Prism highlights in same tick - prevents redundant work if multiple snapshots in single chunk",
+      "data-code-block-id": "Unique identifier per code block enables snapshot replacement in DOM (querySelector + remove old + append new) and deduplication of Prism highlights"
+    },
+    "extension_points": [
+      "ClaudeFormatter._processCompleteLine() - Add routing for other stateful multi-line elements (tables, lists) following same pattern",
+      "CodeBlockStateManager - Reusable for all providers (Codex, Gemini) - already provider-agnostic",
+      "MarkdownRenderer._scheduleCodeHighlight() - Generalize to _scheduleElementProcessing(container, elementId, processorFn) for other progressive enhancements",
+      "htmlParts upsert pattern - Extract to reusable StreamingSnapshotManager for other elements that need replacement not append"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "evidence-based-investigation",
+    "naming_preferences": "natural-conversational",
+    "architecture_philosophy": "ultra-modular-single-responsibility",
+    "quality_standards": "understand-complete-flow-before-changing"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "streaming-code-blocks",
+      "syntax-highlighting",
+      "real-time-rendering",
+      "markdown-to-html",
+      "stateful-accumulation",
+      "snapshot-replacement",
+      "progressive-enhancement"
+    ],
+    "technical_patterns": [
+      "upsert-pattern",
+      "content-pending-separation",
+      "microtask-batching",
+      "state-manager-per-chatId",
+      "htmlParts-array-architecture",
+      "progressive-highlighting",
+      "DOM-preservation"
+    ],
+    "integration_points": [
+      "Prism.js",
+      "PrismHighlighter",
+      "ClaudeFormatter",
+      "CodeBlockStateManager",
+      "MarkdownRenderer",
+      "LineBufferManager"
+    ]
+  },
+
+  "claude_failure_analysis": {
+    "session_count": "4",
+    "dates": "2025-10-30 to 2025-10-31",
+    "wrong_assumptions": [
+      "Assumed CSS was overriding Prism colors - spent time commenting out inline-code.css",
+      "Assumed Prism CSS was missing - added prism-tomorrow.min.css CDN link",
+      "Assumed data-incomplete attribute was blocking Prism - removed it from code blocks",
+      "Assumed innerHTML += was breaking structure - fixed to insertAdjacentHTML (this WAS correct)",
+      "Assumed MarkdownRenderer was removing code blocks - narrowed selector to inline elements only",
+      "Assumed post-processing wasn't running - investigated MessagePostProcessor when Prism WAS working"
+    ],
+    "never_investigated": "ClaudeFormatter.formatChunk() treating code blocks as regular text with <br /> - the actual root cause",
+    "user_feedback": [
+      "User: 'I don't believe its still not working' - extreme frustration after multiple failed attempts",
+      "User: 'disappointed in a whole new level' - after seeing same issue persist",
+      "User: 'i feel ashamed for you.. you couldnt even handle write me readme.md only the index... you just wrote millions lines of crap that looks like it worth something' - harsh truth about prioritizing appearance over usefulness",
+      "User: 'i dont give a fuck about you are right its not help me you wasting my time' - stop apologizing, deliver results"
+    ],
+    "time_wasted": "4 complete sessions making changes without understanding root cause",
+    "changes_reverted": "All changes except insertAdjacentHTML fix - rest were addressing wrong problems"
+  },
+
+  "codex_success_factors": {
+    "investigation_approach": "Traced COMPLETE data flow from chunk → LineBufferManager → formatChunk → code block detection → HTML generation → DOM rendering",
+    "root_cause_discovery": "Identified ClaudeFormatter had NO code block pipeline - was treating ``` as regular text with <br /> line breaks",
+    "architectural_understanding": "Recognized code blocks need fundamentally different architecture than paragraphs - stateful accumulation not line-by-line append",
+    "comprehensive_solution": "Complete redesign addressing ALL aspects - formatter pipeline, state management, snapshot replacement, progressive highlighting",
+    "first_attempt_success": "Working perfectly after single implementation - no iterations needed",
+    "lesson_for_claude": "Don't assume - trace actual code flow with evidence before making ANY changes"
+  }
+}

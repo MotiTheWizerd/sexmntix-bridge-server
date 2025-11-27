@@ -1,0 +1,153 @@
+{
+  "task": "input-auto-refocus-user-engagement-implementation",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-08",
+  "component": "user-input-auto-refocus-system",
+
+  "complexity": {
+    "technical": "2: Event-driven refocus infrastructure built on existing focus tracking architecture, ultimately simplified by removing input disable behavior",
+    "business": "3: UX enhancement - keeps user in flow by maintaining input focus during agent activity, respecting user engagement intent",
+    "coordination": "2: Built on top of focus tracking system, added new event type and wiring between InputFocusTracker and UserInputController"
+  },
+
+  "files_modified": "5",
+  "files_touched": [
+    "src/ui/modules/core/events/categories/input/InputEventConstants.js",
+    "src/ui/modules/core/events/categories/input/InputEventFactories.js",
+    "src/ui/modules/core/events/events.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/input-focus-tracker/InputFocusTracker.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/UserUIController.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "input-focus-source-tracking-user-engagement-architecture",
+    "ui-state-permission-system-implementation",
+    "multi-state-architecture-permission-dialog-fix"
+  ],
+
+  "outcomes": {
+    "performance_impact": "Negligible - added event listener and conditional emit",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "low",
+    "follow_up_needed": "false - feature complete and simplified"
+  },
+
+  "summary": "Need input to stay focused when user is engaged but agent becomes busy → Event-driven auto-refocus infrastructure + simplified by removing input disable on agent busy",
+  "root_cause": "Original design disabled input when agent became busy (agent_busy state), causing user to lose focus and flow. UX requirement: if user is actively engaged in input, keep them there even while agent works.",
+
+  "solution": {
+    "approach": "Two-phase solution: (1) Built event-driven refocus infrastructure where InputFocusTracker detects 'user engaged + programmatic blur' and emits INPUT_REFOCUS_REQUESTED event for UserInputController to handle. (2) Simplified by removing input disable behavior entirely - input stays enabled during agent busy state, preventing blur altogether.",
+    "key_changes": [
+      "InputEventConstants.js: Added INPUT_REFOCUS_REQUESTED: 'input.refocus.requested' event constant",
+      "InputEventFactories.js: Added createInputRefocusRequested(reason) factory function with payload { reason, timestamp }",
+      "events.js: Added INPUT_REFOCUS_REQUESTED to legacy UI_EVENTS barrel export for backward compatibility",
+      "InputFocusTracker.js: In handleBlurred(), check if source==='programmatic' && userEngaged===true, emit INPUT_REFOCUS_REQUESTED event with reason",
+      "UserInputController.js: Added setupEventHandlers() listening to INPUT_REFOCUS_REQUESTED, calls focusInput() on request",
+      "UserUIController.js: REMOVED disableInput() call from disableUI() method - input now stays enabled when agent is busy"
+    ]
+  },
+
+  "validation": "Manual testing confirmed: User clicks input → engaged. User sends message → agent goes busy → input stays enabled and focused. User can continue typing even while agent works. Send button correctly switches to STOP state (red icon) while input remains active.",
+
+  "gotchas": [
+    {
+      "issue": "Initial implementation built full refocus infrastructure but input was being disabled on agent busy, triggering refocus loop",
+      "solution": "Removed input disable behavior entirely - simpler and better UX. Infrastructure remains for edge cases.",
+      "category": "architecture-simplification",
+      "severity": "medium"
+    },
+    {
+      "issue": "Added INPUT_REFOCUS_REQUESTED to InputEventConstants.js but forgot to add to UI_EVENTS barrel export in events.js",
+      "solution": "Must update both InputEventConstants and UI_EVENTS legacy export for backward compatibility",
+      "category": "event-system",
+      "severity": "high"
+    },
+    {
+      "issue": "EventBus error 'Event name must be a string' when event constant is undefined",
+      "solution": "Always verify event is exported in barrel file when adding new event types",
+      "category": "debugging",
+      "severity": "medium"
+    }
+  ],
+
+  "patterns": {
+    "conditional_event_emission_pattern": {
+      "description": "Component checks multiple conditions before emitting directive event, enabling smart behavior based on state",
+      "code_example": "if (source === 'programmatic' && this.userEngaged) { this.eventBus.emit(INPUT_REFOCUS_REQUESTED, { reason: '...' }); }",
+      "use_cases": ["Smart UI behaviors", "Context-aware event emission", "State-driven actions"]
+    },
+    "directive_event_pattern": {
+      "description": "Event that requests specific action rather than just reporting state change - clear command from one component to another",
+      "code_example": "INPUT_REFOCUS_REQUESTED vs INPUT_BLURRED - directive vs informational",
+      "use_cases": ["Component coordination", "Action requests", "Command pattern via events"]
+    },
+    "infrastructure_before_simplification": {
+      "description": "Build complete infrastructure first, then simplify - infrastructure remains for edge cases even if main use case simplified",
+      "lesson": "Auto-refocus infrastructure built but main flow simplified to not need it - good to have both options",
+      "use_cases": ["Progressive enhancement", "Defensive architecture", "Future-proofing"]
+    }
+  },
+
+  "architectural_insights": [
+    "Event-driven architecture allows building infrastructure that may not be immediately needed but enables future flexibility",
+    "Sometimes the best solution is removing complexity rather than adding more automation",
+    "Directive events (requests for action) are distinct from informational events (state changes) - both have their place",
+    "User engagement state is powerful for making UX decisions beyond simple focus/blur binary",
+    "Separation of concerns: Tracker decides WHEN to request action, Controller decides HOW to execute it"
+  ],
+
+  "design_evolution": {
+    "initial_approach": "Build auto-refocus to counteract input being disabled when agent busy",
+    "infrastructure_built": "INPUT_REFOCUS_REQUESTED event, InputFocusTracker emits when userEngaged + programmatic blur, UserInputController listens and refocuses",
+    "final_simplification": "Removed input disable behavior - input stays enabled during agent busy, making auto-refocus mostly unnecessary",
+    "outcome": "Infrastructure remains for edge cases, but main flow is simpler - input never loses focus because it's never disabled",
+    "lesson": "Question the root cause - sometimes fixing upstream behavior is better than compensating downstream"
+  },
+
+  "event_flow": {
+    "original_problematic_flow": "User sends message → Agent busy → disableUI() → disableInput() → INPUT_BLURRED (programmatic) → user loses focus",
+    "with_refocus_infrastructure": "User sends message → Agent busy → disableUI() → disableInput() → INPUT_BLURRED (programmatic) → InputFocusTracker detects userEngaged → emits INPUT_REFOCUS_REQUESTED → UserInputController refocuses",
+    "final_simplified_flow": "User sends message → Agent busy → disableUI() (no input disable) → input stays enabled and focused → user can keep typing",
+    "benefit": "Cleaner, less event noise, better UX"
+  },
+
+  "reusable_components": {
+    "INPUT_REFOCUS_REQUESTED_event": {
+      "description": "Directive event requesting input refocus with reason metadata",
+      "when_to_use": "Any component can emit when they detect input should be refocused based on context",
+      "who_handles": "UserInputController listens and calls focusInput()",
+      "extensibility": "Other components could listen and react to refocus requests (analytics, logging, etc.)"
+    }
+  },
+
+  "future_applications": [
+    "Apply same refocus pattern to other scenarios (permission dialog closes, error cleared, etc.)",
+    "Use INPUT_REFOCUS_REQUESTED for programmatic 'return to input' commands from keyboard shortcuts",
+    "Extend to other form elements beyond textarea - generic 'restore engagement' pattern",
+    "Analytics: track how often user stays engaged vs disengages during agent activity"
+  ],
+
+  "ux_improvements": {
+    "before": "User sends message → input disabled and blurred → user must click back to input to continue typing",
+    "after": "User sends message → input stays enabled and focused → user can immediately type next message without interruption",
+    "impact": "Seamless multi-turn conversation flow, reduces friction, feels more like natural chat interface"
+  },
+
+  "tags": [
+    "auto-refocus",
+    "user-engagement",
+    "input-focus",
+    "ux-enhancement",
+    "event-driven",
+    "directive-events",
+    "architecture-simplification",
+    "user-flow",
+    "chat-interface"
+  ],
+
+  "learning_notes": "Started with 'how do we auto-refocus when input is programmatically blurred?' and built complete infrastructure. Then questioned the root cause: why are we disabling input in the first place? Removing the disable behavior simplified everything while improving UX. Key lesson: sometimes the best code is the code you delete. Infrastructure remains valuable for edge cases and demonstrates event-driven directive pattern.",
+
+  "developer_notes": "When implementing auto-refocus: (1) Check if you even need to blur/disable in first place, (2) Use directive events (INPUT_REFOCUS_REQUESTED) for clarity over reinterpreting informational events (INPUT_BLURRED), (3) Let tracker components detect conditions and emit directives, let controller components execute actions, (4) Build infrastructure defensively even if current flow doesn't need it - requirements change.",
+
+  "collaboration_notes": "User (Moti, 30 years experience) initially suggested listening to INPUT_BLURRED directly and refocusing. Claude pushed back suggesting separate directive event for cleaner separation of concerns. User appreciated the pushback and collaborative design discussion. Ultimately landed on even simpler solution (don't disable input) but appreciated the thoughtful architecture. Demonstrates value of respectful technical disagreement and iterative design."
+}

@@ -73,6 +73,7 @@ class SXThalamusPromptBuilder:
         query: str = None,
         world_view: Optional[Dict[str, Any]] = None,
         identity: Optional[Dict[str, Any]] = None,
+        inject_full_world_view: bool = True,
     ) -> str:
         """
         Build a prompt for synthesizing search results into natural language memory.
@@ -86,6 +87,7 @@ class SXThalamusPromptBuilder:
             query: The original user query that triggered this search (optional)
             world_view: Optional dict with short_term_memory/recent_conversations
             identity: Optional dict with user/assistant identity context
+            inject_full_world_view: When False, only short-term memory is injected (no recent conversation list)
 
         Returns:
             Formatted prompt for memory synthesis
@@ -95,6 +97,7 @@ class SXThalamusPromptBuilder:
             query=query,
             world_view=world_view,
             identity=identity,
+            inject_full_world_view=inject_full_world_view,
         )
 
 

@@ -1,0 +1,130 @@
+{
+  "component": "claude-cli-wrapper",
+  "date": "2025-10-03",
+  "task": "claude-cli-workspace-folder-spawn-fix",
+  "tags": [
+    "claude-cli",
+    "process-spawn",
+    "working-directory",
+    "workspace-folder",
+    "vscode-api",
+    "dependency-injection",
+    "cwd-fix"
+  ],
+  "summary": "Fixed Claude CLI spawning in VS Code settings folder instead of user's workspace folder",
+  "problem": "When spawning Claude CLI process, it was spawning in VS Code's settings folder instead of the user's current workspace directory, causing file path issues and incorrect working context",
+  "solution": "Added cwd (current working directory) support through the entire call chain: ClaudeCodeService → claudeMessage() → execute() → spawn()",
+  "details": {
+    "root_cause": "spawn() called without cwd option - defaults to process.cwd() which is VS Code's installation directory",
+    "implementation_approach": "Dependency injection pattern - get workspace folder at service level, pass down through options",
+    "files_modified": [
+      {
+        "file": "src/ext/modules/providers/anthropics/cli-wrapper/types.ts",
+        "changes": [
+          "Added cwd?: string to CLIExecutionOptions (line 11)",
+          "Added cwd?: string to MessageOptions (line 27)"
+        ]
+      },
+      {
+        "file": "src/ext/modules/providers/anthropics/cli-wrapper/cli-executor/CLIExecutor.ts",
+        "changes": [
+          "Extract cwd from options in execute() method (line 6)",
+          "Pass cwd to spawn() options (lines 15-19)",
+          "Added logging for cwd value (line 8, 18)",
+          "Extract cwd from MessageOptions in claudeMessage() (line 70)",
+          "Pass cwd to execute() call (line 87)"
+        ]
+      },
+      {
+        "file": "src/ext/modules/providers/anthropics/cli-wrapper/ClaudeCodeService.ts",
+        "changes": [
+          "Import vscode API (line 6)",
+          "Added workspaceFolder property (line 13)",
+          "Get workspace folder in constructor using vscode.workspace.workspaceFolders (line 21)",
+          "Added logging for workspace folder detection (lines 22-26)",
+          "Pass workspaceFolder to all claudeMessage() calls (lines 64, 89)"
+        ]
+      }
+    ],
+    "implementation_pattern": {
+      "pattern": "Options threading with dependency injection",
+      "flow": [
+        "1. ClaudeCodeService gets workspace folder from VS Code API in constructor",
+        "2. Stores it as instance property (this.workspaceFolder)",
+        "3. Passes it in MessageOptions when calling executor.claudeMessage()",
+        "4. CLIExecutor extracts it and passes to execute() via CLIExecutionOptions",
+        "5. execute() passes it to spawn() as { cwd: workspaceFolder }",
+        "6. Child process spawns in correct directory"
+      ],
+      "benefits": [
+        "Clean separation of concerns",
+        "Optional parameter - gracefully handles no workspace",
+        "Easy to test - can inject custom cwd",
+        "Follows existing options pattern"
+      ]
+    },
+    "workspace_folder_detection": {
+      "api": "vscode.workspace.workspaceFolders?.[0]?.uri.fsPath",
+      "returns": "Absolute file system path to first workspace folder",
+      "fallback": "undefined if no workspace open (handled gracefully)",
+      "example": "C:\projects\my-project"
+    }
+  },
+  "code_snippets": {
+    "getting_workspace_folder": {
+      "location": "ClaudeCodeService.ts:21",
+      "code": "this.workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;"
+    },
+    "passing_to_spawn": {
+      "location": "CLIExecutor.ts:15-19",
+      "code": "const spawnOptions: any = { shell: true };\nif (cwd) {\n  spawnOptions.cwd = cwd;\n  console.log('CLIExecutor: Setting cwd to:', cwd);\n}\nconst child = spawn(command, args, spawnOptions);"
+    },
+    "threading_through_options": {
+      "location": "ClaudeCodeService.ts:60-65",
+      "code": "const { stdout } = await this.executor.claudeMessage(prompt, {\n  timeout: 30000,\n  outputFormat: 'json',\n  persistent: true,\n  cwd: this.workspaceFolder\n});"
+    }
+  },
+  "testing_verification": [
+    "Verify Claude spawns in workspace folder (check console logs for 'Setting cwd to:')",
+    "Test file operations relative to workspace root",
+    "Ensure works when no workspace is open (should work without error)",
+    "Check multi-root workspace scenarios (uses first workspace)"
+  ],
+  "key_learnings": {
+    "architecture": [
+      "Options threading is clean way to pass context through layers",
+      "Get external dependencies (VS Code API) at highest level, pass down",
+      "Optional parameters with graceful fallback > required parameters",
+      "Log important values like cwd for debugging"
+    ],
+    "vscode_api": [
+      "vscode.workspace.workspaceFolders is array (multi-root workspaces)",
+      "Use ?.[0] to safely get first workspace",
+      ".uri.fsPath gives file system path (not URI)",
+      "Can be undefined if no workspace open - handle gracefully"
+    ],
+    "process_spawn": [
+      "spawn() cwd option controls working directory of child process",
+      "Defaults to process.cwd() if not specified",
+      "Must be absolute path, not relative",
+      "Affects all file operations in spawned process"
+    ]
+  },
+  "impact": {
+    "before": "Claude CLI spawned in VS Code installation directory, file paths relative to wrong location",
+    "after": "Claude CLI spawns in user's workspace folder, file operations work correctly relative to project root",
+    "user_experience": "File read/write operations now work correctly, Claude understands project context properly"
+  },
+  "next_steps": {
+    "immediate": "Rebuild extension: pnpm run compile:ext",
+    "future_improvements": [
+      "Support multi-root workspaces (let user choose which workspace)",
+      "Add workspace folder selector UI if multiple workspaces",
+      "Persist last used workspace folder in settings",
+      "Handle workspace folder changes during session"
+    ],
+    "related_work": "Next: User project/message system for saving and loading conversation messages!"
+  },
+  "rebuild_required": true,
+  "status": "✅ COMPLETE - Ready for testing"
+}

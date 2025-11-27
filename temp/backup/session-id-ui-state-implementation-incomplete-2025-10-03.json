@@ -1,0 +1,138 @@
+{
+  "task": "session-id-ui-state-management-incomplete",
+  "component": "ui-session-state-tracking",
+  "date": "2025-10-03",
+  "status": "incomplete",
+  "summary": "Backend complete - sessionId captured, stored in UIStateManager, emitted to UI via ui.session.state.change.v1 event. UI NOT listening yet - still sends sessionId: undefined",
+  "tags": ["session-id", "ui-state-management", "claude-cli-resume", "-p-flag", "-r-flag", "ui-event-listener", "incomplete"],
+  
+  "problem": "UI receives sessionId state change event but doesn't store or send it back with messages",
+  
+  "what_we_accomplished": {
+    "1_backend_session_flow_complete": {
+      "claude_cli_flags": {
+        "new_chat": "claude -p --verbose --output-format json (print flag)",
+        "resume_chat": "claude -r <sessionId> --verbose --output-format json (resume flag)",
+        "currently_using": "Always -p because UI sends sessionId: undefined"
+      },
+      "message_flow_updated": {
+        "ChatUserMessagePayload": "Added sessionId?: string field (chat.ts:8)",
+        "ExtensionMessage": "Added sessionId?: string field (ExtensionTypes.ts:18)",
+        "MessageValidator": "Passes sessionId from UI to ExtensionMessage (MessageValidator.ts:18)",
+        "ClaudeCodeCLIAdapter": "Logs 'New conversation' or 'Resume session: X' (ClaudeCodeCLIAdapter.ts:69-72)",
+        "ClaudeCodeService": "Passes sessionId to executor (ClaudeCodeService.ts:89-106)",
+        "MessageOptions": "Added sessionId?: string (types.ts:28)",
+        "CLIExecutor": "Uses -p or -r based on sessionId (CLIExecutor.ts:77-82)",
+        "chat_json_contract": "Added sessionId?: 'string?' to user message (chat.json:9)"
+      }
+    },
+    
+    "2_ui_state_manager_sessionid_complete": {
+      "UIStateManager_ts": {
+        "private_field": "sessionId: string | null = null (line 27)",
+        "getter": "getSessionId(): string | null (line 94)",
+        "setter": "setSessionId(sessionId: string | null) with logging (line 102)",
+        "getStateSnapshot": "Includes sessionId in snapshot (line 122)",
+        "reset": "Clears sessionId (line 133)",
+        "logs": "[UIStateManager] SessionId: null → <sessionId>"
+      },
+      
+      "ui_state_event_created": {
+        "file": "ui-state.ts",
+        "interface": "SessionIdStateChangePayload (line 77-81)",
+        "fields": {
+          "sessionId": "string | null",
+          "previousSessionId": "string | null (optional)",
+          "ts": "number"
+        },
+        "event_name": "ui.session.state.change.v1",
+        "added_to": "UIStateEvents interface (line 93)"
+      },
+      
+      "LogicManager_updates": {
+        "imports": "SessionIdStateChangePayload (line 17)",
+        "conversation_processed_listener": {
+          "location": "LogicManager.ts:125-135",
+          "extracts_sessionId": "event.messages[0]?.sessionId (line 128)",
+          "calls": "this.setSessionId(sessionId) (line 130)"
+        },
+        "setSessionId_method": {
+          "location": "LogicManager.ts:251-266",
+          "updates_state": "this.stateManager.setSessionId(sessionId)",
+          "emits_to_ui": "postToUI({ event: 'ui.session.state.change.v1', payload: { sessionId, previousSessionId, ts } })"
+        }
+      }
+    },
+    
+    "3_user_module_also_captures": {
+      "note": "User module ALSO captures sessionId from conversation.processed - stores globally",
+      "User_ts": "Listens to conversation.processed, captures sessionId, stores in this.sessionId",
+      "dual_tracking": "Both User module AND UIStateManager track sessionId (intentional - User owns global, UIStateManager for UI sync)"
+    }
+  },
+  
+  "current_logs_analysis": {
+    "backend_working_perfectly": {
+      "message_1": {
+        "ui_sends": "sessionId: undefined",
+        "backend_logs": "[ClaudeCodeCLIAdapter] New conversation",
+        "cli_executes": "[CLIExecutor] New chat (using -p flag)",
+        "session_created": "a536d6e2-9b80-4173-9901-a80588cb4a6a",
+        "state_updated": "[UIStateManager] SessionId: null → a536d6e2-9b80-4173-9901-a80588cb4a6a",
+        "emitted_to_ui": "ui.session.state.change.v1 event sent ✅"
+      },
+      "message_2": {
+        "ui_sends": "sessionId: undefined (PROBLEM!)",
+        "backend_logs": "[ClaudeCodeCLIAdapter] New conversation (should be Resume!)",
+        "cli_executes": "[CLIExecutor] New chat (using -p flag) (should be -r!)",
+        "new_session_created": "646d9243-7a56-4886-89d6-5e023dfff0cd",
+        "state_updated": "[UIStateManager] SessionId: a536d6e2... → 646d9243... (overwrites!)"
+      },
+      "message_3": {
+        "same_problem": "UI still sends sessionId: undefined",
+        "new_session": "a301d79c-dfd1-405e-9edd-3a1aa57e7ff8"
+      }
+    }
+  },
+  
+  "the_blocker": {
+    "ui_not_listening": "UI receives ui.session.state.change.v1 event but doesn't listen/store/send it",
+    "what_ui_needs_to_do": [
+      "1. Listen to ui.session.state.change.v1 event from Extension",
+      "2. Extract sessionId from payload",
+      "3. Store it in UI state (localStorage, React state, Vuex, etc)",
+      "4. When user sends message, include sessionId in ChatUserMessagePayload",
+      "5. First message: sessionId undefined (OK), subsequent: sessionId from state"
+    ]
+  },
+  
+  "ui_implementation_needed": {
+    "location": "Likely in UI message sending logic - need to find where chat.message.user.v1 is emitted",
+    "search_for": "chat.message.user.v1, postMessage, sendMessage in UI code",
+    "listen_for_event": "ui.session.state.change.v1",
+    "store_sessionId": "In UI state management (React/Vue/vanilla)",
+    "include_in_message": "When emitting chat.message.user.v1, add sessionId from state"
+  },
+  
+  "expected_flow_when_ui_fixed": {
+    "message_1": "UI sends sessionId: undefined → Backend uses -p → Creates session ABC → Emits ui.session.state.change.v1 → UI stores ABC",
+    "message_2": "UI sends sessionId: ABC → Backend uses -r ABC → Resumes session → Claude remembers context ✅",
+    "message_3": "UI sends sessionId: ABC → Backend uses -r ABC → Continues same session ✅"
+  },
+  
+  "all_files_modified": [
+    "src/shared/events/chat.ts (added sessionId to ChatUserMessagePayload)",
+    "src/ext/modules/providers/base/ExtensionTypes.ts (added sessionId to ExtensionMessage)",
+    "src/ext/modules/logic-manager/message-router/MessageValidator.ts (pass sessionId)",
+    "src/ext/modules/providers/implementations/ClaudeCodeCLIAdapter.ts (pass sessionId, add logs)",
+    "src/ext/modules/providers/anthropics/cli-wrapper/ClaudeCodeService.ts (pass sessionId)",
+    "src/ext/modules/providers/anthropics/cli-wrapper/types.ts (add sessionId to MessageOptions)",
+    "src/ext/modules/providers/anthropics/cli-wrapper/cli-executor/CLIExecutor.ts (use -p or -r)",
+    "src/shared/contracts/chat.json (add sessionId to contract)",
+    "src/ext/modules/logic-manager/state/UIStateManager.ts (add sessionId state)",
+    "src/shared/events/ui-state.ts (add SessionIdStateChangePayload, ui.session.state.change.v1)",
+    "src/ext/modules/logic-manager/LogicManager.ts (capture sessionId, emit to UI)"
+  ],
+  
+  "next_session_action": "Find UI code that sends chat.message.user.v1, add listener for ui.session.state.change.v1, store sessionId, include in messages"
+}

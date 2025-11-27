@@ -1,0 +1,147 @@
+{
+  "task": "tool-name-display-unknown-command-fix",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-29",
+  "component": "tool-notification-ui-display",
+
+  "temporal_context": {
+    "date_iso": "2025-10-29",
+    "year": 2025,
+    "month": 10,
+    "week_number": 44,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "2: UI template formatting with action-to-name mapping logic",
+    "business": "4: Critical UX issue - users couldn't identify which tools Claude was using",
+    "coordination": "2: Single UI layer change, no backend coordination needed"
+  },
+
+  "files_modified": 2,
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/tool-manager/renderer/templates/ToolTemplates.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/message-manager-router/transformers/ToolChunkTransformer.js"
+  ],
+  "tests_added": 0,
+  "related_tasks": [
+    "claude-cli-tool-display-fix-complete",
+    "gemini-tool-call-visualization-implementation",
+    "universal-message-format"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Tool notifications showing 'Unknown command' instead of tool names (Read, Bash, Write) → Added inline action-to-tool-name mapper in ToolTemplates and removed problematic fallback in ToolChunkTransformer",
+
+  "root_cause": "UI template only displayed target.displayName (filename/command) without showing the tool name. Additionally, ToolChunkTransformer had a fallback that created 'Unknown command' when target was missing in tool_end events",
+
+  "solution": {
+    "approach": "Two-part fix: (1) Add inline getToolName() method to map actions to display names in template layer, (2) Remove fallback logic that was masking missing target data in tool_end events",
+    "key_changes": [
+      "ToolTemplates.js:17-42: Added getToolName(action) method to map actions (read/write/execute) to tool names (Read/Write/Bash) with proper capitalization",
+      "ToolTemplates.js:48-67: Updated getToolContentTemplate() to call getToolName() and display 'ToolName target' format (e.g., 'Read config.js')",
+      "ToolChunkTransformer.js:55-96: Removed fallback that created 'Unknown command' when target missing, added debug logging to verify backend data"
+    ]
+  },
+
+  "validation": "User confirmed tool_start displays correctly ('Bash npm install'). Tool_end still has issues but now we can see the root cause via debug logs",
+
+  "gotchas": [
+    {
+      "issue": "Initial attempt imported ToolTypeMapper from extension directory but webview got 404 error because files outside UI structure aren't accessible",
+      "solution": "Created inline getToolName() method directly in ToolTemplates.js instead of importing from extension TypeScript files",
+      "category": "environment",
+      "severity": "medium"
+    },
+    {
+      "issue": "Tool_end events still showing 'Unknown command' even after template fix",
+      "solution": "Identified that ToolChunkTransformer had problematic fallback logic. Removed fallback and added debug logging to trace backend data flow",
+      "category": "integration",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "Webview UI code must be self-contained - cannot import from extension TypeScript directories. When fixing display issues, check both the template layer AND the data transformation layer for fallback logic that might be masking the real problem",
+
+  "tags": [
+    "tool-visualization",
+    "unknown-command",
+    "ui-templates",
+    "tool-notifications",
+    "webview-imports",
+    "action-mapping",
+    "universal-message-format",
+    "display-formatting",
+    "fallback-logic",
+    "debug-logging"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "getToolName(action) - Maps universal actions to user-friendly tool names with consistent capitalization",
+      "ToolTemplates.getToolContentTemplate() - Generates HTML template with tool name + target display",
+      "ToolChunkTransformer.transformToolEnd() - Transforms backend chunks to UI events, removed problematic fallback"
+    ],
+    "api_surface": [
+      "getToolName(action: string): string - Returns capitalized tool name (Read/Write/Bash/Search/Analyze)",
+      "getToolContentTemplate(action, target, details, isEnd, isSuccess): string - Returns HTML template with formatted tool display"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "ToolChunkTransformer.transformToolEnd() no longer has fallback - backend MUST provide target",
+      "Tool display format changed from just 'config.js' to 'Read config.js'"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Remove debug logging from ToolChunkTransformer after confirming tool_end target is populated correctly",
+      "Investigate why tool_end target might be missing - check ToolMapRegistry population",
+      "Verify fix works across all providers (Claude, Codex, Gemini)",
+      "Consider adding fallback for truly unknown/new tools while keeping informative display"
+    ],
+    "architecture_decisions": {
+      "inline_mapper_vs_import": "Chose inline getToolName() method over importing ToolTypeMapper because webview cannot access extension directory files - keeps UI self-contained",
+      "remove_fallback_vs_improve": "Removed fallback entirely rather than improving it - backend should always provide target, fallback was masking real issue"
+    },
+    "extension_points": [
+      "ToolTemplates.getToolName() - Add new action mappings here for future tool types",
+      "Tool action mappings also exist in ToolTypeMapper.ts (extension side) - keep in sync for consistency"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "natural-conversational",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "universal-message-format",
+      "tool-visualization",
+      "provider-agnostic-ui",
+      "action-to-tool-mapping"
+    ],
+    "technical_patterns": [
+      "inline-utility-methods",
+      "template-string-generation",
+      "webview-resource-isolation",
+      "fallback-removal-pattern"
+    ],
+    "integration_points": [
+      "ToolEventProcessor",
+      "ToolMapRegistry",
+      "StreamEventEmitter",
+      "ClaudeToolMapper"
+    ]
+  }
+}

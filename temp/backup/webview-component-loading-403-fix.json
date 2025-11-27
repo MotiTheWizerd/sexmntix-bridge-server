@@ -1,0 +1,137 @@
+{
+  "task": "webview-component-loading-403-fix",
+  "agent": "claude-opus-4-1",
+  "date": "2025-09-29",
+  "temporal_context": {
+    "date_iso": "2025-09-29",
+    "year": 2025,
+    "month": 9,
+    "week_number": 40,
+    "quarter": "2025-Q3",
+    "time_period": "recent"
+  },
+  "component": "ultra-modular-component-loader",
+  "complexity": {
+    "technical": "4: Complex debugging of WebView security constraints, template loading fallback chains, and architectural duplication between ComponentOrchestrator and component classes",
+    "business": "5: Critical blocker preventing Sementix UI from functioning - header and sidebar components failed to load with 403 Forbidden errors",
+    "coordination": "3: Required understanding interaction between embedded templates, ultra-modular loaders, and component class initialization patterns"
+  },
+  "files_modified": "4",
+  "files_touched": [
+    "src/ext/modules/memory-search/ui-dashboard/index.html",
+    "src/ext/modules/memory-search/ui-dashboard/search.html",
+    "src/ext/modules/memory-search/ui-dashboard/components/header/AppHeader.js",
+    "src/ext/modules/memory-search/ui-dashboard/components/sidebar/SidebarController.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "ultra-modular-component-loader-refactoring",
+    "webview-component-bundling-architecture"
+  ],
+  "outcomes": {
+    "performance_impact": "No impact - eliminated redundant fetch calls that were failing anyway",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "true"
+  },
+  "summary": "WebView 403 Forbidden errors → Embedded template architecture with proper component separation",
+  "root_cause": "Architectural duplication: ComponentOrchestrator loaded embedded templates correctly, but AppHeader/SidebarController classes had redundant loadTemplate() methods that bypassed the orchestrator and tried to fetch HTML files directly, which WebView security blocks",
+  "solution": {
+    "approach": "Debug with comprehensive logging to identify template loading flow, then eliminate architectural duplication by removing redundant template loading from component classes",
+    "key_changes": [
+      "index.html + search.html: Added embedded <template> elements with correct IDs (header-appheader-template, sidebar-sidebar-template) matching PathResolver generation logic",
+      "AppHeader.js: Removed redundant loadTemplate() method - ComponentOrchestrator already loads template before class instantiation",
+      "SidebarController.js: Removed redundant loadTemplate() method - ComponentOrchestrator already loads template before class instantiation",
+      "index.html + search.html: Fixed sidebar navigation from href='search.html' to href='#' to prevent browser navigation and enable SPA routing"
+    ]
+  },
+  "validation": "Added comprehensive debug logging throughout TemplateLoader, PathResolver, and initialization - confirmed embedded templates found correctly, 403 errors eliminated, header and sidebar now load successfully",
+  "gotchas": [
+    {
+      "issue": "ComponentOrchestrator worked perfectly with embedded templates, but component classes had their own fetch-based loadTemplate() methods causing duplicate loading attempts",
+      "solution": "Removed loadTemplate() calls from component classes since ComponentOrchestrator handles template loading before instantiation",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "Template ID generation required exact match between PathResolver logic and embedded template IDs - components/header/AppHeader.html → header-appheader-template",
+      "solution": "Used PathResolver.generateTemplateId() pattern to create correct embedded template IDs in HTML",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "Sidebar href='search.html' caused browser navigation instead of SPA section switching within WebView panel",
+      "solution": "Changed to href='#' so SidebarController's section switching logic activates instead of browser navigation",
+      "category": "configuration",
+      "severity": "medium"
+    }
+  ],
+  "lesson": "Ultra-modular architecture requires clear separation of concerns: ComponentOrchestrator handles template loading, component classes handle behavior only. Embedded templates solve WebView security constraints but require exact ID matching.",
+  "tags": [
+    "webview-security",
+    "component-loading",
+    "template-embedding",
+    "architectural-separation",
+    "403-forbidden-fix"
+  ],
+  "code_context": {
+    "key_patterns": [
+      "TemplateLoader.loadFromEmbeddedTemplate() - WebView-safe template loading with embedded <template> elements",
+      "PathResolver.generateTemplateId() - Consistent ID generation for template lookup",
+      "ComponentOrchestrator.loadComponent() - Template load → HTML inject → class instantiate pattern"
+    ],
+    "api_surface": [
+      "TemplateLoader.loadFromEmbeddedTemplate(templatePath: string): string|null - Embedded template detection with fallback",
+      "PathResolver.generateTemplateId(componentName: string, templatePath: string): string - Consistent template ID generation",
+      "ComponentOrchestrator.loadComponent(name: string, selector: string, componentClass?: Class): Promise<instance> - Complete component loading orchestration"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "Component classes no longer handle their own template loading - must rely on ComponentOrchestrator pre-loading"
+    ]
+  },
+  "future_planning": {
+    "next_logical_steps": [
+      "Implement actual content switching in WebView panel to navigate between dashboard and search interfaces",
+      "Add comprehensive unit tests for template loading and component instantiation flows",
+      "Create component dependency graph visualization for debugging complex loading scenarios",
+      "Implement template preloading optimization for faster component initialization"
+    ],
+    "architecture_decisions": {
+      "embedded_template_approach": "Embedded <template> elements chosen over fetch() to work within WebView security constraints while maintaining ultra-modular architecture",
+      "component_separation": "ComponentOrchestrator handles template loading, component classes handle behavior - clean separation prevents duplication and security issues",
+      "spa_navigation": "href='#' approach enables section switching within WebView panel instead of browser navigation"
+    },
+    "extension_points": [
+      "TemplateLoader - Add template preloading and caching optimization for faster component loading",
+      "ComponentOrchestrator - Add configuration options for template loading strategies and error recovery",
+      "SidebarController - Extend section switching to handle actual content area transitions"
+    ]
+  },
+  "user_context": {
+    "development_style": "rapid-prototype",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+  "semantic_context": {
+    "domain_concepts": [
+      "webview-security",
+      "component-loading",
+      "template-embedding",
+      "spa-navigation"
+    ],
+    "technical_patterns": [
+      "embedded-templates",
+      "ultra-modular-architecture",
+      "orchestrator-pattern",
+      "section-switching"
+    ],
+    "integration_points": [
+      "vscode-webview-api",
+      "template-system",
+      "component-lifecycle",
+      "navigation-routing"
+    ]
+  }
+}

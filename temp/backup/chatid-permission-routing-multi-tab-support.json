@@ -1,0 +1,139 @@
+{
+  "task": "chatid-permission-routing-multi-tab-support",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-11-11",
+  "component": "permission-system-multi-tab-routing",
+
+  "temporal_context": {
+    "date_iso": "2025-11-11",
+    "year": 2025,
+    "month": 11,
+    "week_number": 46,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Multi-layer routing system spanning UI → Extension → Provider with chatId propagation",
+    "business": "5: Critical - permissions completely broken in multi-tab environment, wrong provider called",
+    "coordination": "4: Changes across 10+ files spanning type definitions, managers, handlers, and UI components"
+  },
+
+  "files_modified": "10",
+  "files_touched": [
+    "src/shared/events/chat.ts",
+    "src/ext/modules/logic-manager/permission/PermissionWorkflowManager.ts",
+    "src/ext/modules/logic-manager/message-router/MessageRouter.ts",
+    "src/ext/modules/logic-manager/message-router/utils/SessionManager.ts",
+    "src/ui/modules/ui-logic/ui-controllers/ConfirmationController.js",
+    "src/ui/modules/ui-logic/ui-controllers/confirmation-controller/handlers/AllowButtonHandler.js",
+    "src/ui/modules/ui-logic/ui-controllers/confirmation-controller/handlers/DenyButtonHandler.js",
+    "src/ui/modules/ui-logic/ui-controllers/ui-controller-manager/ui-controller-manager/injection/ChatTabManagerInjector.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": ["provider-models-dropdown-dynamic-population", "multi-tab-provider-isolation-complete-fix"],
+
+  "outcomes": {
+    "performance_impact": "No impact - routing optimization",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Permission responses routing to wrong provider in multi-tab environment (calling Codex instead of Claude CLI) → Added chatId-based routing to get correct provider from ChatInstance",
+
+  "root_cause": "Permission response payload missing chatId field, causing SessionManager to use global providerManager.getActive() which returned wrong provider when multiple tabs use different providers",
+
+  "solution": {
+    "approach": "Propagate chatId through entire permission response flow from UI → Extension → SessionManager, then use ChatInstance.getProviderId() to route to correct provider",
+    "key_changes": [
+      "shared/events/chat.ts: Added required chatId field to ChatPermissionResponsePayload",
+      "PermissionWorkflowManager: Extract chatId from payload, validate presence, pass to handleAllowDecision",
+      "MessageRouter: Add chatId parameter to resumeWithPermission signature",
+      "SessionManager: Complete rewrite - use ChatInstanceManager.getInstance(chatId) → getProviderId() → providerManager.getProviderById()",
+      "AllowButtonHandler: Inject ChatTabManager, get active chatId, include in event payload",
+      "DenyButtonHandler: Same pattern as AllowButtonHandler",
+      "ChatTabManagerInjector: Add ConfirmationController to DI chain"
+    ]
+  },
+
+  "validation": "Build succeeded, but runtime testing revealed new issue: Provider ID mismatch (chatInstance returns 'claude' but actual provider ID is 'claude-code-cli')",
+
+  "gotchas": [
+    {
+      "issue": "Build error: Property 'getProvider' does not exist on type 'ProviderManager'",
+      "solution": "Use getProviderById() instead of getProvider() - checked ProviderManager.ts:102",
+      "category": "typing",
+      "severity": "low"
+    },
+    {
+      "issue": "Build error: Expected 2 arguments in handleAutoApproval but got 1",
+      "solution": "Made chatId optional in handleAutoApproval with TODO - PermissionChunkProcessor doesn't have chatId access yet",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "Runtime error: Provider not found: claude (chatInstance.getProviderId() returns wrong ID)",
+      "solution": "INCOMPLETE - ChatInstance storing 'claude' but provider ID is 'claude-code-cli', needs UI-side provider ID mapping fix",
+      "category": "configuration",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "Multi-tab architecture requires chatId in ALL cross-cutting flows (permissions, interrupts, state changes). Global state patterns break down - must use per-chat context everywhere.",
+
+  "tags": ["permission-system", "multi-tab", "chatId-routing", "provider-isolation", "dependency-injection", "INCOMPLETE"],
+
+  "code_context": {
+    "key_patterns": [
+      "chatInstance.getProviderId() - Get provider for specific chat",
+      "providerManager.getProviderById(id) - Retrieve provider adapter by ID",
+      "chatTabManager.getActiveChatId() - Get currently active chat in UI",
+      "setChatTabManager(manager) - DI pattern for injecting tab manager"
+    ],
+    "api_surface": [
+      "resumeWithPermission(chatId: string, sessionId: string, allowedTools: string[]): Promise<void> - Route to correct provider",
+      "ChatPermissionResponsePayload { response, chatId, ts } - Required chatId field",
+      "chatInstance.getProviderId(): string | null - Returns provider ID for chat"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "ChatPermissionResponsePayload now requires chatId field",
+      "SessionManager.resumeWithPermission() signature changed: added chatId as first parameter",
+      "MessageRouter.resumeWithPermission() signature changed: added chatId as first parameter"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "CRITICAL: Fix provider ID mismatch - ChatInstance returns 'claude' but should return 'claude-code-cli'",
+      "Add chatId to PermissionChunkProcessor for auto-approval support",
+      "Add logging to track provider ID resolution flow",
+      "Test with multiple tabs using different providers (Claude CLI vs Codex vs Gemini)",
+      "Consider adding provider ID validation at ChatInstance level"
+    ],
+    "architecture_decisions": {
+      "chatId_propagation": "Every cross-cutting concern must include chatId for multi-tab support",
+      "provider_routing": "Use ChatInstance as source of truth for provider selection, not global state",
+      "dependency_injection": "Inject ChatTabManager into UI components that need chatId access"
+    },
+    "extension_points": [
+      "PermissionChunkProcessor - Need to pass chatId through streaming chunks",
+      "Other cross-cutting flows (interrupts, state changes) may need same chatId pattern",
+      "Provider ID normalization layer to handle UI vs Extension ID mismatches"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "ultra-modular-single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": ["multi-tab", "per-chat-provider", "permission-routing", "chatId-propagation"],
+    "technical_patterns": ["dependency-injection", "event-driven-architecture", "provider-registry", "chat-instance-isolation"],
+    "integration_points": ["ChatInstanceManager", "ProviderManager", "ChatTabManager", "UI-Extension-Bridge"]
+  }
+}

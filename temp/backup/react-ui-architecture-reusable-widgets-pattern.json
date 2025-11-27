@@ -1,0 +1,472 @@
+{
+  "task": "react-ui-architecture-reusable-widgets-pattern",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-02",
+  "temporal_context": {
+    "date_iso": "2025-10-02",
+    "year": 2025,
+    "month": 10,
+    "week_number": 40,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+  "component": "react-ui-architecture-patterns",
+  "tags": [
+    "react-architecture",
+    "reusable-components",
+    "widget-system",
+    "component-structure",
+    "best-practices",
+    "ultra-modular",
+    "shared-components",
+    "design-system",
+    "typescript-react",
+    "folder-organization"
+  ],
+  "summary": "Comprehensive guide to React UI architecture in Sementix IDE Dashboard - reusable widget pattern, folder structure, component organization, and development best practices for maintaining consistency and avoiding duplication",
+  "context": {
+    "motivation": "After building Semantic Engine monitor, we refactored to create reusable widgets - establishing patterns for all future React development",
+    "principle": "ALWAYS check shared components before creating new ones - avoid duplication, maintain consistency",
+    "philosophy": "Ultra-modular pattern adapted for React - each component in own folder with TypeScript + CSS"
+  },
+  "project_structure": {
+    "location": "src/ui/app/ui/ide-dashboard/",
+    "tech_stack": {
+      "framework": "React 19.2",
+      "build_tool": "Vite 7.1",
+      "language": "TypeScript 5.9 (strict mode)",
+      "styling": "Native CSS with CSS variables (metallic theme)",
+      "no_libraries": "No CSS-in-JS, no Styled Components, no Tailwind - pure CSS files"
+    },
+    "folder_structure": {
+      "root": "src/",
+      "main_folders": {
+        "components": "All React components (features + shared)",
+        "services": "API clients and business logic",
+        "styles": "Global styles and theme variables"
+      }
+    }
+  },
+  "component_organization": {
+    "rule": "EVERY component gets its own folder with .tsx + .css",
+    "structure": "ComponentName/ComponentName.tsx + ComponentName.css",
+    "two_types": {
+      "feature_components": {
+        "location": "src/components/FeatureName/",
+        "examples": [
+          "Header/",
+          "Sidebar/",
+          "MainContent/",
+          "SemanticEngine/",
+          "SemanticEngine/components/EngineStatus/",
+          "SemanticEngine/components/MemoryStats/",
+          "SemanticEngine/components/SearchMonitor/"
+        ],
+        "pattern": "Feature-specific, not meant to be reused elsewhere",
+        "nesting": "Features can have nested component folders"
+      },
+      "shared_components": {
+        "location": "src/components/shared/",
+        "purpose": "Reusable widgets used across multiple features",
+        "examples": [
+          "Tag/",
+          "Badge/",
+          "ProgressBar/",
+          "StatCard/"
+        ],
+        "golden_rule": "ALWAYS check this folder before creating new components!",
+        "when_to_create": "When you need the same UI pattern in 2+ places"
+      }
+    }
+  },
+  "shared_widget_library": {
+    "overview": "Reusable UI components following metallic glassmorphism design system",
+    "current_widgets": {
+      "tag": {
+        "file": "components/shared/Tag/Tag.tsx",
+        "purpose": "Small pill-shaped labels for tags, categories, keywords",
+        "props": {
+          "children": "React.ReactNode - The tag text",
+          "variant": "'default' | 'accent' - Visual style (optional, default: 'default')"
+        },
+        "usage_example": "<Tag>ultra-modular</Tag> or <Tag variant=\"accent\">featured</Tag>",
+        "styling": "Small padding, rounded, muted colors, border",
+        "use_cases": [
+          "Memory tags in search results",
+          "Component categories",
+          "Feature labels",
+          "Filter chips"
+        ]
+      },
+      "badge": {
+        "file": "components/shared/Badge/Badge.tsx",
+        "purpose": "Status indicators with color-coded variants",
+        "props": {
+          "children": "React.ReactNode - Badge content",
+          "variant": "'success' | 'warning' | 'error' | 'info' | 'high' | 'medium' | 'low' (required)"
+        },
+        "usage_example": "<Badge variant=\"success\">Healthy</Badge> or <Badge variant=\"high\">80.4%</Badge>",
+        "styling": "Uppercase text, letter-spacing, colored background + border, padding",
+        "variants": {
+          "success": "Green - for healthy/active/positive states",
+          "warning": "Yellow - for caution/medium priority",
+          "error": "Red - for errors/degraded/critical",
+          "info": "Blue - for information/neutral",
+          "high": "Green - for high similarity scores (≥80%)",
+          "medium": "Yellow - for medium scores (60-80%)",
+          "low": "Red - for low scores (<60%)"
+        },
+        "use_cases": [
+          "Server health status",
+          "Module status indicators",
+          "Similarity score badges",
+          "Priority levels",
+          "State indicators"
+        ]
+      },
+      "progress_bar": {
+        "file": "components/shared/ProgressBar/ProgressBar.tsx",
+        "purpose": "Animated progress/percentage visualization with gradient fills",
+        "props": {
+          "value": "number (0-100) - Percentage value",
+          "variant": "'high' | 'medium' | 'low' | 'default' (optional, default: 'default')",
+          "showLabel": "boolean (optional, default: false) - Show percentage label above bar"
+        },
+        "usage_example": "<ProgressBar value={80.4} variant=\"high\" /> or <ProgressBar value={45} showLabel />",
+        "styling": "3px height track, animated gradient fill, smooth width transition (0.5s ease)",
+        "gradients": {
+          "default": "Solid accent-blue",
+          "high": "linear-gradient(90deg, green → cyan)",
+          "medium": "linear-gradient(90deg, yellow → blue)",
+          "low": "linear-gradient(90deg, red → yellow)"
+        },
+        "use_cases": [
+          "Similarity score visualization",
+          "Loading progress",
+          "Completion percentage",
+          "Health metrics",
+          "Any 0-100% value display"
+        ]
+      },
+      "stat_card": {
+        "file": "components/shared/StatCard/StatCard.tsx",
+        "purpose": "Icon + value + label card for displaying statistics",
+        "props": {
+          "icon": "string - Emoji or icon character",
+          "value": "string | number - Main value to display",
+          "label": "string - Description label",
+          "onClick": "() => void (optional) - Click handler, makes card clickable"
+        },
+        "usage_example": "<StatCard icon=\"🧠\" value={98} label=\"Embeddings Stored\" />",
+        "styling": "Horizontal flexbox layout, icon on left, hover transform translateX(4px)",
+        "features": {
+          "hover_effect": "Background darkens + slides right",
+          "clickable_variant": "Cursor changes to pointer if onClick provided",
+          "responsive": "Icon stays fixed size, value/label stack in info div"
+        },
+        "use_cases": [
+          "Dashboard statistics",
+          "Quick metrics display",
+          "Key performance indicators",
+          "Summary cards",
+          "Clickable stat navigation"
+        ]
+      }
+    }
+  },
+  "development_workflow": {
+    "before_creating_component": {
+      "step_1": "Ask yourself: 'Is this a reusable UI pattern?'",
+      "step_2": "Check src/components/shared/ folder - does it already exist?",
+      "step_3": "If similar widget exists, use it! Import and customize with props",
+      "step_4": "Only create NEW shared widget if truly unique pattern",
+      "anti_pattern": "DO NOT duplicate Tag/Badge/ProgressBar in feature components",
+      "example": {
+        "wrong": "Creating <SearchResultTag> component in SearchMonitor",
+        "right": "Import <Tag> from shared and use it: <Tag>{tag}</Tag>"
+      }
+    },
+    "when_to_create_shared_widget": {
+      "criteria": [
+        "Pattern needed in 2+ different features",
+        "Visual element with consistent styling across app",
+        "Behavior/props can be parameterized",
+        "Part of design system (tags, badges, buttons, cards, etc)"
+      ],
+      "process": {
+        "step_1": "Create folder in src/components/shared/WidgetName/",
+        "step_2": "Create WidgetName.tsx with TypeScript interface for props",
+        "step_3": "Create WidgetName.css with scoped styles using .widget-name prefix",
+        "step_4": "Export component: export function WidgetName({ props }) { ... }",
+        "step_5": "Use CSS variables from theme (--accent-blue, --text-primary, etc)",
+        "step_6": "Document props in comments or README if complex"
+      }
+    },
+    "component_file_structure": {
+      "tsx_file": {
+        "imports": "React hooks, shared widgets, types, CSS",
+        "interface": "TypeScript interface for props (always define, even if simple)",
+        "component": "Function component with typed props",
+        "export": "Named export: export function ComponentName() {}",
+        "default_export": "Avoid default exports in shared widgets, use named exports"
+      },
+      "css_file": {
+        "class_naming": "Use component name prefix: .stat-card, .stat-card-icon, .stat-card-value",
+        "variables": "Always use CSS variables: var(--accent-blue) not hardcoded #7aa2f7",
+        "organization": "Group related styles together (container → children → states)",
+        "no_global_styles": "All styles scoped to component prefix"
+      }
+    },
+    "importing_widgets": {
+      "relative_imports": "Always use relative paths from current file",
+      "example_from_feature": "import { Tag } from '../../../shared/Tag/Tag'",
+      "example_from_shared": "import { Badge } from '../Badge/Badge'",
+      "multiple_imports": "import { Tag } from '../shared/Tag/Tag'\nimport { Badge } from '../shared/Badge/Badge'",
+      "destructure": "Use named imports with destructuring"
+    }
+  },
+  "styling_system": {
+    "theme_variables": {
+      "location": "src/styles/variables.css",
+      "imported_by": "src/index.css (globally available)",
+      "categories": {
+        "colors": [
+          "--bg-primary, --bg-secondary, --bg-tertiary",
+          "--surface-metallic, --surface-metallic-hover",
+          "--text-primary, --text-secondary, --text-muted",
+          "--accent-blue, --accent-purple, --accent-green, --accent-yellow, --accent-red",
+          "--border-primary, --border-glow"
+        ],
+        "effects": [
+          "--shadow-sm, --shadow-md, --shadow-lg",
+          "--glow-blue, --glow-purple, --glow-green",
+          "--hover-overlay, --active-overlay",
+          "--focus-ring"
+        ],
+        "gradients": [
+          "--metallic-gradient, --metallic-shine",
+          "Linear gradients defined inline: linear-gradient(135deg, var(--accent-blue), var(--accent-purple))"
+        ]
+      },
+      "usage_rule": "NEVER hardcode colors - always use CSS variables"
+    },
+    "common_patterns": {
+      "gradient_text": {
+        "css": "background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));\n-webkit-background-clip: text;\n-webkit-text-fill-color: transparent;\nbackground-clip: text;",
+        "use_case": "Headers, important numbers, highlighted text"
+      },
+      "glassmorphism_card": {
+        "css": "background: var(--surface-metallic);\nborder: 1px solid var(--border-primary);\nborder-radius: 8px;\nbox-shadow: var(--shadow-md);",
+        "use_case": "All cards, panels, containers"
+      },
+      "hover_transform": {
+        "css": "transition: all 0.2s ease;\n&:hover { transform: translateX(4px); background: var(--surface-metallic-hover); }",
+        "use_case": "Interactive cards, list items, buttons"
+      },
+      "status_badge": {
+        "css": "padding: 4px 12px;\nborder-radius: 12px;\ntext-transform: uppercase;\nletter-spacing: 0.5px;\nfont-size: 12px;",
+        "use_case": "Status indicators, badges, labels"
+      }
+    }
+  },
+  "typescript_best_practices": {
+    "always_type_props": "Every component must have interface for props",
+    "prop_interface_naming": "ComponentNameProps (e.g., BadgeProps, TagProps)",
+    "optional_props": "Use ? for optional: variant?: 'default' | 'accent'",
+    "default_values": "Provide defaults in destructuring: { variant = 'default' }",
+    "children_type": "Use React.ReactNode for children prop",
+    "event_handlers": "Type events: onClick?: () => void or onChange?: (value: string) => void",
+    "union_types": "Use for variants: variant: 'success' | 'warning' | 'error'",
+    "type_imports": "Import types from services: import type { HealthResponse } from '...'",
+    "no_any": "Avoid 'any' type - use proper interfaces or unknown",
+    "strict_mode": "TypeScript strict mode is enabled - embrace it!"
+  },
+  "state_management": {
+    "pattern": "Local useState hooks - no Redux, no Context (yet)",
+    "when_to_use_state": [
+      "Component-specific data (form inputs, toggles, local UI state)",
+      "API response data (health, search results, stats)",
+      "Loading/error states",
+      "User interactions (selected items, expanded sections)"
+    ],
+    "polling_pattern": {
+      "implementation": "useEffect with setInterval + cleanup",
+      "example": "useEffect(() => {\n  fetchData()\n  const interval = setInterval(fetchData, 5000)\n  return () => clearInterval(interval)\n}, [])",
+      "cleanup_required": "ALWAYS return cleanup function to prevent memory leaks",
+      "different_intervals": "Use different intervals for different data freshness needs (5s for health, 10s for stats)"
+    },
+    "async_state_pattern": {
+      "states_needed": "[data, loading, error]",
+      "example": "const [health, setHealth] = useState<HealthResponse | null>(null)\nconst [loading, setLoading] = useState(true)\nconst [error, setError] = useState<string | null>(null)",
+      "flow": "setLoading(true) → try { setData(response) } catch { setError(err) } finally { setLoading(false) }"
+    }
+  },
+  "api_integration": {
+    "service_layer": {
+      "location": "src/services/",
+      "pattern": "Singleton class with typed methods",
+      "example": "export class SemantixBrainApi { ... }\nexport const semantixBrainApi = new SemantixBrainApi()",
+      "usage": "import { semantixBrainApi } from '../services/semantixBrainApi'\nconst response = await semantixBrainApi.getHealth()"
+    },
+    "type_definitions": {
+      "location": "Defined in service file alongside implementation",
+      "export": "Export all types: export interface HealthResponse { ... }",
+      "import": "import type { HealthResponse } from '../services/semantixBrainApi'",
+      "reusability": "Types can be shared across components"
+    },
+    "error_handling": {
+      "pattern": "Try-catch in component, display user-friendly errors",
+      "example": "try { ... } catch (err) { setError(err instanceof Error ? err.message : 'Failed') }",
+      "display": "Show error state in UI with helpful messages"
+    }
+  },
+  "routing_pattern": {
+    "current_approach": "Simple page state in App.tsx - no React Router needed",
+    "implementation": {
+      "state": "const [currentPage, setCurrentPage] = useState<Page>('dashboard')",
+      "type": "type Page = 'dashboard' | 'semantic-engine' | 'files-monitor'",
+      "render": "switch (currentPage) { case 'dashboard': return <MainContent /> ... }",
+      "navigation": "Pass currentPage + onNavigate to Sidebar as props"
+    },
+    "when_to_upgrade": "Only add React Router if need for URL-based routing, deep linking, or browser history",
+    "current_benefits": "Zero dependencies, instant navigation, simple to understand"
+  },
+  "build_optimization": {
+    "vite_config": "Default Vite config is sufficient - no custom optimization needed yet",
+    "tree_shaking": "Vite automatically tree-shakes unused code",
+    "code_splitting": "Happens automatically for routes/lazy-loaded components",
+    "bundle_analysis": "Check build output for bundle size - currently ~205KB (63KB gzipped)",
+    "css_optimization": "Vite automatically minifies and bundles CSS"
+  },
+  "naming_conventions": {
+    "components": "PascalCase for files and exports: Badge.tsx, export function Badge()",
+    "props_interfaces": "ComponentNameProps: BadgeProps, TagProps",
+    "css_classes": "kebab-case with component prefix: .badge, .badge-success",
+    "folders": "PascalCase matching component name: Badge/, Tag/",
+    "services": "camelCase for files, PascalCase for classes: semantixBrainApi.ts, class SemantixBrainApi",
+    "types": "PascalCase: type Page, interface BadgeProps",
+    "css_variables": "kebab-case with -- prefix: --accent-blue, --text-primary"
+  },
+  "common_gotchas": {
+    "gotcha_1": {
+      "issue": "Importing CSS but styles not showing",
+      "cause": "CSS file not imported in component",
+      "solution": "Always import './ComponentName.css' at top of .tsx file"
+    },
+    "gotcha_2": {
+      "issue": "Gradient text showing as solid color",
+      "cause": "Missing -webkit- prefixes",
+      "solution": "Use both -webkit-background-clip AND background-clip, plus -webkit-text-fill-color"
+    },
+    "gotcha_3": {
+      "issue": "Component re-renders causing performance issues",
+      "cause": "useEffect missing dependencies or creating new objects/functions",
+      "solution": "Add proper dependency array, use useCallback/useMemo if needed"
+    },
+    "gotcha_4": {
+      "issue": "Interval not cleaning up, memory leak",
+      "cause": "useEffect not returning cleanup function",
+      "solution": "ALWAYS return () => clearInterval(interval) in useEffect"
+    },
+    "gotcha_5": {
+      "issue": "TypeScript error: Type 'string' not assignable to variant",
+      "cause": "Need explicit type assertion for union types from functions",
+      "solution": "Use 'as' assertion: variant={getVariant() as 'success' | 'error'}"
+    }
+  },
+  "future_shared_widgets": {
+    "planned": [
+      "Button - Primary, secondary, outline variants",
+      "Input - Text input with focus states and validation",
+      "Select - Dropdown with search",
+      "Modal - Overlay dialog",
+      "Tooltip - Hover information",
+      "Card - Reusable card container",
+      "LoadingSpinner - Consistent loading indicator",
+      "EmptyState - No data placeholder",
+      "ErrorBoundary - Error handling wrapper"
+    ],
+    "when_to_create": "As soon as pattern is needed in 2+ places - don't wait!"
+  },
+  "refactoring_checklist": {
+    "when_you_see_duplication": [
+      "1. Identify the duplicated UI pattern (tags, badges, cards, etc)",
+      "2. Check if shared widget already exists in src/components/shared/",
+      "3. If exists, refactor to use shared widget",
+      "4. If doesn't exist, extract to new shared widget",
+      "5. Update all instances to use shared widget",
+      "6. Remove duplicate CSS from feature components",
+      "7. Test build and verify no regressions"
+    ]
+  },
+  "key_principles": {
+    "principle_1": "Check shared widgets BEFORE creating new components",
+    "principle_2": "Every component in its own folder (Component.tsx + Component.css)",
+    "principle_3": "Always use TypeScript interfaces for props",
+    "principle_4": "Always use CSS variables, never hardcode colors",
+    "principle_5": "Extract to shared widget when pattern used 2+ times",
+    "principle_6": "Clean up intervals in useEffect return function",
+    "principle_7": "Use descriptive prop names and provide defaults",
+    "principle_8": "Keep components focused - single responsibility",
+    "principle_9": "Consistent naming: PascalCase components, kebab-case CSS",
+    "principle_10": "When in doubt, follow existing patterns in codebase"
+  },
+  "quick_reference": {
+    "creating_new_feature": {
+      "step_1": "Create folder: src/components/FeatureName/",
+      "step_2": "Create FeatureName.tsx + FeatureName.css",
+      "step_3": "Import shared widgets if needed",
+      "step_4": "Define props interface",
+      "step_5": "Implement component with TypeScript",
+      "step_6": "Style with CSS using theme variables",
+      "step_7": "Export and use in routing"
+    },
+    "creating_shared_widget": {
+      "step_1": "Create folder: src/components/shared/WidgetName/",
+      "step_2": "Create WidgetName.tsx + WidgetName.css",
+      "step_3": "Define WidgetNameProps interface",
+      "step_4": "Implement with props.children support if applicable",
+      "step_5": "Style with component-scoped CSS classes",
+      "step_6": "Export: export function WidgetName() {}",
+      "step_7": "Use in features: import { WidgetName } from '../../shared/WidgetName/WidgetName'"
+    },
+    "using_existing_widget": {
+      "step_1": "Check src/components/shared/ for available widgets",
+      "step_2": "Import: import { Tag } from '../../shared/Tag/Tag'",
+      "step_3": "Use with props: <Tag variant=\"accent\">featured</Tag>",
+      "step_4": "Check widget's .tsx file for available props",
+      "step_5": "No need to import CSS - it's bundled automatically"
+    }
+  },
+  "file_tree_example": {
+    "structure": "src/\n├── components/\n│   ├── shared/\n│   │   ├── Tag/\n│   │   │   ├── Tag.tsx\n│   │   │   └── Tag.css\n│   │   ├── Badge/\n│   │   │   ├── Badge.tsx\n│   │   │   └── Badge.css\n│   │   ├── ProgressBar/\n│   │   │   ├── ProgressBar.tsx\n│   │   │   └── ProgressBar.css\n│   │   └── StatCard/\n│   │       ├── StatCard.tsx\n│   │       └── StatCard.css\n│   ├── SemanticEngine/\n│   │   ├── SemanticEngine.tsx\n│   │   ├── SemanticEngine.css\n│   │   └── components/\n│   │       ├── EngineStatus/\n│   │       ├── MemoryStats/\n│   │       └── SearchMonitor/\n│   ├── Header/\n│   ├── Sidebar/\n│   └── MainContent/\n├── services/\n│   └── semantixBrainApi.ts\n└── styles/\n    ├── variables.css\n    ├── layout.css\n    └── index.css"
+  },
+  "lessons_learned": {
+    "lesson_1": {
+      "topic": "Early extraction prevents duplication",
+      "detail": "We initially duplicated tag/badge styles in SearchMonitor, then refactored to shared widgets",
+      "takeaway": "Identify reusable patterns early and extract to shared immediately"
+    },
+    "lesson_2": {
+      "topic": "Props interfaces make refactoring easy",
+      "detail": "TypeScript caught all prop mismatches during widget refactoring",
+      "takeaway": "Strong typing saves time during refactoring and prevents runtime errors"
+    },
+    "lesson_3": {
+      "topic": "Folder-per-component scales better",
+      "detail": "Each component having its own folder keeps code organized as project grows",
+      "takeaway": "Don't be afraid of many folders - they prevent mega-files"
+    },
+    "lesson_4": {
+      "topic": "CSS variables enable instant theme changes",
+      "detail": "All widgets use CSS variables, so theme updates affect entire app",
+      "takeaway": "Never hardcode colors - always use theme variables"
+    }
+  },
+  "meta": {
+    "importance": "CRITICAL - This is the foundation for all React development in Sementix",
+    "reference_frequency": "Check this memory before starting ANY new React component",
+    "update_trigger": "Update when new shared widgets added or patterns change",
+    "target_audience": "Future Claude sessions, Moti, and any developers working on React UI"
+  }
+}

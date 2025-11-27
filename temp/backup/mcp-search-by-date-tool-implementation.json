@@ -1,0 +1,182 @@
+{
+  "task": "mcp-search-by-date-tool-implementation",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-01",
+  "component": "mcp-server-tools",
+
+  "temporal_context": {
+    "date_iso": "2025-10-01",
+    "year": 2025,
+    "month": 10,
+    "week_number": 40,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: Multi-file tool implementation with schema validation, type bridging, handler logic, service integration, and MCP SDK registration",
+    "business": "4: Enables power users to perform precise temporal queries - critical for retrieving context from specific time periods and measuring development velocity over time",
+    "coordination": "3: Required coordinating new tool schema, handler, service method, type interface updates, formatter enhancement, and tool registration across 6 files"
+  },
+
+  "files_modified": 6,
+  "files_touched": [
+    "src/ext/modules/mcp-server/tools/schemas/MemorySearchByDateSchema.ts",
+    "src/ext/modules/mcp-server/tools/handlers/MemorySearchByDateHandler.ts",
+    "src/ext/modules/mcp-server/services/MemoryService.ts",
+    "src/ext/modules/mcp-server/services/ResultFormatter.ts",
+    "src/ext/modules/mcp-server/types/MemorySearchBridge.ts",
+    "src/ext/modules/mcp-server/MCPServerManager.ts"
+  ],
+  "tests_added": 0,
+  "related_tasks": [
+    "temporal-search-enhancement-date-filtering-implementation",
+    "mcp-in-memory-semantic-search-integration",
+    "complete-memory-search-system-implementation"
+  ],
+
+  "outcomes": {
+    "performance_impact": "Positive - Date pre-filtering reduces similarity calculations on large result sets by filtering before cosine similarity computation",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": true
+  },
+
+  "summary": "MCP only had generic search_memory tool without temporal filtering → Added search_memory_by_date with startDate/endDate range and timePeriod presets enabling precise temporal queries",
+  "root_cause": "Original MCP tool design didn't expose the date filtering capabilities that BasicEmbeddingService.search() already supported via optional 4th parameter",
+
+  "solution": {
+    "approach": "Follow existing MCP tool pattern: (1) Create schema with Zod validation for date parameters, (2) Implement handler with date format validation, (3) Add searchByDate() service method wrapping BasicEmbeddingService.search() with dateFilter, (4) Update type bridge interface to match actual signature, (5) Enhance formatter to display filter info, (6) Register new tool in MCPServerManager",
+    "key_changes": [
+      "MemorySearchByDateSchema.ts: Created tool definition with query, limit, startDate, endDate, timePeriod parameters using Zod validation - follows MCP SDK schema format",
+      "MemorySearchByDateHandler.ts: Implemented handler with ISO date format validation (YYYY-MM-DD regex), builds DateFilter object, calls MemoryService.searchByDate()",
+      "MemoryService.ts:57-106: Added searchByDate() method accepting dateFilter parameter, passes to BasicEmbeddingService.search(), formats filter info string for display",
+      "ResultFormatter.ts:11: Added optional filterInfo parameter to formatSearchResults(), displays filter details in header when present",
+      "MemorySearchBridge.ts:19-29: Added DateFilter interface and updated BasicEmbeddingService.search() signature to include optional 4th parameter - fixed TypeScript compilation error",
+      "MCPServerManager.ts:7-8,58-63: Imported new schema/handler, instantiated MemorySearchByDateHandler, registered tool with ToolRegistry following existing pattern"
+    ]
+  },
+
+  "validation": "TypeScript compilation successful after fixing type bridge interface, MCP server restart loaded new tool, tested with timePeriod='recent' query returning 3 filtered results with 'Filter: Time period: recent' display, tested with startDate/endDate range '2025-09-01' to '2025-09-30' returning 2 results with 'Filter: Date range: 2025-09-01 to 2025-09-30' display",
+
+  "gotchas": [
+    {
+      "issue": "TypeScript error 'Expected 3 arguments, but got 4' when calling embeddingService.search(query, limit, 0.3, dateFilter) in MemoryService",
+      "solution": "Updated MemorySearchBridge.ts interface to add optional 4th parameter dateFilter?: DateFilter to BasicEmbeddingService.search() signature - type bridge was out of sync with actual implementation",
+      "category": "typing",
+      "severity": "medium"
+    },
+    {
+      "issue": "MCP server builds to src/ext/modules/mcp-server/build/ not dist/ directory - initially looked in wrong location for compiled files",
+      "solution": "Used find command to locate MCPServerManager.js actual path, discovered separate build directory for MCP server TypeScript compilation separate from main extension build",
+      "category": "environment",
+      "severity": "low"
+    },
+    {
+      "issue": "New tool not available in Claude Code after initial build - server needed restart to pick up new tool registration",
+      "solution": "After successful build, MCP server must be restarted (claude mcp remove/add or full Claude Code restart) to reload tool registry and expose new tools to AI",
+      "category": "integration",
+      "severity": "low"
+    },
+    {
+      "issue": "Date validation needed in handler to prevent invalid ISO dates causing runtime errors in BasicEmbeddingService",
+      "solution": "Implemented isValidDateFormat() method using /^\\d{4}-\\d{2}-\\d{2}$/ regex and Date.parse() validation - returns error response before calling service",
+      "category": "validation",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "When extending MCP tools, type bridge interfaces must stay synchronized with actual service implementations - MemorySearchBridge.ts acts as contract between CJS-loaded modules and ESM MCP server, any signature mismatch causes compilation errors. Always verify compiled file locations before assuming build failures. MCP server requires restart to load new tools even after successful compilation.",
+
+  "tags": [
+    "mcp-tools",
+    "temporal-filtering",
+    "date-range-queries",
+    "tool-registration",
+    "zod-validation",
+    "type-bridge-synchronization",
+    "mcp-sdk",
+    "semantic-search-enhancement"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "MemorySearchByDateSchema.getDefinition() - Returns ToolDefinition with Zod-validated input schema following MCP SDK format",
+      "MemorySearchByDateHandler.handle(args) - Validates date formats, builds DateFilter object, returns MCP response format {content: [{type: 'text', text: string}], isError?: boolean}",
+      "MemoryService.searchByDate(query, limit, dateFilter) - Wraps BasicEmbeddingService.search() with 4th parameter, formats filter info for display",
+      "ResultFormatter.formatSearchResults(results, query, filterInfo?) - Enhanced to display optional filter information in header section",
+      "isValidDateFormat(dateStr) - Validates YYYY-MM-DD format using regex and Date.parse() to prevent invalid dates"
+    ],
+    "api_surface": [
+      "search_memory_by_date(query: string, limit?: number, startDate?: string, endDate?: string, timePeriod?: 'recent'|'last-week'|'last-month'|'archived'): Promise<MCPResponse> - MCP tool for temporal memory queries",
+      "MemoryService.searchByDate(query: string, limit: number, dateFilter: {startDate?, endDate?, timePeriod?}): Promise<string> - Service method delegating to BasicEmbeddingService with date filtering",
+      "DateFilter interface { startDate?: string; endDate?: string; timePeriod?: 'recent'|'last-week'|'last-month'|'archived' } - Temporal filter options shared between bridge types and service layer"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "MemorySearchBridge.BasicEmbeddingService.search() signature changed from (query, limit, threshold) to (query, limit, threshold, dateFilter?) - backward compatible due to optional parameter",
+      "ResultFormatter.formatSearchResults() signature changed from (results, query) to (results, query, filterInfo?) - backward compatible due to optional parameter"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Add automated tests for MemorySearchByDateHandler with various date formats and edge cases (invalid dates, future dates, reversed ranges)",
+      "Implement quarter-based filtering (e.g., timePeriod: '2025-Q3') to complement existing time period options",
+      "Add relative date support (e.g., 'last 30 days', 'this week', 'last quarter') for more intuitive temporal queries",
+      "Create temporal analytics dashboard showing memory distribution over time with date filter integration",
+      "Add date filter UI controls to memory search webview for visual date range selection",
+      "Implement combination filters allowing both date range AND time period for complex queries",
+      "Add validation warnings when date ranges return zero results to guide users toward broader searches",
+      "Create memory migration cron job to automatically update time_period field as memories age (recent → archived)"
+    ],
+    "architecture_decisions": {
+      "separate_tool_vs_parameter": "Created separate search_memory_by_date tool instead of adding optional parameters to search_memory - provides clearer API surface, better discoverability, explicit intent for power users vs casual search",
+      "handler_validation": "Implemented date validation in handler layer rather than service layer - fails fast before service initialization, provides better error messages at API boundary, prevents invalid data propagation",
+      "filter_info_display": "Enhanced ResultFormatter to show filter info in header rather than separate message - keeps context visible with results, single source of truth for what filters were applied",
+      "type_bridge_pattern": "Maintained strict type synchronization between bridge interface and implementation - prevents runtime errors from type mismatches across CJS/ESM boundary, enables TypeScript safety across module systems"
+    },
+    "extension_points": [
+      "MemorySearchByDateSchema.ts - Add more temporal filter options: specific months, seasons, custom period definitions, workweek vs weekend filtering",
+      "MemorySearchByDateHandler.ts - Enhance validation with semantic date parsing ('yesterday', 'last Monday', '3 months ago'), timezone support",
+      "MemoryService.ts - Add specialized temporal query methods: searchByQuarter(), searchByMonth(), searchRecent(), getTimelineView()",
+      "ResultFormatter.ts - Add temporal grouping in results display (group by month/quarter when displaying date-filtered results)",
+      "BasicEmbeddingService.ts - Implement date-aware similarity boosting (recent memories get slight similarity boost for recency bias)"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "iterative-improvement",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "ultra-modular",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "temporal-memory-queries",
+      "date-range-filtering",
+      "time-period-classification",
+      "development-timeline",
+      "memory-recency",
+      "semantic-search-with-temporal-constraints"
+    ],
+    "technical_patterns": [
+      "mcp-tool-registration",
+      "zod-schema-validation",
+      "type-bridge-synchronization",
+      "handler-service-formatter-pattern",
+      "optional-parameter-enhancement",
+      "iso-date-validation",
+      "cjs-esm-module-bridging"
+    ],
+    "integration_points": [
+      "mcp-sdk-server",
+      "basic-embedding-service",
+      "tool-registry",
+      "result-formatter",
+      "memory-search-bridge",
+      "claude-code-mcp-integration"
+    ]
+  }
+}

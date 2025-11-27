@@ -1,0 +1,230 @@
+{
+  "task": "file-watcher-module-implementation",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-01",
+  "component": "file-watcher-service",
+
+  "temporal_context": {
+    "date_iso": "2025-10-01",
+    "year": 2025,
+    "month": 10,
+    "week_number": 40,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Multi-component module with file system watching, event detection, debouncing, DI integration, path validation, and lifecycle management",
+    "business": "5: Critical infrastructure enabling automated memory processing, embedding regeneration, cache invalidation, and future config reloading - foundational for LLM-safe file operations",
+    "coordination": "4: Coordinated DI token creation, service registration, type system design, ultra-modular architecture patterns, and cross-module integration points"
+  },
+
+  "files_modified": 11,
+  "files_touched": [
+    "src/ext/modules/core/di/tokens.ts",
+    "src/ext/modules/logic-manager/system-initializer/DISetup.ts",
+    "src/ext/modules/file-watcher/index.ts",
+    "src/ext/modules/file-watcher/FileWatcherService.ts",
+    "src/ext/modules/file-watcher/types/FileWatcherTypes.ts",
+    "src/ext/modules/file-watcher/config/WatcherConfig.ts",
+    "src/ext/modules/file-watcher/core/PathValidator.ts",
+    "src/ext/modules/file-watcher/operations/ChangeDetector.ts",
+    "src/ext/modules/file-watcher/operations/DebounceManager.ts",
+    "src/ext/modules/file-watcher/operations/EventQueue.ts",
+    "scripts/tests/test-file-watcher.ts"
+  ],
+  "tests_added": 1,
+  "related_tasks": [
+    "mcp-search-by-date-tool-implementation",
+    "temporal-search-enhancement-date-filtering-implementation",
+    "ultra-modular-component-loader-refactoring"
+  ],
+
+  "outcomes": {
+    "performance_impact": "Positive - Enables automated embedding regeneration instead of manual triggers, reduces memory system initialization overhead through incremental updates",
+    "test_coverage_delta": "0% (standalone test script created, not integrated tests)",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": true
+  },
+
+  "summary": "Need automated file monitoring for memory system (migration, embedding regeneration, cache invalidation) → Built generic, DI-integrated FileWatcher module with complete isolation from domain logic",
+  "root_cause": "Memory system required manual embedding regeneration after file changes - no automated monitoring of .sementix/memories/delta/ folder for new/modified/deleted memory files, creating friction and potential stale cache issues",
+
+  "solution": {
+    "approach": "Ultra-modular isolated service pattern: (1) Create generic FileWatcher service with zero domain knowledge, (2) Integrate via DI container for system-wide availability, (3) Inject Logger for consistent logging, (4) Implement debouncing/change detection for reliable events, (5) Provide simple callback-based API for any consumer to register watches, (6) Maintain strict isolation - FileWatcher knows nothing about memories/embeddings/MCP",
+    "key_changes": [
+      "tokens.ts:22: Added TOKENS.FILE_WATCHER = 'FileWatcher' for DI resolution across system",
+      "DISetup.ts:9,27: Imported FileWatcherService, registered in DI container with Logger injection following existing service pattern (EventBus, ProviderManager, etc.)",
+      "FileWatcherService.ts:1-290: Main service implementing IFileWatcherService - manages fs.watch instances, callback registrations, lifecycle (start/stop), path validation, debouncing integration",
+      "FileWatcherTypes.ts: Defined WatchCallbacks (onAdd/onModify/onDelete/onError), WatchHandle (id/path/unwatch), WatchConfig (debounceMs/recursive), FileChangeEvent, IFileWatcherService interface",
+      "PathValidator.ts: Static validation methods - checks path existence, accessibility (fs.accessSync), normalization, isDirectory detection for watch strategy selection",
+      "ChangeDetector.ts: Tracks file mtimes (Map<path, mtime>) to distinguish add vs modify vs delete - handles fs.statSync errors for delete detection, provides markAsKnown/forget/clear methods",
+      "DebounceManager.ts: Map-based debouncing (Map<key, NodeJS.Timeout>) - prevents rapid-fire events during save operations, configurable delay (500ms default), cancelAll on service stop",
+      "EventQueue.ts: Queue<FileChangeEvent> for batch processing capability - enqueue, processAll with async processor, isEmpty/size/clear utilities, processing flag to prevent concurrent execution",
+      "WatcherConfig.ts: Static constants - DEFAULT_DEBOUNCE_MS (500), MIN_DEBOUNCE_MS (100), MAX_QUEUE_SIZE (100), DEFAULT_RECURSIVE (false)",
+      "index.ts: Public API exports - FileWatcherService, all types/interfaces, clean module boundary",
+      "test-file-watcher.ts: Standalone test script using ts-node - watches .sementix/memories/delta, logs add/modify/delete events, graceful shutdown on SIGINT"
+    ]
+  },
+
+  "validation": "TypeScript compilation successful with zero errors, DI registration verified in DISetup.ts, test script created for manual validation (ts-node scripts/tests/test-file-watcher.ts), module structure follows ultra-modular pattern from memory-search (core/, operations/, types/, config/)",
+
+  "gotchas": [
+    {
+      "issue": "fs.watch emits events even when file content doesn't change (touch, metadata updates) - causes false modify events",
+      "solution": "ChangeDetector tracks mtimeMs and only reports change if mtime actually differs - prevents no-op callbacks on metadata-only updates",
+      "category": "implementation",
+      "severity": "medium"
+    },
+    {
+      "issue": "Node's fs.watch fires multiple events rapidly during single save operation (editors do atomic writes with temp files)",
+      "solution": "DebounceManager with 500ms default delay collapses rapid events into single callback - configurable per watch via WatchConfig.debounceMs",
+      "category": "configuration",
+      "severity": "high"
+    },
+    {
+      "issue": "File deletion detected via fs.statSync throwing error - not elegant but reliable cross-platform approach",
+      "solution": "ChangeDetector wraps fs.statSync in try/catch, checks if path was previously known (in knownFiles Map), returns 'delete' if known file now throws - cleans up from Map",
+      "category": "implementation",
+      "severity": "low"
+    },
+    {
+      "issue": "DI registration order matters - FileWatcher needs Logger before instantiation but Logger is singleton created early",
+      "solution": "DISetup.createContainer receives Logger parameter from SystemInitializer - Logger created before DI container, passed to FileWatcherService constructor inline",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "Watcher service must be started explicitly - registering watches doesn't auto-start fs.watch instances",
+      "solution": "FileWatcherService.start() method starts all registered watchers - if service already running, new watches auto-start immediately in watch() method (lines 72-74)",
+      "category": "implementation",
+      "severity": "low"
+    },
+    {
+      "issue": "Directory vs file watching requires different fs.watch configurations (recursive option only valid for directories)",
+      "solution": "PathValidator.isDirectory() check in startWatcher() - routes to watchDirectory() or watchFile() with appropriate fs.watch options",
+      "category": "implementation",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "CRITICAL ARCHITECTURAL PATTERN - Isolated Module Principle: FileWatcher has ZERO knowledge of memories, embeddings, MCP, or any domain logic. It only knows paths and callbacks. This isolation enables: (1) Any module can use it via DI (memory-search, mcp-server, config watchers), (2) Easy testing with mock callbacks, (3) Single Responsibility - does one thing perfectly, (4) Future-proof - adding new watch consumers requires zero FileWatcher changes. DI Integration Pattern: Services registered in DISetup.createContainer() become system-wide singletons resolvable via TOKENS - enables loose coupling, dependency injection for testability, and consistent lifecycle management. This pattern should guide ALL future infrastructure modules.",
+
+  "tags": [
+    "file-watcher",
+    "automated-monitoring",
+    "dependency-injection",
+    "ultra-modular",
+    "isolated-module",
+    "infrastructure-service",
+    "debouncing",
+    "change-detection",
+    "di-integration",
+    "generic-utility"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "FileWatcherService.watch(path, callbacks, config?) - Returns WatchHandle for unwatch, registers callbacks, starts watcher if service running",
+      "di.resolve<FileWatcherService>(TOKENS.FILE_WATCHER) - DI resolution pattern for accessing service from any module",
+      "ChangeDetector.detectChange(path) - Returns 'add'|'modify'|'delete'|null by comparing current mtime with tracked mtimes",
+      "DebounceManager.debounce(key, callback, delayMs) - Collapses rapid events, clears existing timer, sets new timeout",
+      "PathValidator.validate(path) - Returns {valid: boolean, error?: string} - checks existence, accessibility via fs.accessSync",
+      "WatchHandle.unwatch() - Closure pattern for easy cleanup - handle.unwatch() removes specific registration"
+    ],
+    "api_surface": [
+      "FileWatcherService.watch(path: string, callbacks: WatchCallbacks, config?: WatchConfig): WatchHandle - Register path watch with callbacks",
+      "FileWatcherService.unwatch(handle: WatchHandle): void - Remove specific watch registration",
+      "FileWatcherService.start(): void - Start all registered watchers (idempotent)",
+      "FileWatcherService.stop(): void - Stop all watchers, cancel debounces, clear queue",
+      "FileWatcherService.isRunning(): boolean - Check service state",
+      "WatchCallbacks { onAdd?, onModify?, onDelete?, onError? } - Event callbacks (all optional, can be async)",
+      "WatchConfig { debounceMs?: number, recursive?: boolean } - Per-watch configuration",
+      "TOKENS.FILE_WATCHER - DI token for service resolution"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "Added TOKENS.FILE_WATCHER to tokens.ts - any code hardcoding token lists must update",
+      "DISetup.createContainer() now registers FileWatcherService - increases DI container initialization cost (minimal)",
+      "New module src/ext/modules/file-watcher/ - affects build output and import paths"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Build visual FileWatcher editor UI in VS Code webview for managing watch registrations (view active watches, add/remove paths, see live events, configure debounce)",
+      "Integrate FileWatcher into SharedServiceManager.initialize() to auto-watch .sementix/memories/delta/ for memory file changes",
+      "Implement memory-specific handlers: handleNewMemory (run migration + generate embedding), invalidateEmbedding (delete cache on modify), removeEmbedding (cleanup on delete)",
+      "Add FileWatcher to mcp-server to watch .mcp.json for config reloads without extension restart",
+      "Create FileWatcher dashboard showing real-time events, statistics (events/hour, most modified files), and health metrics",
+      "Add batch operation support - EventQueue.processAll() for handling multiple rapid changes efficiently",
+      "Implement watch filters - glob patterns, file extensions, size limits for more targeted watching",
+      "Add unit tests for ChangeDetector, DebounceManager, PathValidator with mock fs operations",
+      "Create FileWatcher middleware pattern for pre/post-processing events (logging, validation, transformation)"
+    ],
+    "architecture_decisions": {
+      "isolated_module_principle": "FileWatcher built with ZERO domain knowledge - no awareness of memories/embeddings/MCP. Critical for: (1) Reusability across any module needing file monitoring, (2) Testability with simple mock callbacks, (3) Single Responsibility adherence, (4) Future extensibility without FileWatcher changes. This isolation pattern should be template for ALL infrastructure modules (EventBus, Logger, Cache, etc.)",
+      "di_integration_mandatory": "Registered in DI container as singleton via TOKENS.FILE_WATCHER - enables: (1) System-wide availability to any module with DI access, (2) Consistent lifecycle tied to extension activation/deactivation, (3) Logger injection for unified logging, (4) Easy mocking in tests by injecting fake service. DI should be standard for ALL shared services.",
+      "callback_based_api": "Chose simple callback API (WatchCallbacks) over EventEmitter or Observable pattern - reasons: (1) Minimal dependencies, (2) Easy to understand/use, (3) Supports both sync and async callbacks, (4) Familiar Node.js pattern. EventEmitter could be added later if needed for multi-listener scenarios.",
+      "debouncing_required": "Built-in debouncing non-negotiable - editors generate 5-10 fs.watch events per save due to atomic writes (write temp, rename, sync, delete old). Without debouncing, callbacks fire repeatedly causing performance issues and race conditions. 500ms default balances responsiveness with event collapsing.",
+      "mtime_based_change_detection": "Use fs.statSync mtime comparison instead of file hashing - reasons: (1) Much faster (no file read), (2) Sufficient for detecting changes (editors update mtime on save), (3) Lower memory footprint. Hash-based detection unnecessary for watch use case.",
+      "handle_pattern_for_cleanup": "WatchHandle.unwatch() closure pattern enables easy cleanup without tracking handle IDs - consumer just calls handle.unwatch(), service manages internal cleanup. Prevents resource leaks from forgotten unwatch calls."
+    },
+    "extension_points": [
+      "FileWatcherService.ts:175 - Add watchDirectory/watchFile filters (glob patterns, extension matching) for more selective watching",
+      "ChangeDetector.ts:15 - Enhance with file hash comparison for content-based change detection instead of mtime-only",
+      "EventQueue.ts:15 - Add priority queue support for high-priority file events (config files vs log files)",
+      "WatcherConfig.ts:6 - Add more presets (WatcherConfig.FAST_DEBOUNCE, WatcherConfig.SLOW_DEBOUNCE for different use cases)",
+      "FileWatcherService.ts:230 - Add middleware/interceptor pattern - beforeChange/afterChange hooks for cross-cutting concerns",
+      "SharedServiceManager.ts - Consume FileWatcher via DI, register handlers for memory file monitoring (next session)",
+      "MCPServerManager.ts - Watch .mcp.json for config hot-reloading without extension restart"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "iterative-improvement",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "ultra-modular-isolated-services",
+    "quality_standards": "maintainability-focus-with-di-patterns"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "file-system-monitoring",
+      "automated-change-detection",
+      "dependency-injection-container",
+      "isolated-module-architecture",
+      "event-driven-infrastructure",
+      "debouncing-strategy",
+      "watch-handle-pattern",
+      "service-lifecycle-management"
+    ],
+    "technical_patterns": [
+      "dependency-injection",
+      "singleton-via-di",
+      "callback-based-api",
+      "mtime-based-change-detection",
+      "debounce-with-timeout-map",
+      "handle-pattern-for-cleanup",
+      "path-validation-before-watch",
+      "directory-vs-file-watch-strategy",
+      "graceful-lifecycle-management"
+    ],
+    "integration_points": [
+      "di-container-tokens",
+      "logger-injection",
+      "system-initializer",
+      "shared-service-manager-consumer",
+      "mcp-server-config-watching",
+      "memory-file-monitoring",
+      "embedding-cache-invalidation"
+    ]
+  },
+
+  "critical_remarks_for_future_work": {
+    "isolated_module_principle_template": "FileWatcher demonstrates PERFECT isolation - zero imports from memory-search, mcp-server, or any domain modules. Future infrastructure should follow this pattern: (1) Define generic interface with no domain knowledge, (2) Accept dependencies via constructor (DI), (3) Use callbacks/events for extensibility, (4) Keep single responsibility. Examples: CacheService (knows nothing about embeddings), ConfigService (knows nothing about MCP), BackupService (knows nothing about memories).",
+    "di_integration_checklist": "When creating new shared service: (1) Add TOKENS.SERVICE_NAME to tokens.ts, (2) Register in DISetup.createContainer() with dependencies injected via constructor, (3) Export interface (IServiceName) for type safety when resolving, (4) Document in index.ts for discoverability, (5) Resolve via di.resolve<IServiceName>(TOKENS.SERVICE_NAME) in consumers. This pattern enables testability, loose coupling, and system-wide availability.",
+    "visual_editor_integration_notes": "Next session will build VS Code webview UI for FileWatcher management - display active watches in tree view, show real-time events stream, allow adding/removing watch paths via UI, configure debounce per watch, view statistics. UI will resolve FileWatcher from DI (if available) or gracefully degrade. Integration point: src/ext/modules/file-watcher/panel/ (following memory-search panel pattern).",
+    "memory_system_integration_pattern": "SharedServiceManager should: (1) Accept DI container in constructor (optional for backward compat), (2) Resolve FileWatcher via di.resolve(TOKENS.FILE_WATCHER) if DI available, (3) Register watch on .sementix/memories/delta/ in initialize(), (4) Implement handlers: handleNewMemory (migrate + embed), invalidateEmbedding (clear cache), removeEmbedding (cleanup), (5) Start watcher after service initialization. This keeps FileWatcher generic while memory system adds domain logic."
+  }
+}

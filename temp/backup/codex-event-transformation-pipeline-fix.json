@@ -1,0 +1,157 @@
+{
+  "task": "codex-event-transformation-pipeline-fix",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-13",
+  "component": "codex-event-transformer",
+
+  "temporal_context": {
+    "date_iso": "2025-10-13",
+    "year": 2025,
+    "month": 10,
+    "week_number": 41,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: Event transformation pipeline with field mapping and nested object extraction",
+    "business": "4: Critical bug - Codex messages not displaying in UI at all",
+    "coordination": "1: Single developer fix following established patterns"
+  },
+
+  "files_modified": "2",
+  "files_touched": [
+    "src/ext/modules/providers/codex/CodexEventTransformer.ts",
+    "src/ext/modules/providers/codex/components/api/StreamingApiHandler.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "codex-provider-ultra-modular-refactoring",
+    "codex-sdk-integration-complete"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - transformation logic only",
+    "test_coverage_delta": "0% - no tests added",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Codex events showing in logs but not in UI (wrong format) → Fixed event transformer to extract nested items and map fields (text → content) following ConversationBuilder pattern",
+
+  "root_cause": "CodexEventTransformer was doing simple pass-through, but Codex sends nested events {type: 'item.completed', item: {type: 'agent_message', text: '...'}} while UI expects flat {type: 'agent_message', content: '...', id, timestamp}",
+
+  "solution": {
+    "approach": "Studied ConversationBuilder for Claude provider, applied same transformation pattern to Codex events",
+    "key_changes": [
+      "CodexEventTransformer.ts: Complete rewrite following ConversationBuilder pattern - extract nested item, map text→content, add id/timestamp/sessionId",
+      "StreamingApiHandler.ts: Added graceful MCP timeout handling - warns but continues instead of crashing",
+      "StreamingApiHandler.ts: Added raw event JSON logging for debugging with 🔍 emoji markers"
+    ]
+  },
+
+  "validation": "User confirmed messages now display in UI, TypeScript compiles with no errors",
+
+  "gotchas": [
+    {
+      "issue": "Initial simple pass-through approach failed - tried to just add sessionId to raw events",
+      "solution": "User said 'learn how we reformat claude code and do the same' - studied ConversationBuilder and replicated its pattern",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "MCP server timeout crashes entire Codex conversation with cryptic error",
+      "solution": "Wrapped thread.runStreamed() in try-catch, detect 'MCP client' + 'timed out' in error message, yield friendly warning instead of throwing",
+      "category": "error-handling",
+      "severity": "medium"
+    },
+    {
+      "issue": "Codex events have nested structure - outer event type is 'item.completed', actual message type is inside event.item.type",
+      "solution": "Extract event.item first, then switch on item.type to route to correct processor method",
+      "category": "integration",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "Always follow established patterns in the codebase - ConversationBuilder already solved event transformation, just needed to apply same approach to Codex events. Field mapping (text→content) and structure flattening (nested→flat) are standard transformation steps.",
+
+  "tags": [
+    "event-transformation",
+    "codex-provider",
+    "conversation-pipeline",
+    "field-mapping",
+    "nested-extraction",
+    "mcp-error-handling",
+    "ui-integration"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "handleItemCompleted(item) - Route nested item to specific processor based on item.type",
+      "processAgentMessage() - Extract item, map text→content, add metadata",
+      "processReasoning() - Create reasoning message with thinking field",
+      "generateMessageId() - Unique ID with counter: codex-msg-{timestamp}-{counter}",
+      "ConversationBuilder pattern - Extract content arrays, map provider fields to universal format"
+    ],
+    "api_surface": [
+      "CodexEventTransformer.transformEvent(event: ThreadEvent, sessionId?: string): ConversationMessage[] - Main transformation entry point",
+      "processAgentMessage(item: AgentMessageItem, baseId, timestamp, sessionId): ConversationMessage[] - Maps text→content",
+      "processReasoning(item: ReasoningItem, ...): ConversationMessage[] - Creates reasoning with thinking field",
+      "handleItemCompleted(item: ThreadItem, ...): ConversationMessage[] - Routes by item.type"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "CodexEventTransformer.transformEvent() signature unchanged but implementation completely different - now extracts nested items instead of pass-through"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Investigate reasoning message display in UI - verify type: 'reasoning' renders differently from agent_message",
+      "Test all Codex event types (file_change, command_execution, todo_list) to ensure proper UI display",
+      "Add test cases for CodexEventTransformer with various Codex SDK event formats",
+      "Document Codex SDK event format and transformation mappings",
+      "Fix MCP server timeout issue properly (currently just suppressing error)",
+      "Remove debug logging (🔍 RAW EVENT JSON) once stable"
+    ],
+    "architecture_decisions": {
+      "follow-conversationbuilder-pattern": "CodexEventTransformer now mirrors ConversationBuilder structure - both extract nested content and map to universal ConversationMessage format",
+      "separate-processors-per-type": "Each item type (agent_message, reasoning, tool, file_change) has dedicated processor method for clarity",
+      "graceful-mcp-degradation": "MCP timeout is non-fatal - show warning but continue working without MCP server"
+    },
+    "extension_points": [
+      "CodexEventTransformer - Add new processXXX() methods for additional Codex event types",
+      "StreamingApiHandler - CLI mode implementation at line 75 (currently TODO)",
+      "UI components - Need to check/add rendering for type: 'reasoning' messages with thinking field"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "rapid-prototype",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "event-transformation",
+      "provider-pipeline",
+      "field-mapping",
+      "nested-extraction",
+      "universal-message-format"
+    ],
+    "technical_patterns": [
+      "transformation-pipeline",
+      "adapter-pattern",
+      "field-mapper",
+      "nested-object-flattening"
+    ],
+    "integration_points": [
+      "codex-sdk-events",
+      "sementix-conversation-messages",
+      "ui-message-renderer",
+      "mcp-server"
+    ]
+  }
+}

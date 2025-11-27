@@ -98,5 +98,6 @@ async def handle_short_circuit(
         "session": session_state,
         "identity": identity_payload,
         "world_view": world_view_payload,
+        "inject_world_view": bool(world_view_payload and not world_view_payload.get("is_cached")),
         "results": [],
     }

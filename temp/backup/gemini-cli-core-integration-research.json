@@ -1,0 +1,175 @@
+{
+  "task": "gemini-cli-core-integration-research",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-28",
+  "component": "gemini-provider-research",
+
+  "temporal_context": {
+    "date_iso": "2025-10-28",
+    "year": 2025,
+    "month": 10,
+    "week_number": 43,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Deep architectural research across multi-package monorepo, event streaming patterns, and cross-provider integration patterns",
+    "business": "5: Critical for achieving feature parity with Claude Code and Codex providers - directly impacts user experience quality",
+    "coordination": "2: Solo research task with user validation, minimal coordination needed"
+  },
+
+  "files_modified": "1",
+  "files_touched": [
+    "docs/gemini-cli/integration-research.md"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "gemini-provider-basic-implementation-and-sessionid-generation",
+    "gemini-cli-real-integration-with-simulated-streaming",
+    "gemini-tool-call-visualization-implementation",
+    "gemini-workspace-context-fix-codex-pattern",
+    "gemini-indicator-complete-integration"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - research only",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Gemini headless CLI mode provides only batch JSON output with no streaming events → Research revealed @google/gemini-cli-core package with full AsyncGenerator streaming, real-time events, and tool visibility matching Claude/Codex experience",
+
+  "root_cause": "Initial Gemini integration used headless CLI mode (--output-format json) which only returns final results and aggregate statistics, lacking the real-time event streaming necessary for live UI updates and tool execution visibility",
+
+  "solution": {
+    "approach": "Discovered and documented the @google/gemini-cli-core package API which provides programmatic access to GeminiChat class with sendMessageStream() method, full event type system (14+ event types), and complete tool integration",
+    "key_changes": [
+      "docs/gemini-cli/integration-research.md: Created comprehensive 400+ line research document covering problem statement, solution architecture, event types, implementation roadmap, and 10 key research areas needed before implementation"
+    ]
+  },
+
+  "validation": "User (Moti) validated findings and requested documentation creation, confirming headless mode insufficient and core package approach correct",
+
+  "gotchas": [
+    {
+      "issue": "Gemini CLI headless mode (--output-format json) appears similar to Claude/Codex streaming but only returns batch results with no real-time events",
+      "solution": "Must use @google/gemini-cli-core package directly - import GeminiChat class and use sendMessageStream() AsyncGenerator for event-by-event streaming",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "Gemini CLI has output-format 'stream-json' but it's designed for monitoring/logging, not UI integration - events don't match our universal message format",
+      "solution": "Use core package event types (GeminiEventType enum) and transform to universal format, similar to how we handle Claude Code events",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "Tool execution visibility only available as aggregate stats in headless mode - no individual tool_use_start/tool_use_end events",
+      "solution": "Core package provides ToolCallRequest and ToolCallResponse events with full metadata (callId, name, args, results)",
+      "category": "integration",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "Always research the underlying package/library API before settling on CLI-based integration - CLIs are optimized for human interaction, not programmatic control. The core package often provides richer APIs with better streaming, event visibility, and control mechanisms.",
+
+  "tags": [
+    "gemini-provider",
+    "integration-research",
+    "streaming-events",
+    "core-package-api",
+    "event-driven-architecture",
+    "tool-visibility",
+    "asyncgenerator",
+    "headless-limitations",
+    "documentation",
+    "architecture-decision",
+    "provider-parity",
+    "research-findings",
+    "implementation-roadmap"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "GeminiChat.sendMessageStream() - AsyncGenerator pattern for real-time event streaming",
+      "GeminiEventType enum - 14+ event types covering content, tools, thoughts, errors, completion",
+      "StreamEvent type - Wraps chunks and retry signals from streaming API",
+      "ToolCallConfirmationInfo - Permission request pattern for tool approval",
+      "ThoughtSummary - Subject/description pattern for displaying model reasoning"
+    ],
+    "api_surface": [
+      "GeminiChat.sendMessageStream(model: string, params: SendMessageParameters, prompt_id: string): Promise<AsyncGenerator<StreamEvent>> - Main streaming API",
+      "GeminiChat.getHistory(curated?: boolean): Content[] - Retrieve session history",
+      "GeminiChat.setHistory(history: Content[]): void - Restore session state",
+      "GeminiChat.setTools(tools: Tool[]): void - Configure available tools",
+      "GeminiChat.recordCompletedToolCalls(model: string, toolCalls: CompletedToolCall[]): void - Track tool execution"
+    ],
+    "dependencies_added": [
+      "@google/gemini-cli-core: Programmatic API for Gemini CLI functionality with streaming events and tool system"
+    ],
+    "breaking_changes": [
+      "CLI spawning approach → Direct package import and API usage",
+      "Simulated streaming from batch JSON → Real AsyncGenerator streaming from core package"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Create proof-of-concept test using GeminiChat.sendMessageStream() to validate event streaming",
+      "Research session management - how getHistory/setHistory work for conversation continuity",
+      "Research authentication flow - Config class initialization with API keys and OAuth",
+      "Map all 14 GeminiEventType values to Sementix universal message format",
+      "Study ToolCallConfirmation flow for permission interception system",
+      "Research thinking display - how thoughts are extracted and streamed",
+      "Add @google/gemini-cli-core dependency to package.json",
+      "Create GeminiCoreService class wrapping GeminiChat API",
+      "Implement event transformer mapping Gemini events to universal format",
+      "Update GeminiAdapter to use new service instead of CLI executor"
+    ],
+    "architecture_decisions": {
+      "use-core-package-not-cli": "Headless CLI provides batch results only - core package gives streaming events, tool visibility, and real-time updates necessary for live UI",
+      "asyncgenerator-streaming": "Core package uses AsyncGenerator pattern for event streaming - matches our established streaming architecture with Claude/Codex",
+      "event-transformation-layer": "Gemini events must be transformed to universal format - create dedicated transformer similar to existing provider patterns",
+      "session-continuity-via-history": "Use getHistory/setHistory APIs for session persistence rather than CLI resume commands"
+    },
+    "extension_points": [
+      "src/ext/modules/providers/gemini/service/GeminiCoreService.ts - Create new service wrapping @google/gemini-cli-core",
+      "src/ext/modules/providers/gemini/GeminiEventTransformer.ts - Extend with new event type mappings",
+      "src/ext/modules/providers/implementations/GeminiAdapter.ts - Update to use GeminiCoreService",
+      "gemini-cli/packages/core/src/tools/ - All tools can be imported and customized or replaced"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "thorough-documentation",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "event-driven",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "streaming-events",
+      "tool-execution-visibility",
+      "session-continuity",
+      "thinking-process-display",
+      "permission-system",
+      "provider-parity"
+    ],
+    "technical_patterns": [
+      "asyncgenerator-streaming",
+      "event-transformation",
+      "adapter-pattern",
+      "service-oriented-architecture",
+      "universal-message-format"
+    ],
+    "integration_points": [
+      "@google/gemini-cli-core",
+      "GeminiChat-API",
+      "tool-registry",
+      "mcp-integration"
+    ]
+  }
+}

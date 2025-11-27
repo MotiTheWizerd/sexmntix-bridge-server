@@ -1,0 +1,180 @@
+{
+  "task": "provider-field-fix-catastrophic-overengineering",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-27",
+  "component": "provider-message-stamping",
+
+  "temporal_context": {
+    "date_iso": "2025-10-27",
+    "year": 2025,
+    "month": 10,
+    "week_number": 44,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "1: Simple field injection - stamp provider ID on messages",
+    "business": "5: Critical visual bug - wrong provider icons confusing users across tabs",
+    "coordination": "5: Should have been 3 files, turned into 11-file nightmare spanning 7 hours"
+  },
+
+  "files_modified": "11",
+  "files_touched": [
+    "src/ext/modules/providers/codex/utils/BaseMessageBuilder.ts",
+    "src/ext/modules/providers/codex/transformers/AgentMessageTransformer.ts",
+    "src/ext/modules/providers/codex/transformers/ReasoningTransformer.ts",
+    "src/ext/modules/providers/codex/transformers/TurnEventTransformer.ts",
+    "src/ext/modules/providers/codex/transformers/TodoListTransformer.ts",
+    "src/ext/modules/providers/codex/transformers/ThreadStartedTransformer.ts",
+    "src/ext/modules/providers/codex/transformers/FileChangeTransformer.ts",
+    "src/ext/modules/providers/codex/transformers/CommandTransformer.ts",
+    "src/ext/modules/providers/implementations/claude-code-cli-adapter/message-processing/utils/ClaudeMessageBuilder.ts",
+    "src/ext/modules/providers/implementations/claude-code-cli-adapter/message-processing/transformers/TextTransformer.ts",
+    "src/ext/modules/providers/implementations/claude-code-cli-adapter/message-processing/transformers/ThinkingTransformer.ts",
+    "src/ext/modules/providers/implementations/claude-code-cli-adapter/message-processing/transformers/ResultTransformer.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "provider-icon-multi-tab-isolation-investigation",
+    "dynamic-per-message-provider-isolation-implementation",
+    "per-tab-provider-selection-implementation"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - changes were structural not algorithmic",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "none - INCREASED technical debt by touching 11 files unnecessarily",
+    "follow_up_needed": "true - REQUIRES GIT ROLLBACK"
+  },
+
+  "summary": "Provider icon shows wrong provider when switching tabs → Agent over-engineered a simple 3-adapter fix into an 11-file modification nightmare, blocked by auto-save issues, never completed, wasted 7 hours",
+
+  "root_cause": "Agent failed to identify the correct architectural injection point. Instead of modifying the 3 adapter classes (ClaudeCodeCLIAdapter, CodexAdapter, GeminiAdapter) to stamp their own provider IDs when yielding messages, agent descended into implementation details and modified every transformer and builder in the codebase.",
+
+  "solution": {
+    "approach": "WRONG APPROACH: Bottom-up modification of transformers and builders. CORRECT APPROACH (not taken): Top-down injection at adapter yield points.",
+    "key_changes": [
+      "BaseMessageBuilder.ts: Added provider parameter - UNNECESSARY, should have injected at adapter level",
+      "ClaudeMessageBuilder.ts: Added provider parameter - UNNECESSARY, should have injected at adapter level",
+      "7 Codex transformers: Modified to pass 'codex' - UNNECESSARY, over-engineering",
+      "5 Claude transformers: Modified to pass 'claude' - ONLY 3/5 completed before blocked",
+      "GeminiEventTransformer: Not started - would have been 6 more inline changes",
+      "CORRECT FIX (not implemented): Modify ClaudeCodeCLIAdapter.processMessageAsConversationStream() to inject provider:'claude' on every yielded message, same for CodexAdapter and GeminiAdapter"
+    ]
+  },
+
+  "validation": "NONE - Task never completed, blocked by IDE auto-save conflicts after 7 hours",
+
+  "gotchas": [
+    {
+      "issue": "IDE auto-save continuously triggered 'file has been unexpectedly modified' errors blocking edits after every 1-2 successful file changes",
+      "solution": "User attempted to disable auto-save multiple times but conflicts persisted. Agent should have stopped and created a script or asked user to disable format-on-save as well",
+      "category": "environment",
+      "severity": "high"
+    },
+    {
+      "issue": "Agent identified the correct solution in investigation (adapter should stamp own ID) but then implemented the WRONG solution (modify all transformers)",
+      "solution": "Agent should have asked 'Where is the single point each adapter yields messages?' instead of diving into implementation details",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "User explicitly said 'it should have been simple 3 file change' but agent touched 11 files",
+      "solution": "SIMPLE FIX: Add provider field injection in 3 adapter classes at message yield points. Each adapter knows its own ID (readonly id = 'codex'). Before yielding, set message.provider = this.id",
+      "category": "over-engineering",
+      "severity": "high"
+    },
+    {
+      "issue": "Agent wasted 7 hours on wrong approach, never tested, never built, never completed",
+      "solution": "After 30 minutes if approach is blocked or complex, STOP and reconsider architecture",
+      "category": "time-management",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "CRITICAL LESSON: When fixing a 'field is wrong' bug, find the SINGLE POINT where that field should be set, not every place that field is passed through. Adapters yield messages → Adapters should stamp provider ID. NOT transformers, NOT builders. Injection at source, not propagation through layers. SIMPLE = 3 adapter files. COMPLEX = 11+ transformer/builder files. Choose SIMPLE.",
+
+  "tags": [
+    "FAILED",
+    "over-engineering",
+    "architecture-blindness",
+    "7-hour-waste",
+    "should-have-been-3-files",
+    "git-rollback-required",
+    "provider-isolation",
+    "message-stamping",
+    "DO-NOT-REPEAT",
+    "LEARN-FROM-FAILURE"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "WRONG PATTERN: Modify transformers to pass provider through call chain",
+      "CORRECT PATTERN: async *processMessageAsConversationStream() { for await (msg of stream) { msg.provider = this.id; yield msg; } }",
+      "Each adapter has readonly id property (ClaudeCodeCLIAdapter.id = 'claude-code-cli', CodexAdapter.id = 'codex', GeminiAdapter.id = 'gemini')",
+      "Simple stamping at yield point = 3 lines of code per adapter = 9 lines total",
+      "Agent's approach = 11 files modified, 100+ lines changed, never completed"
+    ],
+    "api_surface": [
+      "IProviderAdapter.processMessageAsConversationStream(): AsyncGenerator<ConversationMessage> - The SINGLE injection point that was missed",
+      "ConversationMessage.provider?: string - Field that needed to be set at source, not propagated",
+      "Adapter.id: string - The value that should have been stamped"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "Modified 11 files - ALL breaking changes",
+      "Changed BaseMessageBuilder signature - breaking for all Codex code",
+      "Changed ClaudeMessageBuilder signature - breaking for all Claude code",
+      "ROLLBACK REQUIRED: git checkout src/ext/modules/providers/"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "ROLLBACK: git checkout src/ext/modules/providers/ to undo ALL changes",
+      "CORRECT FIX: Modify 3 adapter classes at processMessageAsConversationStream() yield points",
+      "ClaudeCodeCLIAdapter: Before yielding message, set message.provider = 'claude'",
+      "CodexAdapter: Before yielding message, set message.provider = 'codex'",
+      "GeminiAdapter: Before yielding message, set message.provider = 'gemini'",
+      "Build and test - should take 10 minutes not 7 hours"
+    ],
+    "architecture_decisions": {
+      "injection-at-source-vs-propagation": "ALWAYS inject fields at the SOURCE (adapter) not propagate through layers (transformers/builders). Source injection = 1 file. Propagation = touching every transformer.",
+      "when-to-modify-builders": "NEVER modify shared builders for per-instance data. Builders are for structure, not runtime data. Runtime data injected at yield/emit points.",
+      "simple-vs-thorough": "When user says 'simple fix', believe them. 3 files = simple. 11 files = NOT simple. Question your approach if file count explodes."
+    },
+    "extension_points": [
+      "ClaudeCodeCLIAdapter.processMessageAsConversationStream() - Add: msg.provider = this.id before yield",
+      "CodexAdapter.processMessageAsConversationStream() - Add: msg.provider = this.id before yield",
+      "GeminiAdapter.processMessageAsConversationStream() - Add: msg.provider = this.id before yield"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "simple-surgical-fixes-not-refactoring-sprees",
+    "naming_preferences": "straightforward-descriptive",
+    "architecture_philosophy": "inject-at-source-not-propagate-through-layers",
+    "quality_standards": "working-simple-code-over-perfect-complex-code"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "provider-isolation",
+      "message-stamping",
+      "adapter-pattern",
+      "multi-tab-state"
+    ],
+    "technical_patterns": [
+      "ANTI-PATTERN: bottom-up transformer modification",
+      "CORRECT-PATTERN: top-down source injection",
+      "yield-point-injection",
+      "adapter-self-identification"
+    ],
+    "integration_points": [
+      "IProviderAdapter interface",
+      "ConversationMessage type",
+      "AsyncGenerator streaming pattern"
+    ]
+  }
+}

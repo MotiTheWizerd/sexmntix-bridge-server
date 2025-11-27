@@ -1,0 +1,156 @@
+{
+  "task": "typing-indicator-template-system-implementation",
+  "agent": "claude-sonnet-4",
+  "date": "2025-10-17",
+  "component": "typing-indicator-template-system",
+
+  "temporal_context": {
+    "date_iso": "2025-10-17",
+    "year": 2025,
+    "month": 10,
+    "week_number": 42,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Multi-layer template system with event-driven switching, CSS pipeline integration, and VSCode webview constraints",
+    "business": "3: Improves UX by enabling dynamic typing indicator templates but doesn't affect core functionality",
+    "coordination": "4: Required changes across 15+ files spanning templates, CSS, resource management, indicators, and factory injection"
+  },
+
+  "files_modified": "15",
+  "files_touched": [
+    "src/ui/templates/typing-indicators/*.html",
+    "src/ui/templates/css/typing-indicators/typing-indicators.css",
+    "src/ui/templates/css/typing-indicators/templates/*.css",
+    "src/ui/templates/css/typing-indicators/states/*.css",
+    "src/ui/templates/css/typing-indicators/utilities/*.css",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/indicator/TypingIndicatorTemplateManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/indicator/ClaudeWorkingIndicator.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/indicator/ProviderWorkingIndicator.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/factories/ComponentFactory.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/message-manager-router/routers/StreamingChunkRouter.js",
+    "src/ext/providers/semntix-view/managers/resource-manager/types/ResourceTypes.ts",
+    "src/ext/providers/semntix-view/managers/resource-manager/services/CssUriResolver.ts",
+    "src/ext/providers/semntix-view/managers/resource-manager/services/TemplateInjector.ts",
+    "src/ext/providers/semntix-view/managers/ResourceManager.ts",
+    "src/ui/templates/base.html"
+  ],
+  "tests_added": "0",
+  "related_tasks": ["streaming-implementation", "provider-indicator-system", "ultra-modular-css-refactoring"],
+
+  "outcomes": {
+    "performance_impact": "No impact - templates loaded once and cached",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Hardcoded typing indicator HTML → Event-driven template system with 5 switchable templates, ultra-modular CSS, and full resource pipeline integration",
+  "root_cause": "Typing indicators were hardcoded in JavaScript strings, making visual customization impossible and creating maintenance burden across multiple indicator classes",
+
+  "solution": {
+    "approach": "Built template registry pattern with inline HTML (not file-based due to VSCode webview constraints), integrated with existing resource management pipeline, following established ultra-modular CSS architecture",
+    "key_changes": [
+      "TypingIndicatorTemplateManager.js: Created template registry with 5 inline HTML templates (claude-cooking, minimal-dots, matrix-grid, pulse-wave, provider-working), event-driven switching, and placeholder variable replacement",
+      "ClaudeWorkingIndicator.js: Refactored from hardcoded HTML to async template loading via TemplateManager.generateHTML()",
+      "ProviderWorkingIndicator.js: Updated to use template system for consistent styling",
+      "ComponentFactory.js: Added TypingIndicatorTemplateManager instantiation and dependency injection into indicators",
+      "StreamingChunkRouter.js: Removed intermediate ProviderWorkingIndicator flash by going directly to cooking indicator",
+      "typing-indicators/typing-indicators.css: Created ultra-modular CSS orchestrator following chat-tabs pattern",
+      "ResourceManager.ts + CssUriResolver.ts + TemplateInjector.ts: Added typingIndicators CSS to resource pipeline",
+      "base.html: Added TYPING_INDICATORS_CSS_URI link",
+      "claude-cooking.css: Removed background/border/backdrop-filter for transparent indicator"
+    ]
+  },
+
+  "validation": "Manual testing in VSCode extension - templates load correctly, indicator shows 'Claude is cooking...' with pulse animation",
+
+  "gotchas": [
+    {
+      "issue": "Templates couldn't load via fetch() - VSCode webview security blocked relative paths",
+      "solution": "Changed from file-based templates to inline HTML strings in TypingIndicatorTemplateManager.templates registry",
+      "category": "environment",
+      "severity": "high"
+    },
+    {
+      "issue": "Double indicator flash - 'CLAUDE WORKING' appeared for 300ms before 'Claude is cooking...'",
+      "solution": "Removed showProviderWorking() call and 300ms setTimeout in StreamingChunkRouter.routeStreamStart() to go directly to cooking indicator",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "Called non-existent getActiveMessageList() method causing indicator to not display",
+      "solution": "Reverted to getCurrentPlaceholder() - the placeholder is already positioned at bottom, indicator replaces its content",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Indicator still appearing at top instead of bottom despite correct placeholder architecture",
+      "solution": "NOT YET RESOLVED - deferred to next session. Architecture is correct (placeholder at bottom → replace content), but something in the flow is causing top positioning",
+      "category": "integration",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "VSCode webview environments require inline templates (not file loading). Always understand existing architecture before refactoring - the placeholder system was already correctly positioned, just needed to work WITH it instead of bypassing it. Template systems need careful testing in the actual runtime environment (webview vs browser).",
+
+  "tags": ["typing-indicator", "template-system", "event-driven", "ultra-modular-css", "webview", "vscode-extension", "streaming-ui", "provider-indicators", "resource-pipeline", "dependency-injection"],
+
+  "code_context": {
+    "key_patterns": [
+      "TemplateManager.generateHTML(templateId, data) - Replaces {{placeholder}} tokens with runtime data",
+      "eventBus.emit('typing-indicator.template.set', {templateId}) - Event-driven template switching",
+      "ComponentFactory dependency injection - TypingIndicatorTemplateManager injected into ClaudeWorkingIndicator and ProviderWorkingIndicator",
+      "Ultra-modular CSS @import orchestrator - typing-indicators.css imports variables/templates/states/utilities"
+    ],
+    "api_surface": [
+      "TypingIndicatorTemplateManager.generateHTML(templateId, data): Promise<string> - Loads template and replaces placeholders",
+      "TypingIndicatorTemplateManager.setTemplate(templateId): void - Changes current template",
+      "TypingIndicatorTemplateManager.getCurrentTemplate(): string - Returns active template ID",
+      "eventBus.on('typing-indicator.template.set', handler) - Listen for template changes"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "ClaudeWorkingIndicator.create() now async - returns Promise<void>",
+      "ProviderWorkingIndicator.create() now async - returns Promise<void>",
+      "Both indicators now require TemplateManager in constructor"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Fix indicator positioning - currently shows at top instead of bottom despite correct architecture",
+      "Add designer UI controls for template selection with live preview",
+      "Implement smooth template transitions (fade out → fade in)",
+      "Add template persistence across sessions (save user's preferred template)",
+      "Create per-provider template preferences (Claude uses cooking, Gemini uses pulse-wave, etc.)",
+      "Build custom template builder in designer for user-created templates",
+      "Add template preview thumbnails in template selector UI"
+    ],
+    "architecture_decisions": {
+      "inline-html-vs-files": "Chose inline HTML in JS registry because VSCode webview blocks fetch() to relative paths. File-based would require embedding in base.html like ComponentOrchestrator does.",
+      "template-replacement-vs-append": "Chose to replace .placeholder-content instead of appending to message list because placeholder is already correctly positioned at bottom",
+      "css-integration-approach": "Followed existing ultra-modular pattern (orchestrator + variables + components + states + utilities) for consistency with chat-tabs and other UI systems"
+    },
+    "extension_points": [
+      "TypingIndicatorTemplateManager.templates - Add new template by extending this object with {html, name, placeholders}",
+      "typing-indicators/templates/*.css - Add CSS file for new template and import in typing-indicators.css",
+      "ClaudeWorkingIndicator.create() - Modify to use different template by calling templateManager.setTemplate() first"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing: Built incrementally, testing each layer (templates → manager → integration → CSS)",
+    "naming_preferences": "technical-precise: TypingIndicatorTemplateManager, claude-cooking.html, ultra-modular pattern naming",
+    "architecture_philosophy": "single-responsibility + event-driven: Each class has one job, template switching via events, ultra-modular CSS separation",
+    "quality_standards": "maintainability-focus: HTML separated from JS, CSS ultra-modular, dependency injection, clear separation of concerns"
+  },
+
+  "semantic_context": {
+    "domain_concepts": ["typing-indicator", "provider-branding", "streaming-ui", "cooking-animation", "placeholder-transformation"],
+    "technical_patterns": ["template-registry", "event-driven-switching", "dependency-injection", "ultra-modular-css-orchestrator", "inline-templates-for-webview"],
+    "integration_points": ["VSCode-webview", "resource-manager-pipeline", "EventBus", "ComponentFactory", "StreamingChunkRouter", "PlaceholderCreator"]
+  }
+}

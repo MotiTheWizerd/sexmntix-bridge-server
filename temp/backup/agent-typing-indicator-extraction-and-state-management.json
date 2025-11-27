@@ -1,0 +1,151 @@
+{
+  "task": "agent-typing-indicator-extraction-and-state-management",
+  "agent": "claude-opus-4-1",
+  "date": "2025-09-27",
+  "temporal_context": {
+    "date_iso": "2025-09-27",
+    "year": 2025,
+    "month": 9,
+    "week_number": 39,
+    "quarter": "2025-Q3",
+    "time_period": "recent"
+  },
+  "component": "ui-state-management",
+  "complexity": {
+    "technical": "4: Complex multi-layer event flow spanning Extension → Bridge → UI → Controller with contract validation and state coordination",
+    "business": "2: Typing indicator provides visual feedback during message processing - important UX but not critical functionality",
+    "coordination": "4: Required coordinated changes across extension logic, bridge contracts, UI validation, event mapping, and controller architecture"
+  },
+  "files_modified": "6",
+  "files_touched": [
+    "src/ext/modules/logic-manager/LogicManager.ts",
+    "src/ext/modules/logic-manager/conversation-processor/ConversationProcessor.ts",
+    "src/shared/contracts/transport.json",
+    "src/ui/modules/core/events/bridge-handler/validation/MessageValidator.js",
+    "src/ui/modules/core/events/bridge-handler/mapping/EventMapper.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/agent-typing-indicator/AgentTypingIndicatorController.js",
+    "src/ui/modules/ui-logic/ui-controllers/ui-controller-manager/UIControllerManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/MessageListController.js",
+    "src/ui/modules/ui-logic/coordination/UIStateCoordinator.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "typing-indicator-state-management-attempt",
+    "ui-controller-separation"
+  ],
+  "outcomes": {
+    "performance_impact": "No impact",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "false"
+  },
+  "summary": "Mixed typing indicator logic in MessageListController + missing ui.state.change.v1 event contracts → Clean separation with dedicated AgentTypingIndicatorController and proper event flow",
+  "root_cause": "Previous implementation violated single responsibility principle by mixing typing indicator logic in MessageListController, and ui.state.change.v1 events were not defined in bridge contracts causing validation failures",
+  "solution": {
+    "approach": "Extract typing indicator to dedicated controller, establish proper Extension → Bridge → UI event flow with contract compliance",
+    "key_changes": [
+      "MessageListController.js: Removed all typing indicator logic (event listeners, DOM manipulation methods, calls)",
+      "AgentTypingIndicatorController.js: Created dedicated controller with clean separation of concerns for typing indicator",
+      "LogicManager.ts: Added ui.state.change.v1 emit on user message received (agent_busy state)",
+      "ConversationProcessor.ts: Added ui.state.change.v1 emit on final_result message (active state)",
+      "transport.json: Added ui.state.change.v1 event contract with proper payload structure",
+      "MessageValidator.js: Added ui.state.change.v1 to known incoming events whitelist",
+      "EventMapper.js: Added mapping from bridge ui.state.change.v1 to internal UI event",
+      "UIControllerManager.js: Registered AgentTypingIndicatorController in controller lifecycle",
+      "UIStateCoordinator.js: Removed incorrect state change emissions (UI should only listen, not emit)"
+    ]
+  },
+  "validation": "Tested complete flow: user message → agent_busy state → typing indicator shows → final_result → active state → indicator hides",
+  "gotchas": [
+    {
+      "issue": "UI MessageValidator rejecting ui.state.change.v1 events with 'Unknown incoming event' errors",
+      "solution": "Added ui.state.change.v1 to transport.json contract and MessageValidator.js whitelist",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "EventMapper had no mapping for ui.state.change.v1 causing 'No mapping found' warnings",
+      "solution": "Added mapUIStateChange method and registered mapping in EventMapper constructor",
+      "category": "configuration",
+      "severity": "medium"
+    },
+    {
+      "issue": "Active state not emitted because logic was in message.routed handler but conversation flow uses ConversationProcessor",
+      "solution": "Moved active state emit to ConversationProcessor.handleRegularMessage when processing final_result",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "UIStateCoordinator was emitting state changes (violating UI dumb rendering principle)",
+      "solution": "Removed eventBus.emit calls from UIStateCoordinator - UI should only listen to extension events",
+      "category": "configuration",
+      "severity": "high"
+    }
+  ],
+  "lesson": "Respect architectural boundaries: Extension handles logic and emits state, UI only listens and renders. Bridge contracts must be complete for event validation to pass.",
+  "tags": [
+    "typing-indicator",
+    "event-driven-architecture",
+    "ui-separation",
+    "state-management",
+    "bridge-contracts"
+  ],
+  "code_context": {
+    "key_patterns": [
+      "eventBus.on('ui.state.change.v1') - UI controller pattern for listening to extension state changes",
+      "this.postToUI({event, payload}) - Extension to UI bridge communication pattern",
+      "AgentTypingIndicatorController.showTypingIndicator() - Dedicated typing indicator management"
+    ],
+    "api_surface": [
+      "AgentTypingIndicatorController.start(): void - Initialize DOM references and event listeners",
+      "AgentTypingIndicatorController.showTypingIndicator(): void - Display matrix animation typing indicator",
+      "AgentTypingIndicatorController.removeTypingIndicator(): void - Hide and cleanup typing indicator",
+      "EventMapper.mapUIStateChange(payload): Object - Map bridge state events to UI events"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "MessageListController no longer handles typing indicators → AgentTypingIndicatorController",
+      "UIStateCoordinator no longer emits state changes → Extension-only responsibility"
+    ]
+  },
+  "future_planning": {
+    "next_logical_steps": [
+      "Add typing indicator animation CSS improvements for better visual feedback",
+      "Consider adding typing indicator for tool use states (beyond just agent_busy)",
+      "Implement status bar integration to show 'Agent Working...' text alongside animation"
+    ],
+    "architecture_decisions": {
+      "event_driven_separation": "Extension emits state, UI listens - maintains clean separation of concerns",
+      "dedicated_controller": "One controller per UI concern enables single responsibility and easier maintenance"
+    },
+    "extension_points": [
+      "AgentTypingIndicatorController.js - customize animation styles and behavior",
+      "transport.json - add new UI state types for expanded status indication"
+    ]
+  },
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "event-driven",
+    "quality_standards": "maintainability-focus"
+  },
+  "semantic_context": {
+    "domain_concepts": [
+      "typing-indicator",
+      "agent-busy-state",
+      "message-processing",
+      "visual-feedback"
+    ],
+    "technical_patterns": [
+      "event-driven-architecture",
+      "bridge-pattern",
+      "single-responsibility",
+      "observer-pattern"
+    ],
+    "integration_points": [
+      "extension-ui-bridge",
+      "state-management",
+      "contract-validation"
+    ]
+  }
+}

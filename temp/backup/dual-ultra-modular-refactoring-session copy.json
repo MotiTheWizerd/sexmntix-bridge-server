@@ -1,0 +1,211 @@
+{
+  "task": "dual-ultra-modular-refactoring-session",
+  "agent": "claude-sonnet-4",
+  "date": "2025-10-17",
+  "component": "extension-event-handlers-streaming-processors",
+
+  "temporal_context": {
+    "date_iso": "2025-10-17",
+    "year": 2025,
+    "month": 10,
+    "week_number": 42,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Complex TypeScript refactoring with dependency injection, path resolution, event handling, and streaming chunk processing",
+    "business": "3: Improves code maintainability and testability without changing user-facing functionality",
+    "coordination": "2: Two sequential refactorings following established ultra-modular pattern"
+  },
+
+  "files_modified": "2",
+  "files_touched": [
+    "src/ext/modules/logic-manager/handlers/UIEventHandlers.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/ChunkProcessor.ts",
+    "src/ext/modules/logic-manager/handlers/ui-event-handlers/utils/ProviderIdMapper.ts",
+    "src/ext/modules/logic-manager/handlers/ui-event-handlers/services/ProviderStateService.ts",
+    "src/ext/modules/logic-manager/handlers/ui-event-handlers/services/FilePathResolver.ts",
+    "src/ext/modules/logic-manager/handlers/ui-event-handlers/handlers/UIBootedHandler.ts",
+    "src/ext/modules/logic-manager/handlers/ui-event-handlers/handlers/UserMessageHandler.ts",
+    "src/ext/modules/logic-manager/handlers/ui-event-handlers/handlers/PermissionResponseHandler.ts",
+    "src/ext/modules/logic-manager/handlers/ui-event-handlers/handlers/AgentInterruptHandler.ts",
+    "src/ext/modules/logic-manager/handlers/ui-event-handlers/handlers/CommandExecuteHandler.ts",
+    "src/ext/modules/logic-manager/handlers/ui-event-handlers/handlers/ProviderSwitchHandler.ts",
+    "src/ext/modules/logic-manager/handlers/ui-event-handlers/handlers/FileOpenHandler.ts",
+    "src/ext/modules/logic-manager/handlers/ui-event-handlers/lifecycle/HandlersLifecycle.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/chunk-processor/extractors/SessionIdChunkExtractor.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/chunk-processor/detectors/ProviderWorkingDetector.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/chunk-processor/routers/ChunkRouter.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/chunk-processor/state/ProcessorStateManager.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/chunk-processor/lifecycle/ProcessorLifecycle.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "ui-event-handlers-ultra-modular-refactoring",
+    "chunk-processor-ultra-modular-refactoring",
+    "triple-ultra-modular-refactoring-session",
+    "streaming-ndjson-processor-ultra-modular-refactoring-completion"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - pure refactoring with zero behavioral changes",
+    "test_coverage_delta": "0% - no tests added but components now independently testable",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "Two monolithic extension-side classes (UIEventHandlers 265 lines + ChunkProcessor 127 lines) with mixed concerns, code duplication, and complex inline logic → Ultra-modular architecture with 2 orchestrators + 16 focused micro-components following single responsibility principle",
+
+  "root_cause": "Extension-side TypeScript code had accumulated inline complexity over time, with UIEventHandlers containing duplicate provider ID mapping logic and ChunkProcessor embedding 30+ lines of complex provider detection logic directly in the orchestrator",
+
+  "solution": {
+    "approach": "Apply proven ultra-modular orchestrator + micro-components pattern (previously used successfully on UI side) to extension-side TypeScript code, creating focused components for each distinct responsibility",
+    "key_changes": [
+      "UIEventHandlers.ts: 265→131 lines, extracted 11 components (utils/ProviderIdMapper, services/ProviderStateService & FilePathResolver, 7 handler classes, lifecycle/HandlersLifecycle) - eliminated duplicate provider mapping code",
+      "ChunkProcessor.ts: 127→110 lines, extracted 5 components (extractors/SessionIdChunkExtractor, detectors/ProviderWorkingDetector, routers/ChunkRouter, state/ProcessorStateManager, lifecycle/ProcessorLifecycle) - isolated complex 30+ line provider detection logic",
+      "ProviderIdMapper.ts: Created centralized bidirectional provider ID mapping (UI ↔ backend) as single source of truth",
+      "ProviderWorkingDetector.ts: Isolated complex provider working detection algorithm with registry delegation and fallback logic",
+      "All handler components: Each handles ONE event type with clean setup() method pattern",
+      "ChunkRouter.ts: Pure routing logic with no business logic, delegates to ToolEventProcessor and PermissionChunkProcessor"
+    ]
+  },
+
+  "validation": "TypeScript build succeeded with zero errors for both refactorings, public APIs unchanged (UIEventHandlers.setup() and ChunkProcessor.processChunk/reset methods maintained), all event handlers follow same pattern",
+
+  "gotchas": [
+    {
+      "issue": "TypeScript path resolution errors when importing from nested component folders - SessionIdChunkExtractor couldn't find StateEmitter at '../../../state/StateEmitter'",
+      "solution": "Corrected relative import paths based on actual folder depth - changed to '../../../../state/StateEmitter' for extractors and '../../../../events/UIEventEmitter' → '../../../events/UIEventEmitter' for detectors after finding actual file locations",
+      "category": "configuration",
+      "severity": "low"
+    },
+    {
+      "issue": "TypeScript error 'Property has no initializer and is not definitely assigned in the constructor' for all component properties in ChunkProcessor",
+      "solution": "Added definite assignment assertion operator (!) to all component property declarations: 'private sessionIdExtractor!: SessionIdChunkExtractor' - signals to TypeScript that buildComponents() will initialize before use",
+      "category": "typing",
+      "severity": "low"
+    },
+    {
+      "issue": "Provider ID mapping logic duplicated in two places within UIEventHandlers (lines 72-78 for boot, lines 146-151 for switch)",
+      "solution": "Created ProviderIdMapper utility with static toBackendId() and toUIId() methods as single source of truth, replaced all inline mapping objects with calls to mapper methods",
+      "category": "integration",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "The ultra-modular orchestrator + micro-components pattern works equally well on extension-side TypeScript as on browser-side JavaScript - complex logic isolation (like the 30+ line provider detection) dramatically improves testability and maintainability, and eliminating code duplication through centralized utilities (ProviderIdMapper) prevents divergence bugs",
+
+  "tags": [
+    "ultra-modular-refactoring",
+    "orchestrator-pattern",
+    "typescript-refactoring",
+    "extension-side-architecture",
+    "event-handlers",
+    "streaming-chunk-processor",
+    "micro-components",
+    "single-responsibility",
+    "code-duplication-elimination",
+    "complexity-isolation",
+    "dependency-injection",
+    "zero-breaking-changes",
+    "dual-refactoring-session",
+    "provider-detection",
+    "session-management",
+    "ui-event-handling",
+    "chunk-routing",
+    "lifecycle-management",
+    "technical-debt-reduction",
+    "architecture-consistency"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "Orchestrator.buildComponents() - Initialize and wire all micro-components with dependency injection",
+      "Handler.setup() - Register event listener with callback to private handle() method",
+      "Component.reset() - Clear component state for new stream/session",
+      "ProcessorLifecycle.reset() - Coordinate reset across all child components",
+      "ProviderIdMapper.toBackendId()/toUIId() - Bidirectional provider ID mapping as single source of truth",
+      "SessionIdChunkExtractor.extract() - Extract sessionId from first chunk with state tracking",
+      "ProviderWorkingDetector.detect() - Complex detection logic with registry delegation and UI emission",
+      "ChunkRouter.route() - Pure routing to specialized processors in correct order"
+    ],
+    "api_surface": [
+      "UIEventHandlers.setup(): void - Setup all event handlers (unchanged public API)",
+      "ChunkProcessor.processChunk(chunk: any): Promise<void> - Process streaming chunk (unchanged public API)",
+      "ChunkProcessor.reset(): void - Reset processor state (unchanged public API)",
+      "ProviderIdMapper.toBackendId(uiId: string): string - Convert UI ID to backend ID",
+      "ProviderIdMapper.toUIId(backendId: string): string - Convert backend ID to UI ID",
+      "SessionIdChunkExtractor.extract(chunk: any): boolean - Extract sessionId, returns true if extracted",
+      "ProviderWorkingDetector.detect(chunk: any): boolean - Detect provider working, returns true if emitted",
+      "ChunkRouter.route(chunk: any): Promise<void> - Route chunk to all processors",
+      "ProcessorLifecycle.reset(): void - Reset all processor components"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Add unit tests for isolated components - especially ProviderWorkingDetector with its complex detection logic",
+      "Consider ultra-modular refactoring for ToolEventProcessor's processors (ToolUseProcessor, ToolResultProcessor) if they grow beyond 80 lines",
+      "Apply same pattern to other extension-side managers that have mixed concerns",
+      "Create architectural documentation showing ultra-modular pattern consistency across browser UI (JavaScript) and extension (TypeScript) sides"
+    ],
+    "architecture_decisions": {
+      "orchestrator_pattern": "Use lightweight orchestrator (70-130 lines) that only builds components and delegates - no inline business logic",
+      "micro_components": "Each component should have single clear responsibility, typically 25-100 lines",
+      "complexity_isolation": "Complex logic (like 30+ line algorithms) deserves dedicated component for testability",
+      "duplication_elimination": "Extract duplicated logic into shared utilities (like ProviderIdMapper) as single source of truth",
+      "backward_compatibility": "Maintain unchanged public APIs (setup(), processChunk(), reset()) for zero breaking changes",
+      "lifecycle_coordination": "Use dedicated lifecycle component to coordinate reset across all child components"
+    },
+    "extension_points": [
+      "UIEventHandlers - Add new event handler by creating Handler component with setup() method and registering in HandlersLifecycle",
+      "ProviderIdMapper - Add new provider mappings by extending UI_TO_BACKEND and BACKEND_TO_UI objects",
+      "ChunkProcessor - Add new chunk extraction/detection by creating component and wiring in buildComponents()",
+      "ChunkRouter - Add new routing destination by calling processor method in route()",
+      "ProviderWorkingDetector - Extend provider start detection by adding detectors to ProviderStartDetectorRegistry"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "ultra-modular-orchestrator-pattern",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "event-handlers",
+      "streaming-chunks",
+      "session-management",
+      "provider-detection",
+      "permission-workflow",
+      "ui-event-emission",
+      "chunk-routing",
+      "tool-events"
+    ],
+    "technical_patterns": [
+      "orchestrator-pattern",
+      "micro-components",
+      "single-responsibility-principle",
+      "dependency-injection",
+      "lifecycle-management",
+      "event-driven-architecture",
+      "registry-pattern",
+      "static-utilities"
+    ],
+    "integration_points": [
+      "event-bus",
+      "state-emitter",
+      "ui-event-emitter",
+      "message-router",
+      "permission-workflow-manager",
+      "provider-manager",
+      "tool-event-processor",
+      "permission-chunk-processor"
+    ]
+  }
+}

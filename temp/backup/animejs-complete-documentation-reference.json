@@ -1,0 +1,544 @@
+{
+  "task": "animejs-complete-documentation-reference",
+  "component": "animation-library-documentation",
+  "temporal_context": {
+    "date_iso": "2025-10-17",
+    "year": 2025,
+    "month": 12,
+    "week_number": 44,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+  "timestamp": "2025-11-12",
+  "tags": [
+    "animejs",
+    "animation-library",
+    "documentation-scraping",
+    "svg-animation",
+    "timeline-animation",
+    "ui-animation",
+    "semantix-logo",
+    "easing-functions",
+    "text-animation",
+    "draggable-interactions"
+  ],
+  "summary": "Complete Anime.js v4.0.0 documentation reference scraped from official docs for building Semantix logo animations and UI interactions",
+
+  "installation": {
+    "npm": {
+      "command": "npm install animejs",
+      "esm_import": "import { animate } from 'animejs';",
+      "commonjs": "const { animate } = require('animejs');"
+    },
+    "cdn": {
+      "esm": "https://esm.sh/animejs",
+      "jsdelivr_esm": "https://cdn.jsdelivr.net/npm/animejs/+esm",
+      "umd": "https://cdn.jsdelivr.net/npm/animejs/dist/bundles/anime.umd.min.js",
+      "umd_usage": "const { animate } = anime;"
+    },
+    "direct_download": {
+      "esm_module": "dist/modules/index.js",
+      "commonjs_module": "dist/modules/index.cjs",
+      "esm_bundle": "dist/bundles/anime.esm.min.js",
+      "umd_bundle": "dist/bundles/anime.umd.min.js"
+    }
+  },
+
+  "core_concepts": {
+    "timer": {
+      "description": "Base playback control for animations",
+      "playback_settings": {
+        "duration": "Animation duration in milliseconds",
+        "delay": "Delay before animation starts",
+        "loop": "Number of times to loop (true for infinite)",
+        "loopDelay": "Delay between loops",
+        "alternate": "Play animation back and forth",
+        "reversed": "Play animation in reverse",
+        "autoplay": "Start animation automatically",
+        "frameRate": "Target frame rate",
+        "playbackRate": "Speed multiplier (2 = 2x speed)",
+        "playbackEase": "Easing applied to playback speed itself"
+      },
+      "callbacks": {
+        "onBegin": "Fires when animation starts",
+        "onComplete": "Fires when animation ends",
+        "onUpdate": "Fires on each frame update",
+        "onLoop": "Fires on each loop iteration",
+        "onPause": "Fires when animation is paused",
+        "then": "Promise-like chaining"
+      },
+      "methods": {
+        "init": "Initialize the timer",
+        "play": "Start/resume playback",
+        "pause": "Pause playback",
+        "restart": "Restart from beginning",
+        "seek": "Jump to specific time",
+        "stretch": "Scale duration",
+        "reverse": "Reverse playback direction",
+        "reset": "Reset to initial state",
+        "cancel": "Cancel animation",
+        "alternate": "Toggle alternate mode",
+        "resume": "Resume from pause",
+        "complete": "Jump to end state",
+        "revert": "Revert to original values"
+      },
+      "properties": {
+        "paused": "Boolean indicating if paused",
+        "began": "Boolean indicating if started",
+        "completed": "Boolean indicating if completed",
+        "progress": "Progress as percentage (0-100)",
+        "currentTime": "Current playback time",
+        "remainingTime": "Time remaining",
+        "iterationTime": "Current iteration time",
+        "iterationCount": "Current iteration number",
+        "duration": "Total duration"
+      }
+    },
+
+    "animation": {
+      "description": "Animates properties of targets over time",
+      "target_selection": {
+        "css_selectors": "String selectors like '.element' or '#myId'",
+        "dom_elements": "Direct HTML node references",
+        "javascript_objects": "Plain objects with animatable properties",
+        "array_of_targets": "Multiple targets animated simultaneously"
+      },
+      "animatable_properties": {
+        "css_properties": "Standard styles (opacity, color, width, height, etc.)",
+        "css_transforms": "Individual transforms (translateX, translateY, rotate, scale, skew)",
+        "css_variables": "Custom properties (--my-var)",
+        "js_object_properties": "Numeric values in plain objects",
+        "html_attributes": "Element attributes like data-* values",
+        "svg_attributes": "Path data, dimensions, positioning (d, cx, cy, r, viewBox, etc.)"
+      },
+      "property_value_types": {
+        "numerical": "Simple numeric values (100, 0.5)",
+        "unit_conversion": "Automatic unit handling (px, %, em, rem, deg, rad, turn)",
+        "relative_values": "Relative to current state using += or -= (+=50, -=100)",
+        "color": "RGB, hex, named colors (#FF0000, rgb(255,0,0), red)",
+        "function_based": "Dynamic values calculated per target/frame",
+        "from_to_syntax": "{ from: 0, to: 100 } structure for explicit start/end"
+      },
+      "keyframes": {
+        "tween_values": "Array of target values [0, 50, 100]",
+        "tween_parameters": "Individual keyframe timing and easing",
+        "duration_based": "Keyframes positioned by time in ms",
+        "percentage_based": "Keyframes as animation progress percentages"
+      },
+      "callbacks": {
+        "onBegin": "Animation start",
+        "onComplete": "Animation end",
+        "onBeforeUpdate": "Pre-update hook",
+        "onUpdate": "Frame update",
+        "onRender": "Rendering phase",
+        "onLoop": "Loop iteration",
+        "onPause": "Pause event",
+        "then": "Promise-like chaining"
+      }
+    },
+
+    "timeline": {
+      "description": "Orchestrates multiple animations and timers with synchronized playback",
+      "adding_content": {
+        "add_timers": "Add Timer instances to timeline",
+        "add_animations": "Add Animation objects to timeline",
+        "sync_waapi": "Coordinate Web Animation API animations",
+        "sync_timelines": "Nest timelines within timelines",
+        "call_functions": "Execute callbacks at specific timeline moments",
+        "time_position": "Control where content plays in sequence"
+      },
+      "positioning": {
+        "timeOffset": "Relative offset from previous animation",
+        "absolute_time": "Specific time position in timeline",
+        "relative_positioning": "Position relative to labels or other animations",
+        "labels": "Named time markers for positioning"
+      },
+      "playback_settings": {
+        "defaults": "Base parameters for all timeline children",
+        "delay": "Timeline delay",
+        "loop": "Timeline loop count",
+        "loopDelay": "Delay between timeline loops",
+        "alternate": "Timeline alternate mode",
+        "reversed": "Timeline reversed playback",
+        "autoplay": "Auto-start timeline",
+        "frameRate": "Timeline frame rate",
+        "playbackRate": "Timeline speed multiplier",
+        "playbackEase": "Easing on timeline playback speed"
+      },
+      "methods": {
+        "add": "Add animation/timer to timeline",
+        "set": "Set property values at timeline position",
+        "sync": "Sync external animations",
+        "label": "Create time label",
+        "remove": "Remove animation/timer",
+        "call": "Execute function at position",
+        "init": "Initialize timeline",
+        "play": "Play timeline",
+        "reset": "Reset to start",
+        "reverse": "Reverse direction",
+        "pause": "Pause timeline",
+        "restart": "Restart from beginning",
+        "alternate": "Toggle alternate",
+        "resume": "Resume playback",
+        "complete": "Jump to end",
+        "cancel": "Cancel timeline",
+        "revert": "Revert values",
+        "seek": "Seek to time",
+        "stretch": "Scale duration",
+        "refresh": "Refresh timeline"
+      },
+      "callbacks": {
+        "onBegin": "Timeline start",
+        "onComplete": "Timeline end",
+        "onBeforeUpdate": "Pre-update",
+        "onUpdate": "Frame update",
+        "onRender": "Render phase",
+        "onLoop": "Loop iteration",
+        "onPause": "Pause event",
+        "then": "Promise chaining"
+      }
+    }
+  },
+
+  "advanced_features": {
+    "svg": {
+      "morphTo": {
+        "description": "Morph between SVG path shapes",
+        "usage": "Smooth transitions between different SVG path data",
+        "integration": "Works with timeline and animation system"
+      },
+      "createDrawable": {
+        "description": "Animate SVG stroke drawing",
+        "usage": "Progressive drawing of SVG strokes and paths",
+        "typical_use": "Line drawing animations, logo reveals"
+      },
+      "createMotionPath": {
+        "description": "Animate elements along SVG paths",
+        "usage": "Elements follow SVG path curves during animation",
+        "parameters": "Path, offset, rotation settings"
+      }
+    },
+
+    "text": {
+      "splitText": {
+        "description": "Split text into animatable segments",
+        "settings": {
+          "lines": "Split text into individual lines",
+          "words": "Split text into individual words",
+          "chars": "Split text into individual characters",
+          "debug": "Enable debugging visualization",
+          "includeSpaces": "Include spaces in splits",
+          "accessible": "Maintain accessibility features"
+        },
+        "split_parameters": {
+          "class": "Apply custom CSS classes to split elements",
+          "wrap": "Define HTML wrapper elements",
+          "clone": "Clone original elements during splitting"
+        },
+        "methods": {
+          "addEffect": "Apply animation effects to split text",
+          "revert": "Restore original text structure",
+          "refresh": "Update split after DOM changes"
+        },
+        "workflow": "1. Split text with splitText(), 2. Target resulting elements, 3. Apply animation with timing/easing"
+      }
+    },
+
+    "draggable": {
+      "description": "Create draggable interactive elements with physics",
+      "axes_parameters": {
+        "x": "Enable X-axis dragging",
+        "y": "Enable Y-axis dragging",
+        "snap": "Snap to grid or specific values",
+        "modifier": "Transform drag values",
+        "mapTo": "Map drag motion to other properties"
+      },
+      "settings": {
+        "trigger": "Element that triggers dragging",
+        "container": "Boundary constraints",
+        "padding": "Container padding",
+        "friction": "Drag resistance",
+        "mass": "Physics mass for release",
+        "stiffness": "Spring stiffness for release",
+        "damping": "Spring damping for release",
+        "velocity": "Velocity constraints",
+        "threshold": "Movement threshold to start drag",
+        "cursor": "Cursor style during drag",
+        "releaseEase": "Easing for release animation",
+        "releaseSpring": "Spring physics for release"
+      },
+      "callbacks": {
+        "onGrab": "When dragging starts",
+        "onDrag": "During drag movement",
+        "onUpdate": "Continuous updates",
+        "onRelease": "When user releases",
+        "onSnap": "When snapping occurs",
+        "onSettle": "When motion completes",
+        "onResize": "Resize detection",
+        "onAfterResize": "After resize completes"
+      },
+      "methods": {
+        "enable": "Enable draggable",
+        "disable": "Disable draggable",
+        "setX": "Set X position programmatically",
+        "setY": "Set Y position programmatically",
+        "animateInView": "Animate into view",
+        "scrollInView": "Scroll into view",
+        "stop": "Stop motion",
+        "reset": "Reset to initial state",
+        "revert": "Revert to starting position",
+        "refresh": "Refresh draggable"
+      }
+    }
+  },
+
+  "easing_functions": {
+    "built_in": {
+      "linear": "No easing, constant speed",
+      "quad": "Quadratic easing",
+      "cubic": "Cubic easing",
+      "quart": "Quartic easing",
+      "quint": "Quintic easing",
+      "sine": "Sinusoidal easing",
+      "expo": "Exponential easing",
+      "circ": "Circular easing",
+      "back": "Overshoot easing",
+      "elastic": "Elastic bounce easing",
+      "bounce": "Bounce easing",
+      "variants": "Each has In, Out, InOut variants (e.g., inQuad, outQuad, inOutQuad)"
+    },
+    "custom": {
+      "cubic_bezier": "Custom cubic-bezier curves for precise control",
+      "steps": "Discrete step-based easing",
+      "spring": {
+        "description": "Physics-based spring easing",
+        "parameters": {
+          "mass": "Object mass",
+          "stiffness": "Spring stiffness (higher = faster)",
+          "damping": "Oscillation damping (higher = less bounce)",
+          "velocity": "Initial velocity"
+        }
+      },
+      "irregular": "Custom irregular easing patterns"
+    },
+    "usage": "Apply to any animation property or timeline playback",
+    "interactive_tool": "Easing editor at /easing-editor for visualization"
+  },
+
+  "utilities": {
+    "stagger": {
+      "description": "Create staggered animations with sequential delays",
+      "types": {
+        "time_staggering": "Sequential delays for start times",
+        "value_staggering": "Varying property values across targets",
+        "timeline_staggering": "Position-based sequencing"
+      },
+      "parameters": {
+        "start": "Starting delay value",
+        "from": "Stagger origin point (first, last, center, index)",
+        "reversed": "Reverse stagger order",
+        "ease": "Easing for stagger distribution",
+        "grid": "Grid-based staggering [rows, cols]",
+        "axis": "Grid axis (x, y, both)",
+        "modifier": "Custom modifier function",
+        "use": "Use time or value staggering",
+        "total": "Total stagger duration/range"
+      }
+    },
+    "dom_selection": {
+      "$": "DOM element selection utility",
+      "get": "Retrieve values from targets",
+      "set": "Apply values to targets",
+      "cleanInlineStyles": "Remove inline style attributes",
+      "remove": "Delete DOM elements"
+    },
+    "synchronization": {
+      "sync": "Synchronize multiple animations",
+      "keepTime": "Create time keeper instances"
+    },
+    "random": {
+      "random": "Generate random numbers",
+      "createSeededRandom": "Reproducible randomization with seed",
+      "randomPick": "Select random array elements",
+      "shuffle": "Randomize array order"
+    },
+    "math": {
+      "clamp": "Constrain values within min/max range",
+      "snap": "Round to nearest increment",
+      "wrap": "Cycle values within bounds",
+      "mapRange": "Map values from one range to another",
+      "lerp": "Linear interpolation between two values",
+      "damp": "Eased value smoothing over time",
+      "round": "Round numbers",
+      "roundPad": "Round with padding",
+      "padStart": "Pad string start",
+      "padEnd": "Pad string end",
+      "degToRad": "Degrees to radians conversion",
+      "radToDeg": "Radians to degrees conversion"
+    },
+    "chain": {
+      "description": "Chain-able utility functions for composable operations"
+    }
+  },
+
+  "web_animation_api": {
+    "description": "Integration with native Web Animations API (WAAPI)",
+    "features": {
+      "hardware_acceleration": "Native GPU acceleration support",
+      "api_differences": "Compatibility notes between Anime.js and WAAPI",
+      "convertEase": "Convert Anime.js easing to WAAPI format",
+      "sync_waapi": "Synchronize WAAPI animations with Anime.js timelines"
+    }
+  },
+
+  "engine_configuration": {
+    "description": "Global engine settings for fine-tuning",
+    "parameters": {
+      "timeUnit": "Time measurement unit (ms, s, frames)",
+      "speed": "Global animation speed multiplier",
+      "fps": "Target frames per second",
+      "precision": "Numerical precision for calculations",
+      "pauseOnDocumentHidden": "Pause animations when tab is hidden"
+    }
+  },
+
+  "best_practices": {
+    "performance": [
+      "Use transforms (translateX, scale) instead of position properties (left, top) for better performance",
+      "Prefer opacity over visibility for fade effects",
+      "Use will-change CSS property for frequently animated elements",
+      "Batch DOM reads before writes to avoid layout thrashing",
+      "Use requestAnimationFrame internally (handled by Anime.js)"
+    ],
+    "organization": [
+      "Use timelines for complex multi-step animations",
+      "Create reusable animation functions",
+      "Use labels in timelines for maintainable sequencing",
+      "Group related animations together",
+      "Use defaults in timelines to avoid repetition"
+    ],
+    "svg_animation": [
+      "Optimize SVG paths before morphing",
+      "Match path point counts for smooth morphing",
+      "Use createDrawable for line drawing effects",
+      "Combine createMotionPath with other animations",
+      "Test SVG animations across browsers"
+    ],
+    "debugging": [
+      "Use debug mode in splitText for visualization",
+      "Check browser DevTools Performance tab",
+      "Monitor callback execution",
+      "Use progress property for debugging timeline position",
+      "Test with different frameRate settings"
+    ]
+  },
+
+  "common_use_cases": {
+    "logo_animation": {
+      "description": "Animating Semantix logo with modular approach",
+      "techniques": [
+        "SVG path morphing with morphTo()",
+        "Drawing effects with createDrawable()",
+        "Staggered element appearances",
+        "Timeline coordination for multi-part logos",
+        "Spring physics for natural motion"
+      ],
+      "example_flow": "1. Split logo into animatable parts, 2. Create timeline, 3. Add drawing animations, 4. Add morphing effects, 5. Stagger element reveals"
+    },
+    "ui_interactions": {
+      "hover_effects": "Quick property changes with short durations",
+      "loading_spinners": "Infinite loop animations with rotate",
+      "scroll_animations": "Event-triggered animations based on scroll position",
+      "drag_interactions": "Draggable with snap and spring physics",
+      "modal_transitions": "Opacity and scale animations with easing"
+    },
+    "data_visualization": {
+      "chart_animations": "Animate chart values with custom easing",
+      "progress_bars": "Width/scaleX animations with duration",
+      "counter_animations": "Numeric object property animation",
+      "graph_reveals": "Staggered element reveals with delays"
+    }
+  },
+
+  "resources": {
+    "official_docs": "https://animejs.com/documentation",
+    "github": "https://github.com/juliangarnier/anime",
+    "codepen_examples": "https://codepen.io/collection/Poerqa",
+    "easing_editor": "https://animejs.com/easing-editor",
+    "version": "4.0.0",
+    "previous_versions": ["3.2.2", "2.1.0"]
+  },
+
+  "quick_start_example": {
+    "basic_animation": {
+      "code": "import { animate } from 'animejs';\n\nanimate({\n  targets: '.my-element',\n  translateX: 250,\n  rotate: '1turn',\n  duration: 800,\n  ease: 'outElastic'\n});",
+      "explanation": "Animates element 250px right and rotates one full turn over 800ms with elastic easing"
+    },
+    "timeline_example": {
+      "code": "import { timeline } from 'animejs';\n\nconst tl = timeline({\n  defaults: {\n    duration: 500,\n    ease: 'outQuad'\n  }\n});\n\ntl.add({\n  targets: '.logo',\n  opacity: [0, 1]\n})\n.add({\n  targets: '.title',\n  translateY: [-20, 0]\n}, '-=250'); // Start 250ms before previous animation ends",
+      "explanation": "Creates timeline with default settings, fades in logo, then slides in title with overlap"
+    },
+    "svg_drawing": {
+      "code": "import { createDrawable, animate } from 'animejs';\n\nconst path = document.querySelector('#my-path');\nconst drawable = createDrawable(path);\n\nanimate({\n  targets: drawable,\n  draw: 1,\n  duration: 2000,\n  ease: 'linear'\n});",
+      "explanation": "Creates drawable from SVG path and animates drawing from 0 to 1 over 2 seconds"
+    }
+  },
+
+  "semantix_specific_notes": {
+    "logo_animation_approach": "Use modular ultra-system with separate animation components",
+    "file_location": "tests/design/semantix-logo-animation/",
+    "integration_points": [
+      "VS Code extension UI",
+      "Loading states",
+      "Transition effects",
+      "Permission dialog animations",
+      "Streaming response indicators"
+    ],
+    "performance_considerations": [
+      "Keep animations under 1 second for responsiveness",
+      "Use GPU-accelerated properties",
+      "Pause animations when extension panel is hidden",
+      "Test on low-end hardware"
+    ]
+  },
+
+  "gotchas": [
+    {
+      "issue": "Path morphing requires equal point counts",
+      "solution": "Normalize SVG paths before morphing or use interpolation"
+    },
+    {
+      "issue": "Transform origin affects rotation center",
+      "solution": "Set transform-origin CSS property before animating rotations"
+    },
+    {
+      "issue": "CSS variables need unit specification",
+      "solution": "Include units when animating CSS variables: '--my-var': '100px' not '--my-var': 100"
+    },
+    {
+      "issue": "Timeline.add() position can be confusing",
+      "solution": "Use labels for clarity: tl.label('start').add({...}, 'start') or relative positioning: '+=500' or '-=250'"
+    },
+    {
+      "issue": "Memory leaks with repeated animations",
+      "solution": "Call .cancel() or .remove() on timelines/animations when component unmounts"
+    },
+    {
+      "issue": "Stagger not working as expected",
+      "solution": "Ensure targets is an array or NodeList, single elements can't be staggered"
+    }
+  ],
+
+  "learning_path": [
+    "1. Start with basic animate() function for single property",
+    "2. Experiment with different easing functions",
+    "3. Add multiple properties and callbacks",
+    "4. Create simple timeline with 2-3 animations",
+    "5. Try SVG drawing with createDrawable()",
+    "6. Implement stagger for multiple elements",
+    "7. Build complex timeline with labels and positioning",
+    "8. Add draggable interactions",
+    "9. Create custom spring physics animations",
+    "10. Optimize for production performance"
+  ]
+}

@@ -1,0 +1,223 @@
+{
+  "task": "live-streaming-polish-roadmap",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-31",
+  "component": "streaming-editor-improvements",
+
+  "temporal_context": {
+    "date_iso": "2025-10-31",
+    "year": 2025,
+    "month": 10,
+    "week_number": 44,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: Incremental improvements to existing streaming system - file management, cursor tracking, duplicate handling",
+    "business": "4: Quality-of-life improvements that significantly enhance user experience and production-readiness",
+    "coordination": "2: Changes isolated to streaming components, minimal cross-layer coordination"
+  },
+
+  "files_modified": "0",
+  "files_touched": [],
+  "tests_added": "0",
+  "related_tasks": ["live-code-streaming-to-editor"],
+
+  "outcomes": {
+    "performance_impact": "Not yet implemented",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Live streaming works perfectly for Write tool but needs polish - identified key improvements for production-ready experience",
+
+  "root_cause": "Initial implementation focused on core streaming functionality, deferred UX polish and edge case handling for follow-up iteration",
+
+  "solution": {
+    "approach": "Iterative refinement - tackle highest-impact UX improvements first, then refactor for maintainability",
+    "key_changes": [
+      "PRIORITY 1: Fix Edit tool - detect old_string/new_string and skip streaming, let normal flow handle it",
+      "PRIORITY 2: Close temporary untitled files after saving - avoid cluttering editor with duplicates",
+      "PRIORITY 3: Follow cursor during streaming - scroll editor to show newly typed content",
+      "PRIORITY 4: Refactor to universal streaming utilities - extract common patterns for reuse",
+      "PRIORITY 5: Avoid duplicate file tabs - reuse existing editor if file already open",
+      "FUTURE: Clean up debug logging - reduce noise in production logs"
+    ]
+  },
+
+  "validation": "Manual testing with Write tool works perfectly - watching code flow in real-time is incredibly satisfying",
+
+  "gotchas": [
+    {
+      "issue": "Edit tool creates empty untitled file instead of modifying existing file",
+      "solution": "Detect Edit tool by presence of old_string/new_string params, skip streaming and cleanup context to let normal flow handle the edit operation",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Untitled files remain open after streaming completes and saves to disk",
+      "solution": "After finalizing editor and saving to actual file path, close the untitled document to avoid duplicate tabs",
+      "category": "ux",
+      "severity": "medium"
+    },
+    {
+      "issue": "User can't see newly typed content if editor viewport doesn't scroll",
+      "solution": "Use editor.revealRange() or editor.selection to follow cursor position as content streams in",
+      "category": "ux",
+      "severity": "medium"
+    },
+    {
+      "issue": "If file already open, creates duplicate tab instead of reusing existing editor",
+      "solution": "Check vscode.window.visibleTextEditors for matching document URI before opening new editor",
+      "category": "ux",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "Working software first, polish second - initial implementation validates the feature is valuable and worth refining. User feedback (Moti enjoying watching code flow) confirms this is a killer feature worth investing in.",
+
+  "tags": [
+    "polish",
+    "production-readiness",
+    "ux-improvements",
+    "edit-tool-support",
+    "file-management",
+    "cursor-tracking",
+    "duplicate-prevention",
+    "refactoring",
+    "technical-debt"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "Edit tool detection - check for old_string/new_string params to identify Edit vs Write",
+      "Untitled document cleanup - close untitled after saving to actual file path",
+      "Cursor following - editor.revealRange() to scroll viewport during streaming",
+      "Editor reuse - search visibleTextEditors for existing document before opening new",
+      "Universal streaming utilities - extract EditorStreamingService patterns for other use cases"
+    ],
+    "api_surface": [
+      "ToolParamStreamHandler.processChunk() - Add Edit tool detection early in method",
+      "EditorStreamingService.finalizeEditor() - Close untitled document after saving",
+      "EditorStreamingService.appendText() - Add cursor tracking/scrolling",
+      "EditorStreamingService.initStreamingEditor() - Check for existing editor before opening new",
+      "vscode.window.visibleTextEditors - Array of currently visible editors",
+      "editor.revealRange(range, revealType) - Scroll editor to show specific range"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "1. Skip Edit tool streaming - detect old_string/new_string, cleanup context, return early",
+      "2. Close untitled files - in finalizeEditor(), close untitled doc after saving",
+      "3. Follow cursor - add editor.revealRange() in appendText() to scroll viewport",
+      "4. Reuse existing editors - check visibleTextEditors before opening new",
+      "5. Extract universal utilities - create base StreamingService class for reuse",
+      "6. Add configuration - settings for enable/disable, scroll behavior, editor position",
+      "7. Clean up debug logs - convert info logs to debug level",
+      "8. Add progress indicator - show streaming status in status bar or notification",
+      "9. Handle multi-file streams - queue multiple Write calls gracefully",
+      "10. Add Edit tool streaming - proper diff-based streaming (advanced feature)"
+    ],
+    "architecture_decisions": {
+      "edit-tool-exclusion": "Skip streaming for Edit tool initially - let normal flow handle it. Proper Edit streaming requires diff-based updates which is complex and can be added later.",
+      "untitled-cleanup": "Close untitled documents after saving to disk - improves UX by avoiding duplicate tabs and confusion",
+      "cursor-tracking": "Scroll editor viewport to follow newly typed content - essential for watching long files stream",
+      "editor-reuse": "Check for existing editors before opening new - prevents duplicate tabs for same file",
+      "universal-utilities": "Extract streaming patterns to base class - enables streaming for other tools/features in future"
+    },
+    "extension_points": [
+      "ToolParamStreamHandler.ts - Add isEditTool() helper to detect Edit tool by params",
+      "EditorStreamingService.ts - Add closeUntitledDocument() method for cleanup",
+      "EditorStreamingService.ts - Add followCursor() method for viewport scrolling",
+      "EditorStreamingService.ts - Add findExistingEditor() method to reuse editors",
+      "Create BaseStreamingService.ts - Extract common streaming patterns for reuse",
+      "Add StreamingConfig.ts - Configuration interface for user preferences"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "rapid-prototype then iterate - get core working first, refine based on actual usage",
+    "naming_preferences": "clear descriptive names with context - isEditTool(), closeUntitledDocument(), followCursor()",
+    "architecture_philosophy": "pragmatic refinement - solve immediate problems first, extract patterns when clear",
+    "quality_standards": "user-experience-first - prioritize polish that improves daily usage over theoretical perfection"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "edit-vs-write-distinction",
+      "untitled-document-lifecycle",
+      "viewport-cursor-tracking",
+      "editor-tab-management",
+      "streaming-coordination"
+    ],
+    "technical_patterns": [
+      "tool-type-detection",
+      "document-cleanup",
+      "viewport-scrolling",
+      "editor-deduplication",
+      "universal-service-extraction"
+    ],
+    "integration_points": [
+      "vscode-editor-management",
+      "vscode-document-lifecycle",
+      "vscode-viewport-control",
+      "tool-parameter-inspection"
+    ]
+  },
+
+  "implementation_notes": {
+    "edit_tool_detection": {
+      "location": "ToolParamStreamHandler.processChunk() - after JSON parsing",
+      "code_snippet": "if (parsed.old_string || parsed.new_string) { this.logger.info('Edit tool - skipping streaming'); this.activeStreams.delete(toolId); return; }",
+      "rationale": "Edit tool requires finding and replacing specific text, can't stream to empty document"
+    },
+    "untitled_cleanup": {
+      "location": "EditorStreamingService.finalizeEditor() - after saving",
+      "code_snippet": "if (originalDoc.isUntitled) { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); }",
+      "rationale": "Untitled doc becomes obsolete after saving to actual file, closing it prevents duplicate tabs"
+    },
+    "cursor_following": {
+      "location": "EditorStreamingService.appendText() - after inserting text",
+      "code_snippet": "const lastPosition = new vscode.Position(doc.lineCount - 1, lastChar); editor.revealRange(new vscode.Range(lastPosition, lastPosition), vscode.TextEditorRevealType.InCenterIfOutsideViewport);",
+      "rationale": "User needs to see new content appearing, especially for long files"
+    },
+    "editor_reuse": {
+      "location": "EditorStreamingService.initStreamingEditor() - before opening new",
+      "code_snippet": "const existing = vscode.window.visibleTextEditors.find(e => e.document.uri.fsPath === absolutePath); if (existing) return existing;",
+      "rationale": "Avoid duplicate tabs for same file, reuse existing editor if open"
+    }
+  },
+
+  "test_scenarios": [
+    {
+      "scenario": "Edit tool usage",
+      "steps": "1. Create file with Write, 2. Ask Claude to edit specific text, 3. Verify edit happens instantly without streaming",
+      "expected": "Edit tool bypasses streaming, file updates normally via existing flow"
+    },
+    {
+      "scenario": "Untitled file cleanup",
+      "steps": "1. Ask Claude to create new file, 2. Watch streaming complete, 3. Check editor tabs",
+      "expected": "Only one tab visible - saved file, no untitled document remains"
+    },
+    {
+      "scenario": "Cursor following",
+      "steps": "1. Ask Claude to create long file (200+ lines), 2. Watch streaming",
+      "expected": "Editor viewport scrolls to show new content as it appears"
+    },
+    {
+      "scenario": "Editor reuse",
+      "steps": "1. Open file manually, 2. Ask Claude to modify it with Write, 3. Watch streaming",
+      "expected": "Existing editor reused, no duplicate tab created"
+    },
+    {
+      "scenario": "Multiple file creation",
+      "steps": "1. Ask Claude to create index.html and styles.css, 2. Watch both stream",
+      "expected": "Both files stream correctly without interference"
+    }
+  ]
+}

@@ -13,6 +13,7 @@ def build_memory_synthesis_prompt(
     query: str = None,
     world_view: Optional[Dict[str, Any]] = None,
     identity: Optional[Dict[str, Any]] = None,
+    inject_full_world_view: bool = True,
 ) -> str:
     """
     Build a prompt for synthesizing search results into natural language memory.
@@ -49,7 +50,7 @@ The user is currently asking: "{query}"
             world_view_context += f"Short-term memory summary:\n{short_term}\n\n"
 
         recents = world_view.get("recent_conversations") or []
-        if isinstance(recents, list) and recents:
+        if inject_full_world_view and isinstance(recents, list) and recents:
             lines = []
             for conv in recents[:3]:
                 summary = conv.get("summary") or conv.get("snippet") or ""

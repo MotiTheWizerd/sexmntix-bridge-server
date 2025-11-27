@@ -1,0 +1,203 @@
+{
+  "task": "options-dropdown-provider-specific-toggle-implementation",
+  "agent": "claude-sonnet-4",
+  "date": "2025-11-10",
+  "component": "user-input-options-dropdown",
+
+  "temporal_context": {
+    "date_iso": "2025-11-10",
+    "year": 2025,
+    "month": 11,
+    "week_number": 45,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: Ultra-modular architecture with 10 micro-components across 5 subsystems, provider-aware visibility coordination, event-driven state management",
+    "business": "2: Adds third provider-specific toggle to user input toolbar, establishing pattern for future toggles",
+    "coordination": "4: Complex integration across DOM building, state persistence, event handling, provider management, and visual updates"
+  },
+
+  "files_modified": "17",
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/options-dropdown/OptionsDropdownController.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/options-dropdown/OptionsDropdownOrchestrator.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/options-dropdown/dom/DOMElementDiscovery.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/options-dropdown/dom/VisibilityManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/options-dropdown/dom/DropdownDOMBuilder.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/options-dropdown/state/DropdownStateManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/options-dropdown/state/StatePersistence.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/options-dropdown/visual/VisualConfigProvider.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/options-dropdown/visual/VisualStateUpdater.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/options-dropdown/events/EventSubscriber.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/options-dropdown/events/DropdownEventHandler.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/options-dropdown/provider/ProviderChangeHandler.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/options-dropdown/provider/VisibilityCoordinator.js",
+    "src/ui/templates/css/user-input/options-dropdown.css",
+    "src/ui/templates/components/user-input.html",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/UserUIController.js",
+    "src/ui/templates/css/user-input/index.css"
+  ],
+  "tests_added": "0",
+  "related_tasks": ["edit-mode-toggle-implementation", "thinking-toggle-tri-state-implementation", "header-dropdown-ultra-modular-implementation"],
+
+  "outcomes": {
+    "performance_impact": "No impact - dropdown built on demand, minimal DOM footprint",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "low",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Need provider-specific dropdown toggle in user-input bottom toolbar with 3 mock options matching header dropdown design → Built complete ultra-modular system with 10 micro-components, exact header dropdown styling, provider-aware visibility, and localStorage persistence",
+
+  "root_cause": "User requested third toggle feature (after edit-mode and thinking toggles) to demonstrate dropdown pattern in bottom toolbar, requiring hybrid of toggle infrastructure + dropdown UI pattern",
+
+  "solution": {
+    "approach": "Hybrid architecture combining toggle infrastructure pattern (from edit-mode/thinking toggles) with header dropdown UI pattern - ultra-modular 10-component system with 5 subsystems",
+    "key_changes": [
+      "options-dropdown/OptionsDropdownOrchestrator.js: Main orchestrator coordinating 10 micro-components across 5 subsystems",
+      "options-dropdown/dom/DropdownDOMBuilder.js: Dynamic DOM construction with trigger label, menu, triangle connector, 3 mock options",
+      "options-dropdown/state/DropdownStateManager.js: Manages open/closed state + selected option tracking",
+      "options-dropdown/state/StatePersistence.js: localStorage persistence per chat using semantix.optionsDropdown.[chatId] key",
+      "options-dropdown/visual/VisualConfigProvider.js: Configuration for 3 mock options (Option One 🎯, Option Two ⚡, Option Three 🚀)",
+      "options-dropdown/visual/VisualStateUpdater.js: Updates trigger label text and menu item active states",
+      "options-dropdown/events/EventSubscriber.js: Subscribes to providers.state.updated.v1 and CHAT_PROVIDER_SELECTED events",
+      "options-dropdown/events/DropdownEventHandler.js: Handles label click, menu item click, click-outside, escape key",
+      "options-dropdown/provider/ProviderChangeHandler.js: Extracts provider from events using getProvider() and getActiveProvider()",
+      "options-dropdown/provider/VisibilityCoordinator.js: Shows dropdown only for Claude providers (provider-aware)",
+      "css/user-input/options-dropdown.css: Exact clone of header dropdown styling with metallic theme, glassmorphism, triangle connector",
+      "templates/components/user-input.html: Added options-dropdown-container div to bottom-tool-bar",
+      "UserUIController.js: Integrated OptionsDropdownController via setProvidersUIManager() dependency injection"
+    ]
+  },
+
+  "validation": "TypeScript build succeeded after fixing import path and API method name issues",
+
+  "gotchas": [
+    {
+      "issue": "EventSubscriber import path error - 404 loading ui-events.js from wrong path (src/ui/modules/shared/constants/ui-events.js)",
+      "solution": "Use correct relative path matching edit-mode-toggle pattern: import { UI_EVENTS } from '../../../../../core/events/events.js'",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "ProviderChangeHandler calling non-existent getProviderById() method causing TypeError",
+      "solution": "Use correct ProvidersUIManager API: getProvider(providerId) for selection, getActiveProvider() for state updates",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Menu opens downward from bottom toolbar, causing menu to overflow below viewport",
+      "solution": "FOLLOW-UP NEEDED: Next session implement upward-opening menu with position calculation",
+      "category": "integration",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "Always reference existing toggle implementations for correct import paths and API method names in webview context - don't assume patterns, copy proven working code exactly",
+
+  "tags": [
+    "options-dropdown",
+    "provider-specific-toggle",
+    "ultra-modular",
+    "user-input-toolbar",
+    "dropdown-ui",
+    "header-dropdown-clone",
+    "provider-aware-visibility",
+    "localStorage-persistence",
+    "event-driven-architecture",
+    "mock-options",
+    "bottom-toolbar",
+    "hybrid-pattern",
+    "10-component-architecture",
+    "metallic-theme",
+    "glassmorphism",
+    "triangle-connector",
+    "SUCCESS"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "OptionsDropdownOrchestrator.initializeSubsystems() - Dependency injection pattern for 10 micro-components",
+      "DropdownDOMBuilder.build() - Dynamic DOM construction with triangle connector using CSS pseudo-elements",
+      "DropdownEventHandler.setup() - Document-level click-outside and escape key handlers with cleanup",
+      "StatePersistence.getStorageKey() - Per-chat isolation using semantix.optionsDropdown.[chatId] pattern",
+      "VisibilityCoordinator.shouldShowForProvider() - Provider capability check with hardcoded Claude-only logic",
+      "VisualStateUpdater.updateMenuState() - CSS class toggle for .open state with aria-expanded attribute"
+    ],
+    "api_surface": [
+      "getSelectedOption(): string - Returns currently selected option ID",
+      "setSelectedOption(optionId: string): boolean - Programmatically set option with validation",
+      "OptionsDropdownController(eventBus, providersUIManager) - Constructor with dependency injection",
+      "destroy(): void - Cleanup document event listeners"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Implement upward-opening menu for bottom toolbar position - calculate available space and reverse menu direction",
+      "Add menu position calculation to prevent viewport overflow",
+      "Replace mock options with real functionality (e.g., model selection, temperature, max tokens)",
+      "Add per-chat state isolation by injecting ChatTabManager into StatePersistence",
+      "Extend provider visibility logic to support custom capabilities beyond hardcoded Claude check",
+      "Add keyboard navigation (arrow keys, enter) to menu items for accessibility",
+      "Add loading states for async option changes",
+      "Add option dividers and section headers for grouped options"
+    ],
+    "architecture_decisions": {
+      "ultra-modular-10-component-system": "Matches edit-mode and thinking toggle patterns for consistency and maintainability",
+      "hybrid-toggle-dropdown-pattern": "Combines toggle infrastructure (provider-aware, persistence) with dropdown UI (menu, click-outside) - establishes reusable pattern",
+      "exact-header-dropdown-clone": "Reuses proven CSS styling for visual consistency across application",
+      "provider-aware-visibility": "Shows only for providers that support dropdown options - follows established capability-based pattern",
+      "localStorage-per-chat": "State persisted per chat using semantix.optionsDropdown.[chatId] key for isolation"
+    },
+    "extension_points": [
+      "visual/VisualConfigProvider.js - Replace optionsConfig object with real option definitions (add more options, change icons/labels)",
+      "provider/VisibilityCoordinator.shouldShowForProvider() - Add capability-based logic instead of hardcoded provider IDs",
+      "state/StatePersistence.getCurrentChatId() - Inject ChatTabManager for true per-chat isolation",
+      "dom/DropdownDOMBuilder.buildMenu() - Add menu direction calculation for upward-opening in bottom toolbar",
+      "css/options-dropdown.css - Add .open-upward class for reversed menu positioning"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "provider-specific-toggle",
+      "bottom-toolbar",
+      "user-input-container",
+      "dropdown-menu",
+      "trigger-label",
+      "mock-options",
+      "per-chat-state"
+    ],
+    "technical_patterns": [
+      "ultra-modular-architecture",
+      "orchestrator-pattern",
+      "dependency-injection",
+      "event-driven-coordination",
+      "provider-aware-visibility",
+      "localStorage-persistence",
+      "click-outside-handling",
+      "CSS-pseudo-element-triangle",
+      "glassmorphism-theme"
+    ],
+    "integration_points": [
+      "ProvidersUIManager.getProvider()",
+      "ProvidersUIManager.getActiveProvider()",
+      "EventBus.on(UI_EVENTS.CHAT_PROVIDER_SELECTED)",
+      "EventBus.on('providers.state.updated.v1')",
+      "UserUIController.setProvidersUIManager()",
+      "window.ICONS.downArrow"
+    ]
+  }
+}

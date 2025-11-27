@@ -3,12 +3,13 @@ Memory logs API routes - Thin orchestration layer.
 
 Routes delegate to handlers for business logic orchestration.
 """
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Body, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from src.api.dependencies.database import get_db_session
 from src.api.dependencies.logger import get_logger
 from src.api.schemas.memory_log import (
+    MemoryLogCreate,
     MemoryLogResponse,
     MemoryLogSearchRequest,
     MemoryLogSearchResult,
@@ -28,14 +29,13 @@ from src.api.routes.memory_logs.dependencies import (
 from src.database.repositories import MemoryLogRepository
 from src.services.memory_log_service import MemoryLogService
 from src.modules.core import Logger
-from src.api.dependencies.vector_storage import create_vector_storage_service
 
 router = APIRouter(prefix="/memory-logs", tags=["memory-logs"])
 
 
 @router.post("", response_model=MemoryLogResponse, status_code=201)
 async def create_memory_log(
-    request: Request,
+    payload: MemoryLogCreate = Body(..., description="Memory log payload"),
     service: MemoryLogService = Depends(get_memory_log_service),
     logger: Logger = Depends(get_logger),
 ):
@@ -75,7 +75,7 @@ async def create_memory_log(
     User and project IDs enable multi-tenant isolation in vector storage.
     The system automatically adds a datetime field and calculates temporal_context if not provided.
     """
-    return await CreateMemoryLogHandler.handle(request, service, logger)
+    return await CreateMemoryLogHandler.handle(payload, service, logger)
 
 
 @router.get("/{id}", response_model=MemoryLogResponse)
@@ -103,12 +103,14 @@ async def search_memory_logs(
     search_request: MemoryLogSearchRequest,
     request: Request,
     logger: Logger = Depends(get_logger),
+    repository: MemoryLogRepository = Depends(get_memory_log_repository),
 ):
     """
     Semantic search for memory logs by meaning, not keywords.
 
-    Uses vector embeddings to find similar memories based on semantic similarity.
-    Each user/project gets their own isolated ChromaDB database.
+    Uses PostgreSQL pgvector embeddings to find similar memories based on semantic similarity.
+    Embedding generation happens on the fly for the query, and results are fetched
+    directly from the database (no ChromaDB path).
 
     Example:
         POST /memory-logs/search
@@ -128,17 +130,14 @@ async def search_memory_logs(
     Returns memories ranked by similarity with scores.
     Format options: 'json' (complete JSON objects, default) or 'text' (formatted terminal output).
     """
-    # Create vector service for this user/project
-    vector_service = create_vector_storage_service(
-        user_id=search_request.user_id,
-        project_id=search_request.project_id,
-        embedding_service=request.app.state.embedding_service,
-        event_bus=request.app.state.event_bus,
-        logger=logger
+    # Create service with PostgreSQL pgvector search capability
+    service = MemoryLogService(
+        repository=repository,
+        vector_service=None,
+        event_bus=None,
+        logger=logger,
+        embedding_service=request.app.state.embedding_service
     )
-
-    # Create service with vector capability
-    service = MemoryLogService(None, vector_service, None, logger)
 
     return await SearchMemoryLogHandler.handle(
         search_request, service, logger

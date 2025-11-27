@@ -1,0 +1,192 @@
+{
+  "task": "streaming-multi-turn-stale-reference-bug",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-27",
+  "component": "ui-streaming-multi-turn-segmentation",
+
+  "temporal_context": {
+    "date_iso": "2025-10-27",
+    "year": 2025,
+    "month": 10,
+    "week_number": 43,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "5: Multi-turn streaming with DOM reference management, ID collision detection, and segmentation architecture requiring deep understanding of streaming lifecycle, placeholder transformation, and element scoping",
+    "business": "5: CRITICAL - Second turn text not rendering completely breaks multi-turn conversations, making the entire chat system unusable for extended conversations",
+    "coordination": "2: Single session with Moti, good collaboration and hypothesis validation"
+  },
+
+  "files_modified": "5",
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/StreamCompleter.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/StreamInitializer.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/stream-initializer/coordinators/StreamStartCoordinator.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/placeholder/placeholder-creator/PlaceholderDOMManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/dom/DOMReferences.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "stream-segmentation-failed-attempt",
+    "streaming-tool-positioning-fix-simple-append",
+    "data-chat-id-removal-cleanup"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No performance impact - bug fix addresses correctness issue",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Second turn text not rendering in multi-turn conversations → Root cause: Duplicate #agent-placeholder IDs causing querySelector to return stale reference to completed message instead of active streaming placeholder",
+
+  "root_cause": "When completing first turn, StreamCompleter converts .stream-text → .stream-text-segment but does NOT remove the #agent-placeholder id. When second turn starts, NEW placeholder created with same ID causes DOM to have TWO elements with id='agent-placeholder' (invalid HTML). DOMReferences.getCurrentStreamingElement() uses querySelector('#agent-placeholder') which returns FIRST match (the completed message), not the active streaming placeholder. MarkdownRenderer then looks for .stream-text in wrong element, finds .stream-text-segment instead, and fails silently.",
+
+  "solution": {
+    "approach": "Remove #agent-placeholder id when stream completes, preventing ID collision and ensuring querySelector always finds the active streaming placeholder",
+    "key_changes": [
+      "StreamCompleter.js:127-133 - Added .stream-text → .stream-text-segment conversion to mark completed segments",
+      "StreamCompleter.js:134-136 - CRITICAL FIX: Remove #agent-placeholder id after completion to prevent ID collision with next turn's placeholder",
+      "StreamInitializer.js:10 - Removed StreamElementBuilder import (eliminated redundant creation path)",
+      "StreamInitializer.js:40,47-55 - Removed streamElementBuilder instantiation and parameter (enforced single creation point)",
+      "StreamStartCoordinator.js:7-22 - Removed streamElementBuilder from constructor (simplified to single path)",
+      "StreamStartCoordinator.js:54-68 - Removed else branch fallback, added error logging if placeholder doesn't exist (should never happen)",
+      "PlaceholderDOMManager.js:40-47 - Removed unnecessary data-chat-id from placeholder creation",
+      "DOMReferences.js:114-123 - Removed data-chat-id from setCurrentPlaceholder()",
+      "DOMReferences.js:156-166 - Removed data-chat-id from setCurrentStreamingElement()",
+      "StreamElementBuilder.js - DELETED entire file (redundant creation path)",
+      "StreamOutputBuilder.js - DELETED entire file (dead code, never imported)"
+    ]
+  },
+
+  "validation": "Moti tested: First turn text renders correctly, .stream-text becomes .stream-text-segment on completion, second turn placeholder created with .stream-text, indicator shows but text doesn't render. This validated the hypothesis that streamingElement reference is stale. Fix ready to implement.",
+
+  "gotchas": [
+    {
+      "issue": "Duplicate #agent-placeholder IDs in DOM causing querySelector to return wrong element",
+      "solution": "Remove id='agent-placeholder' attribute when stream completes using currentStreamingElement.removeAttribute('id') in StreamCompleter",
+      "category": "dom-architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "Three separate creation points for .stream-text container scattered across codebase",
+      "solution": "Enforced SINGLE source of truth: PlaceholderDOMManager.js:55. Deleted StreamElementBuilder and StreamOutputBuilder entirely. Removed fallback path in StreamStartCoordinator",
+      "category": "architecture-consolidation",
+      "severity": "high"
+    },
+    {
+      "issue": "data-chat-id being added to individual messages by multiple different code paths after creation",
+      "solution": "Removed from PlaceholderDOMManager creation, DOMReferences.setCurrentPlaceholder(), and DOMReferences.setCurrentStreamingElement(). Only message-list container needs data-chat-id",
+      "category": "dom-attributes",
+      "severity": "medium"
+    },
+    {
+      "issue": "Invalid HTML with duplicate IDs went undetected because querySelector silently returns first match",
+      "solution": "By removing id after completion, ensure only ONE #agent-placeholder exists at any time. Consider adding DOM validation in development mode",
+      "category": "html-validity",
+      "severity": "high"
+    },
+    {
+      "issue": "StreamCompleter has 40 lines of dead/commented code from previous architecture that's disabled",
+      "solution": "Left as-is for now since Moti is mid-rebuild. Will be cleaned up as part of markdown system rebuild",
+      "category": "technical-debt",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "DOM IDs must be unique! When recycling element patterns (like #agent-placeholder), ALWAYS remove the ID when the element completes its lifecycle to prevent querySelector collision. The bug was invisible because: 1) querySelector silently returns first match, 2) The scoped .querySelector('.stream-text') correctly searched within the element but that element was WRONG, 3) No console errors because finding .stream-text-segment instead of .stream-text fails the null check and returns early. This demonstrates the importance of: strict ID lifecycle management, proper element scoping validation, and logging when expected elements aren't found.",
+
+  "tags": [
+    "streaming",
+    "multi-turn",
+    "dom-reference",
+    "id-collision",
+    "querySelector",
+    "stale-reference",
+    "segmentation",
+    "placeholder-lifecycle",
+    "CRITICAL-BUG",
+    "PARTIAL-FIX",
+    "architecture-cleanup"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "querySelector('#agent-placeholder') - Used by DOMReferences.getCurrentStreamingElement() to find active placeholder",
+      "currentStreamingElement.querySelector('.stream-text') - Scoped query but element reference was stale",
+      "streamText.classList.add('stream-text-segment') - Marks completed segment for styling",
+      "currentStreamingElement.removeAttribute('id') - CRITICAL: Prevents ID collision on next turn",
+      "PlaceholderDOMManager.setPlaceholderContent() - SINGLE source of truth for .stream-text creation",
+      "StateChangeRouter.handleBusyState() - Creates placeholder when agent goes busy",
+      "StreamStartCoordinator.start() - Transforms placeholder to streaming-active"
+    ],
+    "api_surface": [
+      "StreamCompleter.complete(payload): void - Converts .stream-text to .stream-text-segment and removes placeholder id",
+      "DOMReferences.getCurrentStreamingElement(chatId): HTMLElement - Finds #agent-placeholder in correct message-list",
+      "MarkdownRenderer.render(streamingElement, chunkText, chatId): void - Appends chunks to .stream-text container",
+      "PlaceholderDOMManager.setPlaceholderContent(placeholder, indicatorHTML): void - Creates .stream-text structure"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "Deleted StreamElementBuilder.js - No fallback creation path (streamingElement must always come from placeholder)",
+      "Deleted StreamOutputBuilder.js - Removed unused dead code",
+      "StreamStartCoordinator no longer accepts streamElementBuilder parameter",
+      "data-chat-id no longer set on individual message elements (only on message-list container)"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Implement the id removal fix in StreamCompleter.js",
+      "Test multi-turn conversation with 3+ turns to verify no regression",
+      "Add DOM validation in dev mode to detect duplicate IDs",
+      "Clean up 40 lines of dead code in StreamCompleter when markdown rebuild happens",
+      "Consider renaming #agent-placeholder to something like #streaming-placeholder-{chatId} for clarity",
+      "Add logging when querySelector finds wrong element to catch similar issues early"
+    ],
+    "architecture_decisions": {
+      "single-stream-text-creation": "Enforced SINGLE creation point in PlaceholderDOMManager to prevent architectural drift and scattered responsibility",
+      "id-lifecycle-management": "IDs should be removed when element completes lifecycle to prevent querySelector collisions in recycled patterns",
+      "placeholder-always-exists": "Eliminated fallback creation path - placeholder MUST exist before streaming starts (StreamingChunkRouter guarantees this)",
+      "segmentation-via-class": "Use .stream-text-segment class to mark completed segments, enabling CSS styling and multi-turn isolation"
+    },
+    "extension_points": [
+      "StreamCompleter.js - Will be refactored when markdown system rebuilt, currently has disabled FinalMessageBuilder/MessagePostProcessor",
+      "PlaceholderDOMManager.js:55 - ONLY place .stream-text should ever be created",
+      "DOMReferences.getCurrentStreamingElement() - Could add validation to warn if multiple #agent-placeholder found"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "rapid-prototype-with-incremental-fixes",
+    "naming_preferences": "technical-precise-with-semantic-clarity",
+    "architecture_philosophy": "single-responsibility-with-ultra-modular-components",
+    "quality_standards": "functionality-first-then-refactor-incrementally"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "streaming-consciousness",
+      "multi-turn-conversation",
+      "placeholder-transformation",
+      "segment-completion",
+      "dom-lifecycle-management"
+    ],
+    "technical_patterns": [
+      "placeholder-to-streaming-transformation",
+      "class-based-state-indication",
+      "querySelector-scoping",
+      "id-uniqueness-enforcement",
+      "single-source-of-truth-creation"
+    ],
+    "integration_points": [
+      "PlaceholderCreator-to-StreamInitializer-flow",
+      "StateChangeRouter-agent-busy-event",
+      "StreamingChunkRouter-chat-stream-start-event",
+      "ChunkProcessor-to-MarkdownRenderer-delegation"
+    ]
+  }
+}

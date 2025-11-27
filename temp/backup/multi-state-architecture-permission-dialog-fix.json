@@ -1,0 +1,185 @@
+{
+  "task": "multi-state-architecture-permission-dialog-fix",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-01",
+  "component": "ui-state-management-system",
+
+  "complexity": {
+    "technical": "5: Complete architectural refactor of state management from single monolithic state to independent multi-state system across extension and UI layers",
+    "business": "5: Critical bug fix - permission dialog disappearing prevented users from granting permissions, blocking all file operations",
+    "coordination": "5: Required synchronized changes across 10+ files spanning extension state management, event contracts, UI controllers, event validation and mapping"
+  },
+
+  "files_modified": "10",
+  "files_touched": [
+    "src/ext/modules/logic-manager/state/UIStateManager.ts",
+    "src/shared/events/ui-state.ts",
+    "src/ext/modules/logic-manager/LogicManager.ts",
+    "src/ext/modules/logic-manager/conversation-processor/ConversationProcessor.ts",
+    "src/ui/modules/ui-logic/ui-controllers/ConfirmationController.js",
+    "src/ui/modules/ui-logic/ui-controllers/StatusController.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/UserUIController.js",
+    "src/ui/modules/core/events/bridge-handler/validation/MessageValidator.js",
+    "src/ui/modules/core/events/bridge-handler/mapping/EventMapper.js",
+    "src/ext/modules/core/logger/Logger.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "wait-tool-confirmation-state-implementation",
+    "confirmation-container-ui-integration",
+    "ui-state-permission-system-implementation"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - event emission patterns unchanged, just split into specific channels",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "Permission dialog disappearing when agent sent messages → Complete multi-state architecture with independent agent and permission state tracks",
+  "root_cause": "Single monolithic UIState caused agent activity (agent_busy) to override permission workflow (permission_needed), hiding dialog before user could respond. Extension and UI had conflicting state managers that didn't communicate.",
+
+  "solution": {
+    "approach": "Separation of concerns: Split single state into two independent tracks (agent activity + permission workflow) with Extension as single source of truth and UI as dumb renderer",
+    "key_changes": [
+      "UIStateManager.ts: Refactored from single UIState to multi-state manager with agentState (active/busy) and permissionState (idle/pending/processing/resolved)",
+      "ui-state.ts: Added AgentState, PermissionState types and new event contracts (AgentStateChangePayload, PermissionStateChangePayload)",
+      "LogicManager.ts: Replaced setUIState() with setAgentState() and setPermissionState() methods emitting specific events (ui.agent.state.change.v1, ui.permission.state.change.v1)",
+      "ConversationProcessor.ts: Removed all state validation checks, now unconditionally emits agent state changes and permission state changes independently",
+      "ConfirmationController.js: Changed from listening to ui.state.change.v1 to ONLY ui.permission.state.change.v1 - pure renderer reacting to permission state",
+      "StatusController.js: Changed from listening to ui.state.change.v1 to ONLY ui.agent.state.change.v1 - pure renderer showing agent activity",
+      "UserUIController.js: Changed from listening to ui.state.change.v1 to ONLY ui.agent.state.change.v1 - enables/disables input based on agent activity",
+      "MessageValidator.js: Added ui.agent.state.change.v1 and ui.permission.state.change.v1 to knownIncomingEvents",
+      "EventMapper.js: Added mapAgentStateChange() and mapPermissionStateChange() methods for new event types",
+      "Logger.ts: Added warn() method with yellow console.warn output for state transition warnings"
+    ]
+  },
+
+  "validation": "TypeScript compilation successful with no errors. Visual confirmation in UI showing permission dialog persisting through multiple agent messages.",
+
+  "gotchas": [
+    {
+      "issue": "Initial attempt used state transition validation (canTransitionTo) but this prevented independent state updates",
+      "solution": "Completely removed transition validation - states are now independent, agent can be busy while permission is pending",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "ConversationProcessor was directly emitting ui.state.change.v1 events without updating UIStateManager, causing state desync",
+      "solution": "Changed to update UIStateManager directly then emit specific events, ensuring single source of truth",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Logger.warn() method didn't exist, causing TypeScript compilation errors",
+      "solution": "Added warn() method to Logger.ts with yellow console.warn output",
+      "category": "typing",
+      "severity": "low"
+    },
+    {
+      "issue": "UI controllers were trying to control state through events, breaking dumb renderer pattern",
+      "solution": "Simplified controllers to ONLY react to incoming state events, removed all state emission logic except permission responses",
+      "category": "architecture",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "Conflating multiple concerns into a single state machine creates race conditions and conflicts. Independent state tracks with single source of truth (Extension) and dumb renderers (UI) provides clean separation and prevents state override bugs. Extension = Smart Brain, UI = Dumb Renderer.",
+  "tags": [
+    "state-management",
+    "multi-state-architecture",
+    "permission-dialog-fix",
+    "separation-of-concerns",
+    "event-driven-architecture",
+    "extension-ui-coordination",
+    "dumb-renderer-pattern",
+    "race-condition-fix"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "stateManager.setAgentState(state) - updates agent activity state (active/busy)",
+      "stateManager.setPermissionState(state) - updates permission workflow state (idle/pending/processing/resolved)",
+      "stateManager.getStateSnapshot() - returns {agent, permission} for debugging",
+      "eventBus.on('ui.agent.state.change.v1') - UI listens for agent activity changes",
+      "eventBus.on('ui.permission.state.change.v1') - UI listens for permission workflow changes",
+      "postToUI({event: 'ui.agent.state.change.v1', payload}) - Extension emits agent state",
+      "postToUI({event: 'ui.permission.state.change.v1', payload}) - Extension emits permission state"
+    ],
+    "api_surface": [
+      "UIStateManager.getAgentState(): AgentState - returns current agent state",
+      "UIStateManager.setAgentState(state: AgentState): void - updates agent state with logging",
+      "UIStateManager.getPermissionState(): PermissionState - returns current permission state",
+      "UIStateManager.setPermissionState(state: PermissionState): void - updates permission state with logging",
+      "UIStateManager.isAgentBusy(): boolean - convenience check for busy state",
+      "UIStateManager.isWaitingForPermission(): boolean - convenience check for pending permission",
+      "UIStateManager.getStateSnapshot(): {agent, permission} - debugging helper",
+      "LogicManager.setAgentState(state, context): void - private method to update and emit agent state",
+      "LogicManager.setPermissionState(state, context): void - private method to update and emit permission state"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "ui.state.change.v1 → deprecated in favor of ui.agent.state.change.v1 and ui.permission.state.change.v1",
+      "UIState type → deprecated in favor of AgentState and PermissionState",
+      "UIStateManager.getCurrentState() → replaced with getAgentState() and getPermissionState()",
+      "UIStateManager.setState() → replaced with setAgentState() and setPermissionState()",
+      "UIStateManager.canTransitionTo() → removed, states are now independent"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Implement actual tool execution continuation logic in LogicManager instead of setTimeout simulation",
+      "Add more state tracks if needed (loading, error, connection status) using same pattern",
+      "Add permission timeout handling for cases where tool execution hangs",
+      "Consider adding permission persistence for 'always_allow' decisions",
+      "Remove deprecated ui.state.change.v1 event after migration period",
+      "Delete UIStateCoordinator.js from UI side once confirmed stable"
+    ],
+    "architecture_decisions": {
+      "multi_state_pattern": "Independent state tracks prevent conflicts - agent activity doesn't interfere with permission workflow",
+      "extension_single_source_of_truth": "Extension owns all state logic, UI is purely reactive renderer",
+      "dumb_renderer_ui": "UI controllers only listen to specific state events and render, never control state transitions",
+      "specific_event_channels": "Separate event channels (agent/permission) allow controllers to subscribe only to relevant changes",
+      "backward_compatibility": "Keep deprecated events during migration to prevent breaking existing code"
+    },
+    "extension_points": [
+      "UIStateManager.ts - add new state tracks (loadingState, connectionState, etc.) following same pattern",
+      "LogicManager.ts - add setXState() methods for new state tracks",
+      "ui-state.ts - add new state types and event payloads",
+      "UI controllers - create new controllers listening to specific state events",
+      "EventMapper.js - add mapping methods for new event types"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-implementation",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "event-driven-separation-of-concerns",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "permission-workflow",
+      "agent-activity",
+      "state-machine",
+      "user-consent",
+      "tool-execution"
+    ],
+    "technical_patterns": [
+      "multi-state-architecture",
+      "dumb-renderer-pattern",
+      "single-source-of-truth",
+      "event-driven-communication",
+      "separation-of-concerns"
+    ],
+    "integration_points": [
+      "extension-ui-bridge",
+      "event-bus-messaging",
+      "webview-communication",
+      "state-synchronization"
+    ]
+  }
+}

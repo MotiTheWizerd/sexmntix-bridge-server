@@ -94,6 +94,7 @@ class ConversationMemoryPipeline:
             session_id=session_id,
             summarize_with_llm=bool(not sentinel_hit and retrieval_strategy != "none"),
         )
+        inject_world_view = bool(world_view_payload and not world_view_payload.get("is_cached"))
 
         if self.logger:
             payload = {
@@ -110,6 +111,7 @@ class ConversationMemoryPipeline:
                 "retrieval_strategy": retrieval_strategy,
                 "session_state": session_state,
                 "world_view": world_view_payload,
+                "inject_world_view": inject_world_view,
                 "identity": identity_payload,
             }
             self.logger.info(f"[FETCH_MEMORY_PIPELINE] intent/time resolution: {json.dumps(payload, default=str, ensure_ascii=False)}")
@@ -326,5 +328,6 @@ class ConversationMemoryPipeline:
             "session": session_state,
             "identity": identity_payload,
             "world_view": world_view_payload,
+            "inject_world_view": inject_world_view,
             "results": results,
         }

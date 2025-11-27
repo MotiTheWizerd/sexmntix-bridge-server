@@ -1,0 +1,142 @@
+{
+  "task": "edit-tool-streaming-implementation-stage-1",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-31",
+  "component": "streaming-editor-integration",
+
+  "temporal_context": {
+    "date_iso": "2025-10-31",
+    "year": 2025,
+    "month": 10,
+    "week_number": 44,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Multi-layer architecture spanning streaming pipeline, editor services, and tool parameter parsing with cursor position tracking",
+    "business": "4: Critical feature parity with Write tool, enables real-time Edit tool visualization matching Cursor/Windsurf UX",
+    "coordination": "3: Required coordination across 7 files in 4 different architectural layers"
+  },
+
+  "files_modified": "7",
+  "files_touched": [
+    "src/ext/modules/logic-manager/message-router/streaming/tool-param-streaming/session/StreamingSessionRegistry.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/ToolParamStreamHandler.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/tool-param-streaming/editor-coordination/EditorStreamCoordinator.ts",
+    "src/ext/ui-host-components/editor/EditorStreamingService.ts",
+    "src/ext/ui-host-components/editor/streaming/operations/TextAppender.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": ["live-code-streaming-to-editor", "input-json-delta-streaming-discovery", "live-streaming-polish-roadmap"],
+
+  "outcomes": {
+    "performance_impact": "No performance degradation - reuses existing streaming infrastructure",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Edit tool creating temp files and appending to document end → Edit tool now opens existing files and streams replacement text at cursor position with live preview",
+  "root_cause": "Edit tool reused Write tool's temp-file workflow (openOrCreateDocument) and end-of-document insertion (appendText), but Edit requires existing-file-only opening and position-based insertion at old_string location",
+
+  "solution": {
+    "approach": "Extended streaming architecture with position-aware text insertion: (1) Added Edit-specific fields to streaming context (2) Created insertAtPosition() method for cursor-tracked insertion (3) Modified Edit flow to use position-based insertion instead of append (4) Fixed file opening to prevent temp file creation",
+    "key_changes": [
+      "StreamingSessionRegistry.ts: Extended StreamingToolContext interface with oldString, newString, replaceAll, editPosition fields",
+      "ToolParamStreamHandler.ts: Added Edit tool detection, parameter parsing (old_string/new_string/replace_all), and position-based streaming using insertAtPosition with cursor tracking",
+      "TextAppender.ts: Created insertAtPosition(editor, position, text) method that inserts at specific position and returns updated position for cursor tracking",
+      "EditorStreamingService.ts: Added initEditStreamingEditor() for existing-file-only opening with untitled document rejection, and insertAtPosition() wrapper",
+      "EditorStreamCoordinator.ts: Added initEditEditor() and insertAtPosition() wrappers with error handling",
+      "ToolParamStreamHandler.ts: Modified Edit finalization to call finalizeEditEditor() with old_string/new_string replacement logic"
+    ]
+  },
+
+  "validation": "TypeScript compilation passes with no errors. Manual testing shows Edit tool opens existing file (no temp), positions cursor at old_string, streams new_string at cursor position. KNOWN BUGS: User reports 'it works but has bugs' - needs testing next session",
+
+  "gotchas": [
+    {
+      "issue": "Edit tool was creating temporary untitled documents like Write tool because initEditStreamingEditor used openOrCreateDocument",
+      "solution": "Added untitled document check (doc.uri.scheme === 'untitled') that returns null, ensuring Edit tool only opens existing files",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "appendText() always inserts at document end (calculated lastLine/lastChar), causing Edit tool text to appear at wrong location",
+      "solution": "Created insertAtPosition() method that inserts at specified Position and returns new Position after insertion for cursor tracking",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Cursor position wasn't tracked between chunks, causing subsequent chunks to insert at original position instead of advancing",
+      "solution": "Store returned newPosition from insertAtPosition() back to context.editPosition, so next chunk inserts at updated position",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "TypeScript type error: parsed.replace_all could be any type, not guaranteed boolean",
+      "solution": "Added type guard: if (parsed.replace_all !== undefined && typeof parsed.replace_all === 'boolean')",
+      "category": "typing",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "When extending streaming infrastructure for new tool types, verify BOTH the initialization path (temp vs existing file) AND the insertion method (append vs position-based). Position-based streaming requires explicit cursor tracking by updating position after each insertion.",
+  "tags": ["edit-tool", "streaming", "position-based-insertion", "cursor-tracking", "live-preview", "temp-file-prevention", "input_json_delta", "stage-1-complete", "bugs-remaining"],
+
+  "code_context": {
+    "key_patterns": [
+      "insertAtPosition(editor, position, text) - Position-based text insertion that returns new Position for cursor tracking",
+      "StreamingToolContext.editPosition - Tracks current cursor position for Edit tool streaming, updated after each chunk",
+      "initEditStreamingEditor(filePath, oldString) - Opens EXISTING file only, finds old_string, positions cursor, returns {editor, position}",
+      "doc.uri.scheme === 'untitled' check - Prevents Edit tool from creating temp files",
+      "editorCoordinator.insertAtPosition() → updateContext.editPosition - Pattern for position-tracked streaming"
+    ],
+    "api_surface": [
+      "TextAppender.insertAtPosition(editor: TextEditor, position: Position, text: string): Promise<Position | null> - Insert text at position, return new position",
+      "EditorStreamingService.insertAtPosition(editor: TextEditor, position: Position, text: string): Promise<Position> - Wrapper with error handling",
+      "EditorStreamingService.initEditStreamingEditor(filePath: string, oldString: string): Promise<{editor: TextEditor, position: Position} | null> - Init Edit editor",
+      "EditorStreamCoordinator.insertAtPosition(editor: TextEditor, position: Position, text: string): Promise<Position | null> - Coordinator wrapper",
+      "EditorStreamCoordinator.initEditEditor(filePath: string, oldString: string): Promise<{editor: TextEditor, position: Position} | null> - Coordinator wrapper"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Debug and fix user-reported bugs in Edit tool streaming (test with real Edit tool calls)",
+      "Add replace_all support (multiple replacements streaming)",
+      "Implement diff view integration for Edit tool preview",
+      "Add error handling for edge cases (file deleted during streaming, old_string changes during streaming)",
+      "Performance optimization: batch small chunks to reduce edit operations",
+      "Add undo/redo support for Edit tool streaming",
+      "Consider visual indicators showing old_string location and new_string progress"
+    ],
+    "architecture_decisions": {
+      "position-based-insertion": "Chose insertAtPosition() over modifying appendText() to maintain clean separation between Write (append) and Edit (insert) patterns",
+      "cursor-tracking": "Store editPosition in context and update after each insertion rather than recalculating from document, for performance and reliability",
+      "untitled-rejection": "Explicitly reject untitled documents in initEditStreamingEditor rather than checking at caller level, for fail-fast behavior",
+      "separate-finalization": "Use separate finalizeEditEditor() instead of conditionals in finalizeEditor() to maintain clean code paths for Write vs Edit"
+    },
+    "extension_points": [
+      "TextAppender.ts - Add replaceAtPosition() method for in-place replacements without cursor advancement",
+      "ToolParamStreamHandler.ts - Add support for streaming multiple simultaneous Edit operations (multi-cursor)",
+      "EditorStreamingService.ts - Add initMultiEditStreamingEditor() for replace_all streaming",
+      "StreamingToolContext - Add fields for multi-replacement tracking: replacementIndexes: Position[]"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": ["edit-tool", "text-replacement", "cursor-position", "live-streaming", "incremental-editing"],
+    "technical_patterns": ["position-tracking", "cursor-advancement", "temp-file-prevention", "progressive-json-parsing", "streaming-pipeline"],
+    "integration_points": ["vscode-editor-api", "anthropic-input_json_delta", "workspace-edit-api"]
+  }
+}

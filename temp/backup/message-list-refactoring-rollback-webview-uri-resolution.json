@@ -1,0 +1,186 @@
+{
+  "task": "message-list-refactoring-rollback-webview-uri-resolution",
+  "agent": "claude-sonnet-4",
+  "date": "2025-10-15",
+  "component": "ui-message-list-architecture",
+
+  "temporal_context": {
+    "date_iso": "2025-10-15",
+    "year": 2025,
+    "month": 10,
+    "week_number": 42,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Webview module resolution debugging across VSCode extension architecture",
+    "business": "5: Critical - extension completely broken, UI not loading",
+    "coordination": "2: Single-person rollback operation"
+  },
+
+  "files_modified": "23",
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/ui-controller-manager/UIControllerManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/AgentMessagesManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/AgentMessagesOrchestrator.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/DOMElementManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/MessageFormatter.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/PlaceholderHandler.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/ProviderIconHandler.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/ThinkingBoxHandler.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/message-display-handler/MessageDisplayOrchestrator.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/message-display-handler/builders/AgentMessageBuilder.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/message-display-handler/builders/ReasoningMessageBuilder.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/message-display-handler/inserters/MessageInserter.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/message-display-handler/state/PlaceholderStateManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/streaming-message-handler/StreamingOrchestrator.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/streaming-message-handler/builders/StreamingCompletionBuilder.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/streaming-message-handler/builders/StreamingElementBuilder.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/streaming-message-handler/detectors/ChunkTypeDetector.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/streaming-message-handler/error/StreamingErrorDisplay.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/streaming-message-handler/extractors/ChunkContentExtractor.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/streaming-message-handler/state/StreamingStateManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/streaming-message-handler/transformers/PlaceholderTransformer.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/streaming-message-handler/utils/StringUtils.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "message-list-handlers-triple-ultra-modular-refactoring",
+    "webview-module-resolution-investigation"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - restored original working state",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "IconLoader.js 404 error breaking entire extension after ultra-modular refactoring → Complete rollback to monolithic AgentMessagesManager.js restoring working state",
+  "root_cause": "VSCode webview URI resolution incorrectly adding /ui-controllers segment to relative module imports when loading from deeply nested orchestrator file structure",
+
+  "solution": {
+    "approach": "Git revert strategy with manual cleanup of leftover files and import fixes",
+    "key_changes": [
+      "git revert dacb8bf: Reverted [ui] refactoring commit that split AgentMessagesManager into 22 components",
+      "UIControllerManager.js: Changed import from AgentMessagesOrchestrator back to AgentMessagesManager",
+      "Manual deletion: Removed leftover orchestrator files that git revert didn't clean (AgentMessagesOrchestrator.js + 20 micro-components)",
+      "AgentMessagesManager.js: Restored original 620-line monolithic file from commit before refactoring"
+    ]
+  },
+
+  "validation": "Extension should reload without IconLoader.js 404 error - awaiting user testing",
+
+  "gotchas": [
+    {
+      "issue": "git revert didn't delete all new files - orchestrator components remained in filesystem after revert",
+      "solution": "Manually rm -rf all orchestrator files and subdirectories (message-display-handler/, streaming-message-handler/), then git add -A to stage deletions",
+      "category": "environment",
+      "severity": "high"
+    },
+    {
+      "issue": "UIControllerManager.js still imported AgentMessagesOrchestrator after git revert",
+      "solution": "Manually edited UIControllerManager.js to change both import statement and controllerConfigs array to use AgentMessagesManager",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "VSCode webview resolves relative ES6 module imports from webview URI base path, not source file location",
+      "solution": "Understand that vscode-webview:// URLs affect how browser resolves '../' in imports - deeply nested files may cause incorrect path resolution",
+      "category": "environment",
+      "severity": "high"
+    },
+    {
+      "issue": "Error path showed extra /ui-controllers segment: src/ui/modules/ui-logic/ui-controllers/services/IconLoader.js instead of src/ui/modules/ui-logic/services/IconLoader.js",
+      "solution": "This indicates webview base path issue - browser resolving relative imports from wrong working directory. Rollback was safest fix.",
+      "category": "environment",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "VSCode webview module resolution is fragile with deeply nested ES6 module structures. When refactoring to micro-components in subdirectories, the webview's vscode-webview:// URI scheme can cause relative import resolution to fail. Before large-scale refactoring, test module loading in webview context. Monolithic files are safer for webview-loaded code until proper module bundling is implemented.",
+
+  "tags": [
+    "rollback",
+    "git-revert",
+    "vscode-webview",
+    "module-resolution",
+    "uri-resolution",
+    "iconloader-404",
+    "ultra-modular-refactoring-failure",
+    "import-path-issues",
+    "extension-broken",
+    "critical-fix",
+    "browser-module-loading",
+    "es6-modules",
+    "relative-imports",
+    "webview-architecture"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "git revert <commit-hash> - Revert a commit with automatic reverse patch",
+      "git add -A - Stage all changes including deletions after manual cleanup",
+      "webview.asWebviewUri() - VSCode API for converting file URIs to webview-safe vscode-webview:// scheme",
+      "import { Class } from './relative/path.js' - ES6 module imports resolved by browser from webview base URI"
+    ],
+    "api_surface": [
+      "SemanticViewProvider.resolveWebviewView() - Sets up webview with localResourceRoots and enables scripts",
+      "ScriptUriResolver.resolveScriptUri() - Resolves main.js URI for webview loading",
+      "ResourcePipeline.processResources() - Injects CSS/JS URIs into webview HTML"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "AgentMessagesOrchestrator + 22 micro-components → Reverted to monolithic AgentMessagesManager.js",
+      "message-display-handler/ and streaming-message-handler/ subdirectories → Deleted",
+      "Modular architecture with orchestrator pattern → Rolled back to single-file pattern"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Investigate VSCode webview module resolution behavior with nested imports",
+      "Consider implementing module bundler (Vite/esbuild) for webview code to avoid runtime import resolution",
+      "Test ultra-modular refactoring with bundled output instead of raw ES6 modules",
+      "Document webview URI resolution behavior for future refactoring attempts",
+      "Create proof-of-concept: load deeply nested modules in webview to understand resolution rules"
+    ],
+    "architecture_decisions": {
+      "monolithic_vs_modular_for_webview": "Monolithic files are safer for direct webview loading without bundling - browser module resolution from vscode-webview:// URIs is unpredictable with nested structures",
+      "future_refactoring_strategy": "If ultra-modular architecture is needed, implement build step with bundler to compile all modules into single output file before webview loading"
+    },
+    "extension_points": [
+      "src/ext/providers/semntix-view/managers/resource-manager/ - Handles webview resource loading, could be extended to support bundled module loading",
+      "ScriptUriResolver.ts - Could be extended to resolve bundled output file instead of raw main.js"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "rapid-prototype",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "vscode-extension-webview",
+      "module-resolution",
+      "git-rollback",
+      "uri-scheme-resolution",
+      "browser-import-maps"
+    ],
+    "technical_patterns": [
+      "git-revert-workflow",
+      "manual-cleanup-after-revert",
+      "import-path-debugging",
+      "webview-resource-loading"
+    ],
+    "integration_points": [
+      "vscode-webview-api",
+      "browser-module-loader",
+      "git-version-control"
+    ]
+  }
+}

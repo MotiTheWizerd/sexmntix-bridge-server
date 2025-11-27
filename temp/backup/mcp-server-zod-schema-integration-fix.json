@@ -1,0 +1,148 @@
+{
+  "task": "mcp-server-zod-schema-integration-fix",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-09-30",
+  "component": "mcp-server",
+
+  "complexity": {
+    "technical": "2: Schema format mismatch between Zod and MCP SDK expectations, simple fix once understood",
+    "business": "4: Critical blocker preventing Claude from accessing Sementix semantic memory search - without this, the entire MCP integration is non-functional",
+    "coordination": "1: Single file fix after identifying root cause from SDK documentation"
+  },
+
+  "files_modified": "2",
+  "files_touched": [
+    "src/ext/modules/mcp-server/tools/schemas/MemorySearchSchema.ts",
+    "src/ext/modules/mcp-server/core/MCPServerInitializer.ts"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "mcp-server-architecture-planning-failure"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - fix enables functionality that was broken",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "false"
+  },
+
+  "summary": "MCP tool call failed with 'keyValidator._parse is not a function' error → Fixed by passing Zod schema objects directly instead of wrapping in JSON Schema structure",
+  "root_cause": "Misunderstanding of MCP SDK's registerTool() API. Initially wrapped Zod validators in JSON Schema format ({ type: 'object', properties: {...} }), but SDK expects raw Zod schema object ({ query: z.string(), limit: z.number() }) directly",
+
+  "solution": {
+    "approach": "Read MCP SDK README.md examples, discovered correct schema format, removed JSON Schema wrapper and passed Zod objects directly",
+    "key_changes": [
+      "MemorySearchSchema.ts: Changed from { type: 'object', properties: { query: z.string()... } } to { query: z.string(), limit: z.number().optional() } - pass Zod schema object directly",
+      "MCPServerInitializer.ts: Changed from inputSchema: def.inputSchema.properties to inputSchema: def.inputSchema - no property unwrapping needed",
+      "MCPTypes.ts: Changed ToolDefinition.inputSchema from structured JSON Schema type to Record<string, any> to accept Zod objects"
+    ]
+  },
+
+  "validation": "SUCCESS - Called mcp__sementix-memory__search_memory tool, received expected placeholder response: 'Searched for: refactoring patterns'",
+
+  "gotchas": [
+    {
+      "issue": "MCP SDK registerTool() error 'keyValidator._parse is not a function' when passing Zod validators wrapped in JSON Schema format. SDK documentation was unclear about whether to use JSON Schema or Zod schemas",
+      "solution": "Read node_modules/@modelcontextprotocol/sdk/README.md which shows examples like: inputSchema: { city: z.string() }, { a: z.number(), b: z.number() }. The SDK expects raw Zod schema objects, NOT JSON Schema wrappers. Pass Zod validators directly as object properties",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "Initial assumption was that MCP SDK would handle both JSON Schema and Zod transparently. This is wrong - SDK has specific expectations for schema format based on which API you use (registerTool uses Zod, low-level Server uses JSON Schema)",
+      "solution": "When using McpServer.registerTool(), ALWAYS use Zod schemas directly: { param: z.string() }. Do NOT wrap in JSON Schema structure. Only use JSON Schema when using low-level Server class with setRequestHandler()",
+      "category": "architecture",
+      "severity": "medium"
+    },
+    {
+      "issue": "TypeScript types for inputSchema were too restrictive, initially defined as { type: string; properties: Record<string, any>; required?: string[] } which prevented passing Zod objects",
+      "solution": "Changed ToolDefinition.inputSchema to Record<string, any> to accept Zod schema objects. Type safety comes from Zod itself, not TypeScript interface",
+      "category": "typing",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "MCP SDK has TWO different APIs with different schema expectations: (1) McpServer.registerTool() expects Zod schemas as plain objects { key: z.type() }, (2) Low-level Server.setRequestHandler() expects JSON Schema format. Always check SDK README examples before implementing - don't assume API behavior. The 'keyValidator._parse is not a function' error specifically means you're passing Zod objects where JSON Schema is expected OR wrapping Zod in JSON Schema where raw Zod is expected.",
+
+  "tags": [
+    "mcp-server",
+    "zod-schema",
+    "json-schema",
+    "integration-fix",
+    "registerTool",
+    "schema-validation",
+    "api-documentation",
+    "keyValidator-error"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "McpServer.registerTool(name, { inputSchema: { param: z.string() } }, handler) - Use raw Zod objects",
+      "Server.setRequestHandler('tools/call', ...) - Low-level API uses JSON Schema, not Zod",
+      "z.string().describe('...') - Zod's describe() method adds description to schema",
+      "z.number().optional().default(5) - Chain Zod validators for optional params with defaults"
+    ],
+    "api_surface": [
+      "MemorySearchSchema.getDefinition(): ToolDefinition - Returns { name, description, inputSchema: { query: z.string(), limit: z.number() } }",
+      "MCPServerInitializer.setupTools(): void - Iterates definitions and calls server.registerTool() with correct schema format",
+      "server.registerTool(name, config, handler) - MCP SDK method that expects Zod schemas in config.inputSchema"
+    ],
+    "dependencies_added": [
+      "zod: Provides z.string(), z.number() schema validators used by MCP SDK"
+    ],
+    "breaking_changes": [
+      "ToolDefinition.inputSchema type changed from JSON Schema structure to Record<string, any> to support Zod objects"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Wire up real semantic search by integrating MemoryService with BasicEmbeddingService",
+      "Load memory JSONs from .sementix/memories/delta/ and generate embeddings",
+      "Implement cosine similarity search to return actual relevant memories",
+      "Add result formatting to show memory filename, similarity score, and relevant excerpts",
+      "Test with real queries like 'refactoring patterns', 'ultra-modular', 'gotchas'",
+      "Add caching to avoid regenerating embeddings on every server start"
+    ],
+    "architecture_decisions": {
+      "zod-over-json-schema": "Use Zod schemas with McpServer.registerTool() for type safety and automatic validation. Zod provides better developer experience than hand-writing JSON Schema",
+      "record-any-for-inputschema": "Using Record<string, any> for inputSchema type allows flexibility for Zod objects while maintaining TypeScript compilation. Type safety comes from Zod runtime validation",
+      "check-sdk-readme-first": "ALWAYS read node_modules/@package/sdk/README.md for canonical examples before implementing. Documentation websites may be outdated or incomplete"
+    },
+    "extension_points": [
+      "MemoryService.search(): Current placeholder - replace with BasicEmbeddingService integration",
+      "Add more tools: search_by_complexity, search_by_tags, get_gotchas, get_lessons",
+      "Enhance schema with filters: tags[], complexityRange: [min, max], dateRange: [start, end]"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "iterative-debugging-with-documentation-reading",
+    "naming_preferences": "descriptive-clear-search_memory-not-abbreviated",
+    "architecture_philosophy": "start-simple-prove-works-then-enhance",
+    "quality_standards": "working-end-to-end-before-optimization"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "mcp-protocol",
+      "tool-registration",
+      "schema-validation",
+      "zod-schemas",
+      "json-schema",
+      "semantic-memory-search"
+    ],
+    "technical_patterns": [
+      "zod-validation",
+      "mcp-tool-registration",
+      "stdio-transport",
+      "schema-definition-separation"
+    ],
+    "integration_points": [
+      "claude-code-mcp-client",
+      "modelcontextprotocol-sdk",
+      "zod-validator",
+      "basic-embedding-service-future"
+    ]
+  }
+}

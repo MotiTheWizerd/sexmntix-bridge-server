@@ -1,0 +1,169 @@
+{
+  "task": "sessionid-multi-chat-routing-phase-1-partial",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-24",
+  "component": "chat-session-management",
+
+  "temporal_context": {
+    "date_iso": "2025-10-24",
+    "year": 2025,
+    "month": 10,
+    "week_number": 43,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Multi-layered dependency injection across Extension and UI, streaming chunk processing, per-chat state management",
+    "business": "5: Critical bug - prevents multi-tab conversation continuity, breaks core product functionality",
+    "coordination": "3: Required coordination between UI (JavaScript) and Extension (TypeScript) with event-driven architecture"
+  },
+
+  "files_modified": "7",
+  "files_touched": [
+    "src/ext/modules/logic-manager/orchestration/initialization/ModuleFactory.ts",
+    "src/ext/modules/logic-manager/LogicManager.ts",
+    "src/ext/modules/logic-manager/orchestration/startup/StartupOrchestrator.ts",
+    "src/ext/modules/logic-manager/message-router/MessageRouter.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/ChunkProcessor.ts",
+    "src/ext/modules/logic-manager/message-router/streaming/chunk-processor/extractors/SessionIdChunkExtractor.ts",
+    "src/ui/modules/core/events/bridge-handler/mapping/event-mapper/outgoing/ChatOutgoingMappers.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "tab-system-placeholder-refactoring-phase-1-2",
+    "tab-id-duplication-waiting-for-id-fix",
+    "ui-lazy-initialization-chat-creation-events"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - architecture change only",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "All chat tabs sharing same global sessionId preventing conversation continuity → Implemented per-chat sessionId architecture via ChatInstanceManager injection and removed UI's global sessionId injection, but session continuation still broken (needs chatId→sessionId lookup in streaming chunks)",
+
+  "root_cause": "Two-part architectural issue: (1) UI's ChatOutgoingMappers injected global sessionId from UIStateCoordinator, contaminating all messages with same sessionId. (2) Extension's SessionIdChunkExtractor stored sessionId per-chat but chatId propagation through streaming pipeline incomplete, preventing correct ChatInstance lookup",
+
+  "solution": {
+    "approach": "Three-phase staged implementation with testable increments: Phase 1 - Inject ChatInstanceManager through dependency chain, Phase 2 - Store sessionId per ChatInstance from streaming chunks, Phase 3 - Remove UI's global sessionId injection",
+    "key_changes": [
+      "ModuleFactory.ts: Added chatInstanceManager parameter and passed to MessageRouter constructor for per-chat state access",
+      "MessageRouter.ts: Injected chatInstanceManager, retrieves sessionId from ChatInstance before sending to provider",
+      "ChunkProcessor.ts: Added chatInstanceManager parameter and passed to SessionIdChunkExtractor for per-chat storage",
+      "SessionIdChunkExtractor.ts: Stores sessionId in ChatInstance per chatId instead of global StateEmitter",
+      "ChatOutgoingMappers.js: Removed global sessionId injection from UIStateCoordinator - UI no longer sends sessionId to Extension",
+      "LogicManager.ts + StartupOrchestrator.ts: Passed chatInstanceManager to ModuleFactory during initialization"
+    ]
+  },
+
+  "validation": "Manual testing with multiple tabs showed different sessionIds per tab (isolation working), but each message in same tab creates new session (continuation broken) - identified as incomplete chatId propagation through streaming pipeline",
+
+  "gotchas": [
+    {
+      "issue": "UI was injecting global sessionId from UIStateCoordinator.getSessionId() in ChatOutgoingMappers.mapChatMessageSend(), contaminating all messages before Extension could add per-chat sessionId",
+      "solution": "Removed sessionId from ChatOutgoingMappers entirely - let Extension be sole owner of sessionId management via ChatInstance storage",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "SessionIdChunkExtractor used global `extracted = false` flag, preventing multiple chats from extracting their own sessionIds after first chat extracted once",
+      "solution": "Changed to `extractedPerChat = new Map<string, boolean>()` to track extraction state per chatId (NOT YET IMPLEMENTED - discovered during analysis)",
+      "category": "state-management",
+      "severity": "high"
+    },
+    {
+      "issue": "ChatId in streaming chunks may not match ChatInstance chatId due to incomplete propagation through StreamingResponseHandler → ChunkProcessor → SessionIdChunkExtractor pipeline",
+      "solution": "INCOMPLETE - Need to verify chatId is correctly passed in streaming chunks and SessionIdChunkExtractor correctly looks up ChatInstance by chunk.chatId (NEXT SESSION)",
+      "category": "integration",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "When refactoring state from global to per-entity, ALL layers must be updated consistently - global flags/state in processing pipeline will break per-entity isolation. Testable staged approach revealed issues incrementally rather than in big-bang deployment.",
+
+  "tags": [
+    "sessionId",
+    "multi-chat",
+    "per-chat-state",
+    "ChatInstanceManager",
+    "dependency-injection",
+    "streaming-architecture",
+    "state-isolation",
+    "chatId-propagation",
+    "INCOMPLETE",
+    "session-continuation-broken"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "ChatInstanceManager.getInstance(chatId) - Retrieve per-chat state container",
+      "chatInstance.setSessionId(sessionId) - Store sessionId per chat",
+      "chatInstance.getSessionId() - Retrieve sessionId for continuation",
+      "SessionIdChunkExtractor.extract(chunk) - Extract sessionId from provider streaming response",
+      "[SessionId-Flow] logger prefix - Trace sessionId through system with icons 🔑✅📤⚠️"
+    ],
+    "api_surface": [
+      "ChatInstanceManager.getInstance(chatId: string): ChatInstance | null - Lookup chat by ID",
+      "ChatInstance.setSessionId(sessionId: string): void - Store provider session",
+      "ChatInstance.getSessionId(): string | null - Retrieve provider session",
+      "SessionIdChunkExtractor.extract(chunk: any): boolean - Extract and store sessionId from chunk"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "ChatOutgoingMappers.mapChatMessageSend() - No longer includes sessionId in bridgePayload (architectural improvement)"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "CRITICAL: Investigate chatId propagation in streaming chunks - verify chunk.chatId exists and matches ChatInstance chatId",
+      "CRITICAL: Fix SessionIdChunkExtractor to correctly lookup ChatInstance by chunk.chatId when storing sessionId",
+      "Implement per-chat extraction tracking: Change `extracted = false` to `extractedPerChat = new Map<string, boolean>()`",
+      "Add comprehensive logging in StreamingResponseHandler to trace chatId through entire streaming pipeline",
+      "Test session continuation: Send multiple messages in same tab, verify same sessionId used"
+    ],
+    "architecture_decisions": {
+      "extension-owns-sessionid": "Extension is single source of truth for sessionId - UI only displays it, never injects it. Prevents global state contamination.",
+      "per-chat-state-via-chatinstance": "ChatInstance stores sessionId instead of global UIStateManager - enables proper multi-chat isolation",
+      "staged-logging-approach": "Use [SessionId-Flow] prefix with emojis for easy filtering and visual tracking in logs during debugging"
+    },
+    "extension_points": [
+      "SessionIdChunkExtractor.ts - Add per-chat extraction tracking when implementing Map-based state",
+      "StreamingResponseHandler.ts - Add chatId propagation logging to debug chunk routing",
+      "MessageRouter.ts - Consider adding ChatInstance creation event emission for UI synchronization"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "sessionId",
+      "chatId",
+      "placeholder-transition",
+      "multi-chat-isolation",
+      "conversation-continuity"
+    ],
+    "technical_patterns": [
+      "dependency-injection-chain",
+      "per-entity-state-management",
+      "streaming-chunk-processing",
+      "event-driven-architecture",
+      "orchestrator-pattern"
+    ],
+    "integration_points": [
+      "UI-Extension-bridge",
+      "provider-streaming-response",
+      "ChatInstanceManager",
+      "UIStateCoordinator"
+    ]
+  }
+}

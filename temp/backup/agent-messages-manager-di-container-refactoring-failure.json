@@ -1,0 +1,132 @@
+{
+  "task": "agent-messages-manager-di-container-refactoring-failure",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-17",
+  "component": "agent-messages-manager",
+
+  "temporal_context": {
+    "date_iso": "2025-10-17",
+    "year": 2025,
+    "month": 10,
+    "week_number": 42,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "5: Complex dependency injection refactoring with multi-level module nesting",
+    "business": "5: Complete UI failure - users cannot interact with the application",
+    "coordination": "4: Multiple interacting systems (DOMReferences, UIControllerManager, MessageListFactory)"
+  },
+
+  "files_modified": "5",
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/AgentMessagesManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/container/DependencyContainer.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/factories/ComponentFactory.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/integration/ChatTabManagerBridge.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/integration/CodeHighlightIntegrator.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": ["message-list-handlers-triple-ultra-modular-refactoring", "multi-chat-refactoring-and-message-routing-bug"],
+
+  "outcomes": {
+    "performance_impact": "Complete UI failure - no messages displayed",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "attempted-but-failed",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Attempted DI Container refactoring to reduce 234-line orchestrator → Created 4 new modules BUT broke dependency injection chain → UI completely non-functional with 'dependencies not injected' error",
+  "root_cause": "Encapsulated DOMReferences inside DependencyContainer without maintaining backward-compatible public API, breaking UIControllerManager's external dependency injection at runtime",
+
+  "solution": {
+    "approach": "Extract dependency wiring into ComponentFactory, create DependencyContainer for infrastructure, isolate external integrations into bridge modules",
+    "key_changes": [
+      "AgentMessagesManager.js: Replaced inline buildComponents() with DependencyContainer + ComponentFactory pattern",
+      "DependencyContainer.js: Created to manage domReferences, scrollManager, eventBus, logger with lazy initialization",
+      "ComponentFactory.js: Extracted all 22 component instantiation logic from buildComponents()",
+      "ChatTabManagerBridge.js: Isolated ChatTabManager state coordination",
+      "CodeHighlightIntegrator.js: Encapsulated PrismHighlighter usage (with WRONG import path initially)"
+    ]
+  },
+
+  "validation": "FAILED - UI completely broken, error logs show 'Cannot get message-list - dependencies not injected'",
+
+  "gotchas": [
+    {
+      "issue": "CodeHighlightIntegrator.js used incorrect relative import path '../../../../' instead of '../../../../../' for PrismHighlighter.js",
+      "solution": "Manually calculated path depth: integration/ is 5 levels deep from ui-logic/, not 4. Used Windows realpath command to verify correct path",
+      "category": "environment",
+      "severity": "high"
+    },
+    {
+      "issue": "Hiding domReferences inside this.container broke UIControllerManager.js line 139-143 which expects agentManager.domReferences to be directly accessible",
+      "solution": "Added getter: get domReferences() { return this.container.getDOMReferences(); } - BUT THIS DID NOT FIX THE ISSUE COMPLETELY",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "DOMReferences.setMessageListFactory() and setChatTabManager() still not being called even after getter was added - dependency injection chain still broken",
+      "solution": "UNRESOLVED - getter exists but dependencies still not injected, error persists: 'Cannot get message-list - dependencies not injected'",
+      "category": "integration",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "Encapsulation is good BUT you MUST maintain existing public APIs when refactoring. External systems depend on specific property names and access patterns. Adding a getter alone is NOT sufficient if the initialization timing or injection flow has changed. ALWAYS trace the complete dependency injection lifecycle before and after refactoring.",
+
+  "tags": ["FAILURE", "di-container", "dependency-injection", "backward-compatibility-break", "encapsulation-trap", "ui-crash", "critical-bug"],
+
+  "code_context": {
+    "key_patterns": [
+      "UIControllerManager.injectMessageListFactory() - External dependency injection pattern that expects agentManager.domReferences to be accessible",
+      "DOMReferences.getMessageList() - Requires messageListFactory and chatTabManager to be injected BEFORE use",
+      "AgentMessagesManager.setChatTabManager() - NOW delegates to ChatTabManagerBridge instead of directly setting domReferences"
+    ],
+    "api_surface": [
+      "get domReferences(): DOMReferences - Getter added for backward compatibility BUT dependencies still not injected",
+      "setChatTabManager(chatTabManager): void - Delegates to bridge instead of domReferences directly",
+      "container.getDOMReferences(): DOMReferences - Internal access pattern that works but is hidden from external callers"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "this.domReferences → this.container (hidden)",
+      "Direct domReferences access → getter-based access",
+      "setChatTabManager() no longer injects into domReferences - delegates to bridge instead",
+      "buildComponents() removed → ComponentFactory.buildComponents() pattern"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "REVERT the entire refactoring - it's fundamentally broken",
+      "OR investigate why UIControllerManager.injectMessageListFactory() isn't working even with getter",
+      "OR add explicit injection methods like setMessageListFactory() that delegate to container.getDOMReferences()",
+      "Study the exact timing of when UIControllerManager.injectMessageListFactory() runs vs when AgentMessagesManager is constructed"
+    ],
+    "architecture_decisions": {
+      "di-container-pattern": "FAILED - Too aggressive encapsulation broke external injection patterns",
+      "getter-for-backward-compatibility": "INSUFFICIENT - Getter exists but injection still fails, suggesting timing or flow issue",
+      "bridge-pattern-for-external-deps": "PARTIAL SUCCESS - ChatTabManagerBridge works but may have introduced new timing issues"
+    },
+    "extension_points": [
+      "AgentMessagesManager - If keeping refactoring, need explicit setMessageListFactory() and setDOMDependencies() methods",
+      "DependencyContainer - Need to expose injection methods or make dependencies settable after construction",
+      "UIControllerManager - May need to change injection timing or add initialization verification"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "rapid-prototype",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "ultra-modular-single-responsibility",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": ["dependency-injection", "orchestrator-pattern", "facade-pattern", "backward-compatibility"],
+    "technical_patterns": ["di-container", "lazy-initialization", "getter-delegation", "bridge-pattern"],
+    "integration_points": ["UIControllerManager", "MessageListFactory", "ChatTabManager", "DOMReferences"]
+  }
+}

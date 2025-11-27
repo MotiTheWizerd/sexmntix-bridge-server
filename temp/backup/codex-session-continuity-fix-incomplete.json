@@ -1,0 +1,173 @@
+{
+  "task": "codex-session-continuity-fix-incomplete",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-15",
+  "component": "codex-provider-session-management",
+
+  "temporal_context": {
+    "date_iso": "2025-10-15",
+    "year": 2025,
+    "month": 10,
+    "week_number": 42,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "4: Complex SDK integration with session persistence, thread resumption, and permission handling",
+    "business": "5: Critical - prevents conversation continuity, blocking core Codex functionality",
+    "coordination": "3: Required understanding SDK docs, event flows, and UI-Extension bridge communication"
+  },
+
+  "files_modified": 7,
+  "files_touched": [
+    "src/ext/modules/providers/codex/CodexService.ts",
+    "src/ext/modules/providers/codex/components/thread/ThreadCreator.ts",
+    "src/ext/modules/providers/codex/routing/EventRouter.ts",
+    "src/ext/modules/providers/codex/types.ts",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/parsers/ChunkContentExtractor.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/agent-messages-manager/streaming/ChunkProcessor.js",
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/message-list/AgentMessagesManager.js"
+  ],
+  "tests_added": 0,
+  "related_tasks": [
+    "codex-sdk-integration-complete",
+    "streaming-mode-session-and-permission-fixes",
+    "codex-provider-ultra-modular-refactoring"
+  ],
+
+  "outcomes": {
+    "performance_impact": "Session continuity working - same thread_id reused across messages",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Codex creates new chat for every message (no conversation history) → Session continuity works but permissions still blocking (SDK sandboxMode not preventing approval prompts)",
+
+  "root_cause": "Triple issue: (1) Generated custom sessionIds instead of using Codex's thread_id (2) Missing sandboxMode in thread options (3) SDK sandboxMode may not work - need CLI with --ask-for-approval never",
+
+  "solution": {
+    "approach": "Remove session ID generation, use Codex thread_id directly for resume, add sandboxMode to thread creation",
+    "key_changes": [
+      "CodexService.ts: Removed handleSession() sessionId generation - use thread_id from Codex directly",
+      "CodexService.ts: Added resumeThread() call with thread_id when sessionId provided",
+      "ThreadCreator.ts: Added sandboxMode: 'workspace-write' to auto-approve file edits",
+      "EventRouter.ts: Added turn.started and error event handlers to prevent unknown event warnings",
+      "types.ts: Added TurnStartedEvent and ErrorEvent to ThreadEvent union",
+      "ChunkContentExtractor.js: Added extractThreadId() method to capture thread_id from thread.started events",
+      "ChunkProcessor.js: Added emitSessionStateChange() to notify UIStateCoordinator of thread_id",
+      "AgentMessagesManager.js: Injected eventBus into ChunkProcessor for session events"
+    ]
+  },
+
+  "validation": "Logs show: (1) Second message resumes with same thread_id ✅ (2) Codex still stuck on file creation - sandboxMode not working ❌",
+
+  "gotchas": [
+    {
+      "issue": "Wasted 5 hours on UI session extraction when problem was in CodexService generating sessionIds",
+      "solution": "Should have checked SDK docs first - Codex GIVES you thread_id, don't generate your own!",
+      "category": "architecture",
+      "severity": "high"
+    },
+    {
+      "issue": "SDK sandboxMode: 'workspace-write' doesn't prevent approval prompts in practice",
+      "solution": "Need to migrate to CLI mode with --ask-for-approval never or --full-auto flags",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "turn.started and error events were unknown, causing warnings in logs",
+      "solution": "Added to EventRouter switch and ThreadEvent union type",
+      "category": "typing",
+      "severity": "low"
+    },
+    {
+      "issue": "Tried to resume threads that don't exist yet (new sessions)",
+      "solution": "Only call resumeThread() when sessionId provided from UI, not on generated IDs",
+      "category": "integration",
+      "severity": "medium"
+    }
+  ],
+
+  "lesson": "When integrating third-party SDKs: (1) Read docs FIRST before implementing (2) Use SDK's native IDs, don't invent your own (3) SDK features (like sandboxMode) may not work as documented - test immediately (4) Have fallback plan (CLI mode) when SDK fails",
+
+  "tags": [
+    "codex-sdk",
+    "session-continuity",
+    "thread-management",
+    "resumeThread",
+    "thread_id",
+    "sandboxMode",
+    "approval-permissions",
+    "incomplete-fix",
+    "needs-cli-migration"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "codex.resumeThread(thread_id, options) - Resume existing Codex conversation with history",
+      "codex.startThread(options) - Create new thread, SDK returns thread_id in thread.started event",
+      "extractThreadId(chunk) - Extract thread_id from various chunk formats for session continuity",
+      "emitSessionStateChange(sessionId) - Notify UIStateCoordinator to store thread_id for next message"
+    ],
+    "api_surface": [
+      "askCodexAsConversationStream(prompt, sessionId?, contexts?): AsyncGenerator<ThreadEvent> - Main streaming API, now uses thread_id directly",
+      "resumeThread(id: string, options?: ThreadOptions): Thread - SDK method to resume with conversation history",
+      "startThread(options?: ThreadOptions): Thread - SDK method to create new thread",
+      "extractThreadId(chunk): string|null - UI-side extraction of thread_id from streaming chunks"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "askCodexAsConversationStream() no longer generates sessionIds - uses thread_id from Codex",
+      "Removed handleSession() sessionId generation logic for Codex provider",
+      "ChunkContentExtractor.extract() returns {text, isReasoning, threadId} instead of {text, isReasoning}"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "CRITICAL: Migrate from SDK to CLI mode with --ask-for-approval never flag",
+      "Implement CLIExecutor for Codex with proper approval flags",
+      "Test file creation/editing works without permission dialogs in CLI mode",
+      "Add configuration option for users to choose SDK vs CLI mode",
+      "Handle CLI NDJSON streaming properly (different format than SDK events)"
+    ],
+    "architecture_decisions": {
+      "use_codex_thread_id_directly": "Codex SDK persists threads in ~/.codex/sessions with thread_id as key - must use their ID for resume to work",
+      "sdk_vs_cli_tradeoff": "SDK easier to integrate but approval system broken - CLI more reliable with --ask-for-approval never but requires process spawning",
+      "no_session_generation": "Don't generate sessionIds for Codex - violates SDK's session persistence model"
+    },
+    "extension_points": [
+      "StreamingApiHandler.ts - Add CLI mode implementation alongside SDK mode",
+      "ThreadCreator.ts - May need CLIThreadCreator variant that spawns codex exec process",
+      "CodexService.ts - Add mode switching logic based on user settings or SDK failure"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "rapid-prototype",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "single-responsibility",
+    "quality_standards": "functionality-first"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "session-continuity",
+      "conversation-history",
+      "thread-resumption",
+      "approval-bypass"
+    ],
+    "technical_patterns": [
+      "thread-id-as-session",
+      "sdk-to-cli-fallback",
+      "headless-execution"
+    ],
+    "integration_points": [
+      "@openai/codex-sdk",
+      "codex CLI",
+      "~/.codex/sessions persistence"
+    ]
+  }
+}

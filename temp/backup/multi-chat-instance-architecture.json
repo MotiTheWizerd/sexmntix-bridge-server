@@ -1,0 +1,215 @@
+{
+  "task": "multi-chat-instance-architecture",
+  "agent": "claude-sonnet-4",
+  "date": "2025-10-16",
+  "component": "chat-instance-manager",
+
+  "temporal_context": {
+    "date_iso": "2025-10-16",
+    "year": 2025,
+    "month": 10,
+    "week_number": 42,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "5: Multi-layer architecture spanning backend/frontend with state isolation, message routing, and ES6 module system",
+    "business": "4: Enables simultaneous conversations - major UX improvement for power users working on multiple contexts",
+    "coordination": "4: Complex coordination between Extension (TypeScript) and UI (JavaScript ES6 modules) with webview security constraints"
+  },
+
+  "files_modified": "18",
+  "files_touched": [
+    "src/ext/modules/logic-manager/chat-instance/ChatInstance.ts",
+    "src/ext/modules/logic-manager/chat-instance/ChatInstanceManager.ts",
+    "src/ext/modules/logic-manager/LogicManager.ts",
+    "src/shared/events/chat.ts",
+    "src/shared/events/bridge.ts",
+    "src/ui/modules/ui-logic/chat-tabs/ChatTabManager.js",
+    "src/ui/modules/ui-logic/ui-controllers/ui-controller-manager/UIControllerManager.js",
+    "src/ui/modules/core/events/events.js",
+    "src/ui/modules/core/events/bridge-handler/transport/MessageTransport.js",
+    "src/ui/modules/core/events/BridgeHandler.js",
+    "src/ui/modules/ui-logic/UIManager.js",
+    "src/ui/templates/base.html",
+    "src/ui/templates/css/ui-chat-tabs.css",
+    "src/ext/providers/semntix-view/managers/ResourceManager.ts",
+    "src/ext/providers/semntix-view/managers/resource-manager/types/ResourceTypes.ts",
+    "src/ext/providers/semntix-view/managers/resource-manager/services/CssUriResolver.ts",
+    "src/ext/providers/semntix-view/managers/resource-manager/services/TemplateInjector.ts",
+    "package.json"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "codex-session-continuity-fix-incomplete",
+    "multi-state-architecture-permission-dialog-fix",
+    "streaming-mode-session-and-permission-fixes"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - state isolation prevents cross-chat interference",
+    "test_coverage_delta": "0%",
+    "technical_debt_reduced": "medium",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Single global chat state with no multi-conversation support → Complete multi-chat architecture with isolated sessions, but UI temporarily disabled due to ES6 module loading issues in webview",
+
+  "root_cause": "Architecture was designed for single-chat only: one UIStateManager, one sessionId, one LogicManager instance - no concept of multiple concurrent conversations",
+
+  "solution": {
+    "approach": "Same-webview multi-instance pattern: Create per-chat state containers on backend, route by chatId, save/restore UI state on tab switch - avoids WebviewPanel complexity",
+    "key_changes": [
+      "ChatInstance.ts: Created per-chat state container with own UIStateManager, sessionId, message history",
+      "ChatInstanceManager.ts: Map-based orchestrator for creating/switching/deleting chat instances with active tracking",
+      "LogicManager.ts: Added chatId extraction and routing - switches active ChatInstance dynamically on message receipt",
+      "chat.ts/bridge.ts: Added optional chatId field to all event payloads (ChatUserMessagePayload, ChatStreamStartPayload, etc.)",
+      "ChatTabManager.js: UI controller for tab switching with DOM state save/restore via messagesHtml caching",
+      "MessageTransport.js: Automatic chatId injection into all outgoing messages via getCurrentChatId()",
+      "ui-chat-tabs.css: Glassmorphism tab bar design with gradients, badges, animations, responsive layout",
+      "ResourceManager.ts: Added chatTabs CSS path to resource pipeline",
+      "base.html: Added chat-tabs-container div and CHAT_TABS_CSS_URI link - REVERTED broken CSP"
+    ]
+  },
+
+  "validation": "Backend compiles successfully - all TypeScript files type-check. Extension loads without errors after disabling ChatTabManager UI. Prism.js syntax highlighting working. No CSP violations.",
+
+  "gotchas": [
+    {
+      "issue": "ChatTabManager import causes 'events.js 404' - webview cannot resolve ES6 module '../../../core/events/events.js'",
+      "solution": "TEMPORARILY DISABLED ChatTabManager in UIControllerManager (commented out import and registration) until module loading investigation complete",
+      "category": "integration",
+      "severity": "high"
+    },
+    {
+      "issue": "CSP change blocked Prism.js CDN - removed 'https:' from script-src which broke cdnjs.cloudflare.com loading",
+      "solution": "REVERTED to original CSP: 'script-src https: unsafe-inline' - CSP was NOT the cause of events.js 404",
+      "category": "configuration",
+      "severity": "high"
+    },
+    {
+      "issue": "TemplateInjector missing {{CHAT_TABS_CSS_URI}} token mapping caused literal token in HTML",
+      "solution": "Added '{{CHAT_TABS_CSS_URI}}': cssUris.chatTabs.toString() to buildTokenMap() in TemplateInjector.ts:68",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "TypeScript compilation error: Property 'chatTabs' missing in CssResourceUris",
+      "solution": "Added chatTabs: vscode.Uri to CssResourceUris interface and chatTabs: string[] to CssResourcePaths in ResourceTypes.ts",
+      "category": "typing",
+      "severity": "low"
+    }
+  ],
+
+  "lesson": "VS Code webview ES6 module loading has strict security: modules loaded via vscode-webview:// protocol cannot use relative imports that resolve to file:// paths. Need investigation into: (1) webview localResourceRoots configuration, (2) whether UI .js files need dist/ compilation, (3) bundle/build process for UI modules. Always test webview integration early - CSP and module resolution are non-obvious failure points.",
+
+  "tags": [
+    "multi-chat",
+    "chat-instance-manager",
+    "state-isolation",
+    "webview-modules",
+    "es6-imports",
+    "csp-security",
+    "message-routing",
+    "chatid-protocol",
+    "glassmorphism-ui",
+    "session-management",
+    "vscode-webview",
+    "incomplete-feature"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "ChatInstanceManager.getInstance(chatId) - retrieves or creates chat instance on demand",
+      "LogicManager.handleUIMessage(msg) - extracts msg.chatId and routes to correct ChatInstance",
+      "MessageTransport.getCurrentChatId() - gets active chatId from ChatTabManager for auto-injection",
+      "ChatTabManager.switchToChat(chatId) - saves current DOM state, loads target chat state",
+      "UIStateManager per instance - each ChatInstance owns isolated state (agentState, permissionState, sessionId)",
+      "chatInstance.getStateManager() - dependency injection pattern for per-chat state",
+      "Map<chatId, ChatInstance> - primary storage structure in ChatInstanceManager"
+    ],
+    "api_surface": [
+      "ChatInstanceManager.createInstance(chatId?: string, title?: string): ChatInstance - creates new chat with auto-generated ID if not provided",
+      "ChatInstanceManager.setActive(chatId: string): boolean - switches active chat, returns false if not found",
+      "ChatInstanceManager.getActive(): ChatInstance | null - retrieves currently active chat instance",
+      "ChatInstance.addMessage(message: ConversationMessage): void - appends to per-chat message history",
+      "ChatInstance.setSessionId(id: string): void - updates sessionId and propagates to UIStateManager",
+      "ChatInstance.getStateManager(): UIStateManager - returns isolated state manager for this chat",
+      "ChatTabManager.switchToChat(chatId) - UI-side tab switching with DOM save/restore",
+      "ChatTabManager.saveCurrentChatState() - caches messageList.innerHTML to chat.messagesHtml",
+      "MessageTransport.sendMessage(event, payload, chatId?) - auto-injects chatId if not provided"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": [
+      "LogicManager.stateManager is no longer singleton - now references active chat's state manager",
+      "All bridge/chat events now include optional chatId field - backward compatible (defaults to 'default')",
+      "MessageTransport.sendMessage() signature changed - added optional chatId parameter",
+      "BridgeHandler requires setChatTabManager() call for chatId auto-injection"
+    ]
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "CRITICAL: Investigate ES6 module loading for ChatTabManager - why does '../../../core/events/events.js' 404?",
+      "Check if UI .js files need compilation/bundling step (unlike TypeScript backend)",
+      "Verify webview localResourceRoots includes src/ui directory for module resolution",
+      "Research VS Code webview best practices for ES6 modules vs script tags",
+      "Re-enable ChatTabManager once module loading fixed",
+      "Add VS Code command 'Sementix: New Chat' as fallback UI (Command Palette activation)",
+      "Implement chat rename functionality (currently title is set on creation only)",
+      "Add chat deletion with confirmation dialog",
+      "Persist chat instances across extension reloads (currently in-memory only)",
+      "Implement max chat limit to prevent memory bloat",
+      "Add keyboard shortcuts for tab switching (Ctrl+1-9)",
+      "Sync chat list to UI on creation/deletion (currently no event emission)"
+    ],
+    "architecture_decisions": {
+      "same-webview-multi-instance": "Chose single WebviewView with multiple chat contexts over multiple WebviewPanels - simpler implementation, no VS Code API limitations, reuses existing communication bridge",
+      "chatId-in-protocol": "Added chatId as optional field (not required) for backward compatibility - defaults to 'default' for legacy messages",
+      "state-per-instance": "Each ChatInstance owns UIStateManager rather than shared global - enables true isolation of agent/permission states",
+      "dom-caching-strategy": "Cache entire messageList.innerHTML rather than tracking individual messages - faster switching, simpler implementation, trades memory for speed",
+      "map-based-storage": "Use Map<chatId, ChatInstance> rather than array - O(1) lookups, natural key-value semantics, easier instance management"
+    },
+    "extension_points": [
+      "ChatInstance.ts - Add persistence methods (serialize/deserialize) for saving to disk",
+      "ChatInstanceManager.ts - Add getChatList() event emission when chats change",
+      "ChatTabManager.js - Add drag-to-reorder tabs, right-click context menu",
+      "ui-chat-tabs.css - Add theme variants (dark/light/high-contrast)",
+      "LogicManager.ts - Add chat history API for retrieving past messages",
+      "package.json commands - Add 'Sementix: New Chat', 'Sementix: Close Chat', 'Sementix: Next/Previous Chat'"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "staged-testing",
+    "naming_preferences": "technical-precise",
+    "architecture_philosophy": "event-driven",
+    "quality_standards": "maintainability-focus"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "chat-instance",
+      "multi-conversation",
+      "session-isolation",
+      "tab-switching",
+      "state-container",
+      "message-routing"
+    ],
+    "technical_patterns": [
+      "manager-pattern",
+      "dependency-injection",
+      "event-driven-architecture",
+      "state-machine",
+      "resource-pipeline",
+      "glassmorphism-ui"
+    ],
+    "integration_points": [
+      "vscode-webview-api",
+      "claude-cli-sessions",
+      "prism-js-cdn",
+      "es6-module-system"
+    ]
+  }
+}

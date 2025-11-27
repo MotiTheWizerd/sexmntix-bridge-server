@@ -1,0 +1,204 @@
+{
+  "task": "user-input-controller-ultra-modular-refactoring-plan",
+  "agent": "claude-sonnet-4-5",
+  "date": "2025-10-17",
+  "component": "user-input-controller",
+
+  "temporal_context": {
+    "date_iso": "2025-10-17",
+    "year": 2025,
+    "month": 10,
+    "week_number": 42,
+    "quarter": "2025-Q4",
+    "time_period": "recent"
+  },
+
+  "complexity": {
+    "technical": "3: Moderate - Decomposing 7 distinct concerns (DOM, events, state, lifecycle) into orchestrator + 8 micro-components with proper dependency injection",
+    "business": "4: High - Critical user input component affecting all chat interactions, clipboard widgets, and focus management for entire UI",
+    "coordination": "4: High - Must coordinate 2 existing sub-controllers (ClipboardManager, FocusTracker) plus 8 new micro-components while maintaining zero breaking changes"
+  },
+
+  "files_modified": "0",
+  "files_touched": [
+    "src/ui/modules/ui-logic/ui-controllers/chat-controller/user-ui/UserInputController.js"
+  ],
+  "tests_added": "0",
+  "related_tasks": [
+    "message-list-handlers-triple-ultra-modular-refactoring",
+    "header-controller-ultra-modular-refactoring",
+    "ui-state-coordinator-state-machine-refactoring",
+    "clipboard-widget-system-implementation",
+    "input-focus-source-tracking-user-engagement-architecture"
+  ],
+
+  "outcomes": {
+    "performance_impact": "No impact - Pure architectural refactoring with identical runtime behavior",
+    "test_coverage_delta": "0% - Plan phase only, implementation pending",
+    "technical_debt_reduced": "high",
+    "follow_up_needed": "true"
+  },
+
+  "summary": "Monolithic 205-line UserInputController managing 7 mixed concerns (DOM initialization, keyboard events, focus/blur tracking, input state, sub-controller coordination, lifecycle, event bus) → Ultra-modular architecture with 120-line orchestrator coordinating 8 focused micro-components (35-70 lines each)",
+
+  "root_cause": "Controller accumulated multiple responsibilities over time: DOM management, multiple event types (keyboard/focus/blur/mouse), focus source detection (programmatic vs user), input state operations, sub-controller coordination, and lifecycle management - all in single 205-line file",
+
+  "solution": {
+    "approach": "Apply proven orchestrator + micro-components pattern from recent successful refactorings (message handlers, header controller, state coordinator) - decompose into 8 single-responsibility components organized by concern type",
+    "key_changes": [
+      "UserInputController.js: Transform into ~120-line orchestrator delegating to specialized components while preserving identical public API",
+      "initialization/DOMInitializer.js: Extract DOM discovery and validation logic (~40 lines) - querySelector, element checks, error handling",
+      "events/KeyboardEventHandler.js: Isolate keyboard interaction handling (~35 lines) - Enter key detection, preventDefault, callback coordination",
+      "events/FocusEventHandler.js: Separate focus/blur event management (~60 lines) - source detection coordination, event emission",
+      "state/FocusSourceTracker.js: Pure state management for focus sources (~40 lines) - track mouse/keyboard/programmatic origins with flag management",
+      "state/InputStateManager.js: Consolidate all input state operations (~70 lines) - clear, focus, get/set value, enable/disable, placeholder",
+      "lifecycle/LifecycleCoordinator.js: Centralize component lifecycle (~50 lines) - start/stop/isReady/destroy coordination across all components",
+      "subcontrollers/SubControllerCoordinator.js: Manage ClipboardManager and FocusTracker (~45 lines) - initialize, start, readiness checks, cleanup",
+      "eventbus/EventBusIntegration.js: Isolate event bus communication (~40 lines) - subscriptions, emissions, refocus request handling"
+    ]
+  },
+
+  "validation": "Plan validated against proven pattern from 3 recent successful ultra-modular refactorings (message handlers 620→22 components, header controller 142→6 components, state coordinator 233→11 components) - all achieved zero breaking changes with improved testability",
+
+  "gotchas": [
+    {
+      "issue": "Focus source tracking uses shared state (lastMouseDown, programmaticAction flags) accessed across multiple event handlers - must coordinate properly",
+      "solution": "Extract FocusSourceTracker as pure state manager with explicit markMouseDown(), markProgrammatic(), getFocusSource(), reset() methods - FocusEventHandler coordinates flag usage",
+      "category": "architecture",
+      "severity": "medium"
+    },
+    {
+      "issue": "InputStateManager operations (focus, enable, disable) must set programmaticAction flag before DOM manipulation - coupling between state and tracking",
+      "solution": "InputStateManager receives FocusSourceTracker as dependency - calls tracker.markProgrammatic() before programmatic DOM operations ensuring proper source detection",
+      "category": "integration",
+      "severity": "medium"
+    },
+    {
+      "issue": "Start lifecycle has 100ms setTimeout before initialization - timing dependency that could affect component coordination",
+      "solution": "LifecycleCoordinator encapsulates timing logic - ensures all components initialize in correct order: DOM → SubControllers → EventHandlers → Ready state",
+      "category": "lifecycle",
+      "severity": "low"
+    },
+    {
+      "issue": "Public API has 11 methods that must remain identical - high risk of breaking changes during decomposition",
+      "solution": "Orchestrator maintains exact public API surface - all methods delegate to appropriate micro-components (e.g., clearInput() → inputStateManager.clear(), focusInput() → inputStateManager.focus())",
+      "category": "compatibility",
+      "severity": "high"
+    }
+  ],
+
+  "lesson": "Controllers managing multiple event types (keyboard, mouse, focus, blur) with shared state tracking are excellent ultra-modular candidates - separate into event-type handlers + pure state trackers for clean responsibility boundaries. Focus source detection (programmatic vs user-initiated) is reusable pattern applicable to other input controllers.",
+
+  "tags": [
+    "ultra-modular-refactoring",
+    "orchestrator-pattern",
+    "user-input-controller",
+    "event-handlers",
+    "focus-tracking",
+    "state-management",
+    "lifecycle-coordination",
+    "sub-controller-management",
+    "event-bus-integration",
+    "keyboard-events",
+    "focus-blur-events",
+    "dom-initialization",
+    "single-responsibility",
+    "micro-components",
+    "zero-breaking-changes",
+    "dependency-injection",
+    "chat-controller",
+    "input-field-management",
+    "clipboard-integration",
+    "focus-source-detection"
+  ],
+
+  "code_context": {
+    "key_patterns": [
+      "Orchestrator Pattern - ~120-line coordinator delegating to 8 specialized micro-components",
+      "FocusSourceTracker.markProgrammatic() - Set flag before programmatic DOM operations for source detection",
+      "FocusSourceTracker.getFocusSource() - Determine focus origin (mouse/keyboard/programmatic) based on flags",
+      "InputStateManager operations - All input state changes (focus, clear, enable, disable, value) coordinated through single manager",
+      "LifecycleCoordinator.start() - Initialize components in correct order: DOM → SubControllers → EventHandlers",
+      "EventBusIntegration pattern - Centralized event subscriptions and emissions (INPUT_FOCUSED, INPUT_BLURRED, INPUT_REFOCUS_REQUESTED)",
+      "SubControllerCoordinator - Single point for managing ClipboardManager and InputFocusTracker lifecycles"
+    ],
+    "api_surface": [
+      "clearInput(): void - Delegate to InputStateManager.clear()",
+      "focusInput(): void - Delegate to InputStateManager.focus() with programmatic flag",
+      "getInputValue(): string - Delegate to InputStateManager.getValue()",
+      "setInputValue(value): void - Delegate to InputStateManager.setValue()",
+      "enableInput(): void - Delegate to InputStateManager.enable() with programmatic flag",
+      "disableInput(): void - Delegate to InputStateManager.disable() with programmatic flag",
+      "setPlaceholder(text): void - Delegate to InputStateManager.setPlaceholder()",
+      "setOnEnterPress(callback): void - Delegate to KeyboardEventHandler",
+      "isReady(): boolean - Aggregate readiness from LifecycleCoordinator",
+      "getFocusTracker(): InputFocusTracker - Delegate to SubControllerCoordinator",
+      "destroy(): void - Coordinate cleanup through LifecycleCoordinator"
+    ],
+    "dependencies_added": [],
+    "breaking_changes": []
+  },
+
+  "future_planning": {
+    "next_logical_steps": [
+      "Implement FocusSourceTracker and InputStateManager first - pure logic components with no external dependencies",
+      "Create event handlers (KeyboardEventHandler, FocusEventHandler) - depend on state trackers",
+      "Build coordinators (SubControllerCoordinator, EventBusIntegration, LifecycleCoordinator) - orchestrate other components",
+      "Create DOMInitializer - simple standalone component",
+      "Refactor orchestrator - wire all micro-components together maintaining identical public API",
+      "Test integration - verify zero breaking changes in clipboard widgets and focus tracking",
+      "Consider applying FocusSourceTracker pattern to other input controllers in codebase"
+    ],
+    "architecture_decisions": {
+      "orchestrator_pattern": "Proven pattern from 3 recent successful refactorings - clean delegation with zero breaking changes",
+      "focus_source_separation": "Extract focus source tracking (programmatic vs user) into pure state manager - enables reuse and clear responsibility",
+      "event_handler_isolation": "Separate keyboard events from focus/blur events - different concerns with different coordination needs",
+      "state_manager_consolidation": "Group all input state operations (clear, focus, value, enable, placeholder) into single cohesive manager",
+      "coordinator_specialization": "Three coordinators for three concerns: sub-controllers, lifecycle, event bus - each manages one aspect",
+      "dependency_injection": "All components receive dependencies via constructor - enables testing and loose coupling"
+    },
+    "extension_points": [
+      "events/ - Add new event handlers (e.g., MouseEventHandler for click tracking) following KeyboardEventHandler pattern",
+      "state/ - Add new state managers for additional input properties following FocusSourceTracker pure state pattern",
+      "subcontrollers/ - SubControllerCoordinator can manage additional sub-controllers beyond ClipboardManager/FocusTracker",
+      "UserInputController orchestrator - Add new micro-components and wire through constructor dependency injection"
+    ]
+  },
+
+  "user_context": {
+    "development_style": "ultra-modular-architecture",
+    "naming_preferences": "technical-precise-with-clear-responsibility",
+    "architecture_philosophy": "single-responsibility-with-orchestrator-coordination",
+    "quality_standards": "zero-breaking-changes-with-improved-maintainability"
+  },
+
+  "semantic_context": {
+    "domain_concepts": [
+      "user-input-controller",
+      "focus-source-detection",
+      "programmatic-vs-user-actions",
+      "clipboard-integration",
+      "input-field-lifecycle",
+      "event-source-tracking",
+      "chat-interface-input"
+    ],
+    "technical_patterns": [
+      "orchestrator-pattern",
+      "micro-components",
+      "dependency-injection",
+      "single-responsibility-principle",
+      "pure-state-management",
+      "event-driven-architecture",
+      "lifecycle-coordination",
+      "focus-blur-tracking"
+    ],
+    "integration_points": [
+      "UserWidgetClipboardManager",
+      "InputFocusTracker",
+      "UI_EVENTS event bus",
+      "DOM textarea element",
+      "keyboard events",
+      "focus/blur events"
+    ]
+  }
+}
