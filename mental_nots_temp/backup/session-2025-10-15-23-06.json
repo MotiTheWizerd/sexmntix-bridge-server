@@ -1,0 +1,30 @@
+{
+  "sessionId": "2025-10-15-23-06",
+  "startTime": 1760558799663,
+  "entries": [
+    {
+      "timestamp": 1760558799683,
+      "type": "decision",
+      "content": "Fixed Google API key requirement error on extension activation. Made the GoogleApiClient constructor accept optional API key instead of throwing error immediately. Now the error only happens when actually trying to use the basic embedding service. This allows the extension to activate properly when using the Sementix Brain Python server instead of the Google embeddings.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760560009907,
+      "type": "decision",
+      "content": "Successfully implemented Prism.js syntax highlighting module for Sementix UI. Created isolated PrismHighlighter service with auto language detection for 18+ languages (JavaScript, TypeScript, Python, JSON, CSS, etc.). Updated MarkdownFormatter to add language classes to code blocks. Integrated highlighting into both streaming (StreamCompleter) and non-streaming (AgentMessagesManager) message flows. Created custom dark theme CSS matching the metallic UI aesthetic with language badges. Module is completely isolated and can be disabled by not calling PrismHighlighter.init().",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760560415958,
+      "type": "gotcha",
+      "content": "Fixed Prism.js integration issues: 1) Added CODE_HIGHLIGHTING_CSS_URI to TemplateInjector token map to fix 403 error. 2) Switched from npm imports to CDN loading - added Prism.js scripts to base.html and rewrote PrismHighlighter to use global window.Prism object instead of ES6 imports. This solves the module resolution error in the webview browser environment.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760561114717,
+      "type": "gotcha",
+      "content": "Fixed Prism.js tokenizePlaceholders error by reordering language script loading in base.html. PHP language requires markup-templating dependency to be loaded first. Proper order: 1) Core Prism, 2) markup-templating, 3) Independent languages (JavaScript, Python, etc.), 4) Languages extending JavaScript (TypeScript, JSX), 5) TSX, 6) C++, 7) PHP. This prevents \"Cannot read properties of undefined (reading 'tokenizePlaceholders')\" errors.",
+      "metadata": {}
+    }
+  ]
+}

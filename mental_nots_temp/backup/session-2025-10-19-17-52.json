@@ -1,0 +1,18 @@
+{
+  "sessionId": "2025-10-19-17-52",
+  "startTime": 1760885531906,
+  "entries": [
+    {
+      "timestamp": 1760885531909,
+      "type": "decision",
+      "content": "KEY FINDINGS - Message Display Event Flow:\n1. EVENT: 'chat.message.received' (UI_EVENTS.CHAT_MESSAGE_RECEIVED)\n2. PAYLOAD: { message, sender: 'user'|'assistant', timestamp, id, chatId }\n3. ROUTER: MessageRouter checks sender → routes to UserMessagesManager or AgentMessagesManager\n4. DISPLAY: Manager calls displayUserMessage(payload) or displayAgentMessage(payload)\n5. MULTI-CHAT: MessageListFactory.getMessageListForChat(chatId) gets correct DOM per chat\n6. RESULT: Message appended to correct chat's message-list, auto-scrolls to bottom\n\nFor history replay, I need to:\n- Emit 'chat.message.received' events for each historical message\n- Include correct chatId for routing to the right tab\n- Preserve sender ('user' or 'assistant') and timestamp\n- Messages will auto-route through existing architecture!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760885542750,
+      "type": "decision",
+      "content": "COMPLETE PLAN - History Message Replay Architecture:\n\n## THE SIMPLE SOLUTION\nAdd message replay in HeaderDropdown.handleSessionLoaded() that:\n1. Transforms SessionMessage[] → UI event payloads\n2. Emits 'chat.message.received' events \n3. Existing MessageRouter handles all display logic automatically\n\n## DATA TRANSFORMATION NEEDED\nStorage Format (SessionMessage):\n- UserMessage: { role: 'user', content: string, timestamp }\n- AgentMessage: { role: 'agent', message: ConversationMessage, timestamp }\n\nUI Event Format (chat.message.received):\n- { message: string|object, sender: 'user'|'assistant', timestamp, chatId, id }\n\n## WHY THIS IS BEST PRACTICE\n✅ Reuses existing ultra-modular MessageRouter architecture\n✅ Event-driven - follows established event-bus pattern\n✅ Multi-chat compatible - chatId routing already works\n✅ Simple transformation - just map formats\n✅ No breaking changes - purely additive\n✅ Separation of concerns - HeaderDropdown orchestrates, MessageRouter displays\n✅ Auto-scrolling, DOM management, styling all handled automatically\n\n## IMPLEMENTATION STEPS\n1. Create HistoryMessageTransformer helper class (transform storage → UI format)\n2. Create HistoryMessageReplayer helper class (emit events with small delays)\n3. Update HeaderDropdown.handleSessionLoaded() to use replayer\n4. Test with multi-message sessions",
+      "metadata": {}
+    }
+  ]
+}

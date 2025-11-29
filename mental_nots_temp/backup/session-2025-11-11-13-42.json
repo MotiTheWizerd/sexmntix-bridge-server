@@ -1,0 +1,12 @@
+{
+  "sessionId": "2025-11-11-13-42",
+  "startTime": 1762861360524,
+  "entries": [
+    {
+      "timestamp": 1762861360525,
+      "type": "note",
+      "content": "Moti introduced himself and provided comprehensive context about the Semantix project. Key points:\n- Building VS Code extension transforming Qwen Code terminal experience into visual/collaborative interface\n- Real-time streaming with thinking indicators, permission system, designer controls\n- Multi-state architecture with recent permission dialog bug fix\n- Semantic memory system integrated\n- Three memory types: Semantic (long-term), Notebook (session notes), Delta (achievements)\n- Project goal: Make AI assistance feel like true pair programming with transparency",
+      "metadata": {}
+    }
+  ]
+}

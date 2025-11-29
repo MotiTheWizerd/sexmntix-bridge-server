@@ -1,0 +1,12 @@
+{
+  "sessionId": "2025-11-09-19-43",
+  "startTime": 1762710188603,
+  "entries": [
+    {
+      "timestamp": 1762710188605,
+      "type": "note",
+      "content": "Explaining Semantix universal provider adapter architecture to Moti - how they unify different LLM providers (Claude Code CLI, Codex CLI) under one interface and communicate with SYNÆON memory system",
+      "metadata": {}
+    }
+  ]
+}

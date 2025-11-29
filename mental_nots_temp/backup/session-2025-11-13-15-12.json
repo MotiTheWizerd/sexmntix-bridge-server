@@ -1,0 +1,12 @@
+{
+  "sessionId": "2025-11-13-15-12",
+  "startTime": 1763039546101,
+  "entries": [
+    {
+      "timestamp": 1763039546103,
+      "type": "note",
+      "content": "Fixed: Added CHAT_MODEL_CHANGED event mapping in ChatOutgoingMappers.\n\nThe event now flows:\n1. UI: OptionsDropdown emits UI_EVENTS.CHAT_MODEL_CHANGED\n2. Bridge: ChatOutgoingMappers maps to 'chat.model.changed.v1' bridge event\n3. Extension: Needs handler for 'chat.model.changed.v1' (next step)\n\nAdded mapModelChanged() method following existing pattern (mapAgentInterrupt, mapPermissionResponse).\nRegistered in getMappings() array.",
+      "metadata": {}
+    }
+  ]
+}

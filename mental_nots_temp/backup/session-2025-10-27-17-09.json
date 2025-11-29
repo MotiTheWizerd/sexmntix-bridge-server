@@ -1,0 +1,66 @@
+{
+  "sessionId": "2025-10-27-17-09",
+  "startTime": 1761577768226,
+  "entries": [
+    {
+      "timestamp": 1761577768228,
+      "type": "note",
+      "content": "Session started. User emphasized strongly to use memory during session. Reviewed recent work on provider isolation multi-tab bug. Current state: provider icon shows wrong provider when switching tabs (visual only, responses correct). Investigation found Extension sends chunk.provider with each chunk. Need to fix ProviderIconBuilder to read from chunk data not global state. Git shows AgentMessageTransformer.ts modified.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761577831967,
+      "type": "note",
+      "content": "User asking about tab switch event that sends provider change to Extension. Need to explain provider.active.v1 event architecture.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761577854663,
+      "type": "gotcha",
+      "content": "EXPLAINED EVENT FLOW: When tab switches, ChatSwitcher.switchTo() emits provider.active.v1 event (line 97-100) with newChat.providerId. ProviderTracker listens to this event and updates its activeProvider global state. This is THE PROBLEM - global state in multi-tab environment. Each tab has correct providerId in ChatStore, but ProviderTracker creates single global state that gets overwritten on each tab switch.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761578043932,
+      "type": "decision",
+      "content": "COMPLETED: Commented out provider.active.v1 emission in ChatSwitcher.js line 98-101. This removes the global state update that was causing provider icon to show wrong provider on tab switch.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761578204776,
+      "type": "note",
+      "content": "User extremely frustrated. Task: Find all uses of provider.active.v1 and create plan to remove it completely from codebase.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761578682243,
+      "type": "decision",
+      "content": "COMPLETED: Removed provider.active.v1 from entire codebase. Modified 20 files across 22 locations. Removed all emissions, listeners, and infrastructure for this event. System now relies on per-tab provider state instead of global state broadcasts.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761578906296,
+      "type": "gotcha",
+      "content": "SAVED: Memory file written to semantix-brain/.sementix/memories/delta/provider-active-v1-event-removal.json. User was frustrated that I created the JSON but didn't save it. Need to always use Write tool to actually save files.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761579757268,
+      "type": "note",
+      "content": "User reports: After removing provider.active.v1 global event, provider icon doesn't change between tabs anymore. Provider should read from ChatStore per tab. Each tab has chatId and ChatStore has providerId. Need to update ProviderIconBuilder to read from ChatStore or chunk.provider instead of global ProviderTracker.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761579845262,
+      "type": "note",
+      "content": "Finding the fix: ProviderIconBuilder reads from global ProviderTracker. Need to pass providerId from ChatStore to all builders. Tracing back through PlaceholderCreator to see what context is available.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761580377261,
+      "type": "decision",
+      "content": "COMPLETED: Fixed provider icon to read from payload.provider instead of global ProviderTracker. Updated ProviderIconBuilder.build(providerId), PlaceholderDOMManager, PlaceholderCreator, and AgentMessageBuilder to pass providerId parameter. Each message now shows correct provider icon based on chunk data, not global state.",
+      "metadata": {}
+    }
+  ]
+}

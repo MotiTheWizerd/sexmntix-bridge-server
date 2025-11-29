@@ -76,13 +76,13 @@ class InitializationCoordinator:
                 tools=tools
             )
 
-            logger.info(
-                "XCP server initialized successfully",
-                extra={
-                    "tools_count": len(tools),
-                    "server_name": config.server_name
-                }
-            )
+            # logger.info(
+            #     "XCP server initialized successfully",
+            #     extra={
+            #         "tools_count": len(tools),
+            #         "server_name": config.server_name
+            #     }
+            # )
 
             return InitializationResult(
                 success=True,

@@ -107,6 +107,8 @@ class VectorStorageComponent(Protocol):
         conversation_db_id: int,
         conversation_data: Dict[str, Any],
         user_id: str,
+        project_id: str,
+        session_id: Optional[str] = None,
         gemini_analysis: List[Dict[str, Any]] = None
     ) -> Tuple[List[str], List[List[float]]]:
         ...
@@ -115,6 +117,7 @@ class VectorStorageComponent(Protocol):
         self,
         query: str,
         user_id: str,
+        project_id: str,
         limit: int = 10,
         where_filter: Optional[Dict[str, Any]] = None,
         min_similarity: float = 0.0

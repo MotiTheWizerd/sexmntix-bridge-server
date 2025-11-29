@@ -1,0 +1,60 @@
+{
+  "sessionId": "2025-10-27-21-31",
+  "startTime": 1761593517008,
+  "entries": [
+    {
+      "timestamp": 1761593517010,
+      "type": "note",
+      "content": "Starting session to make paste context and image widget work with Codex provider. Need to recall clipboard widget architecture and how images/text are sent to providers via content blocks.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761593629723,
+      "type": "note",
+      "content": "Starting with text context integration for Codex. First learning how Claude handles text context appending, then applying same pattern to Codex CLI command building.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761593757863,
+      "type": "note",
+      "content": "Found that CodexService already accepts contexts parameter (line 75), need to trace through StreamingApiOrchestrator to see where the contexts are being dropped.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761594238457,
+      "type": "decision",
+      "content": "Successfully implemented text context support for Codex provider. Applied same pattern as Claude: append text contexts to prompt with '## USER EXTRA CONTEXT:' header before passing to CLI. Changes: StreamingApiHandler now passes contexts to CodexCLIExecutor, executor appends contexts to prompt before command building. Build succeeded.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761594786986,
+      "type": "gotcha",
+      "content": "Text context is being appended but Codex doesn't see it. Log shows literal newlines in command string which might break shell parsing. Need to check escaping in CodexCommandBuilder.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761594829142,
+      "type": "gotcha",
+      "content": "GOTCHA: Text contexts with newlines break when passed as CLI argument. Solution: Codex CLI supports stdin input (use '-' as prompt arg), same as Claude. This properly handles newlines and multi-line contexts.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761594873035,
+      "type": "decision",
+      "content": "Fixed text context for Codex by switching to stdin mode. When contexts present, pass '-' as prompt argument and write fullPrompt (with contexts) to stdin. This properly handles newlines in context text. Build successful.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761594977465,
+      "type": "note",
+      "content": "SUCCESS! Text context now working perfectly with Codex. Codex confirmed seeing the clipboard context: \"this is extrea context\". The stdin approach solved the newline parsing issue completely.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761595048280,
+      "type": "note",
+      "content": "Created delta memory for codex text context stdin integration. Next: research Codex CLI image passing with -i flag for clipboard image widget support.",
+      "metadata": {}
+    }
+  ]
+}

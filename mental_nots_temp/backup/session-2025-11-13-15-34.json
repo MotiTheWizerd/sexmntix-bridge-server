@@ -1,0 +1,54 @@
+{
+  "sessionId": "2025-11-13-15-34",
+  "startTime": 1763040861845,
+  "entries": [
+    {
+      "timestamp": 1763040861847,
+      "type": "decision",
+      "content": "Session: Cleaning up model-changed-event-incorrect-bridge-addition\n\nPROBLEM: Last session I added CHAT_MODEL_CHANGED event correctly, but then INCORRECTLY assumed it needed bridge mapping to Extension. User only wanted UI-only event.\n\nFILES TO CLEAN:\n- ChatOutgoingMappers.js: Remove mapModelChanged() method and registration\n- Should restore to 3 mappings only: CHAT_MESSAGE_SEND, permission response, agent interrupt\n\nREASON: CHAT_MODEL_CHANGED is UI-only event for localStorage persistence and future UI features. No Extension handler needed.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1763041007834,
+      "type": "decision",
+      "content": "DISCOVERY: Found MORE bridge-related files than expected!\n\nINCORRECT BRIDGE IMPLEMENTATION (to remove):\n1. ChatOutgoingMappers.js - mapModelChanged() method + registration\n2. ModelChangedHandler.js - ENTIRE FILE (new handler I created for bridge)\n3. OutgoingProcessorOrchestrator.js - Import + registration of ModelChangedHandler\n\nCORRECT UI-ONLY IMPLEMENTATION (keep):\n1. ChatEventConstants.js - CHAT_MODEL_CHANGED constant (line 22) ✓\n2. OptionsDropdownOrchestrator.js - Event emission (lines 239-248) ✓\n\nREASON: Event is UI-only for future localStorage persistence. Extension will handle model selection separately via UserSessionSettings component without bridge events.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1763041167251,
+      "type": "decision",
+      "content": "✅ CLEANUP COMPLETE: Removed incorrect bridge mapping for CHAT_MODEL_CHANGED event\n\nFILES CLEANED:\n1. ChatOutgoingMappers.js - Removed mapModelChanged() method + registration (restored to 3 mappers only)\n2. ModelChangedHandler.js - Deleted entire file\n3. OutgoingProcessorOrchestrator.js - Removed import + registration\n\nWHAT REMAINS (Correct):\n- ChatEventConstants.js - CHAT_MODEL_CHANGED constant (UI-only event)\n- OptionsDropdownOrchestrator.js - Event emission on model selection\n\nRESULT: Event now emits in UI only, no bridge to Extension. Clean UI-only architecture as originally intended.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1763041606949,
+      "type": "note",
+      "content": "DISCOVERY: ModelSelectionHandler.ts already exists!\n\nArchitecture found:\n- UIEventHandlers.ts orchestrator imports ModelSelectionHandler (line 21)\n- ModelSelectionHandler should listen to 'chat.model.changed.v1' bridge event\n- But wait - we just removed the bridge mapping! Event is UI-only now.\n\nPROBLEM: Need to check if ModelSelectionHandler is even wired up, and if it's listening to the right event (should be UI internal event now, NOT bridge event)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1763041650329,
+      "type": "gotcha",
+      "content": "CRITICAL DISCOVERY: We broke the event flow!\n\nPREVIOUS WORKING FLOW (from memory file):\n1. UI emits 'chat.model.changed' \n2. ModelChangedHandler.js (UI bridge) converts to 'chat.model.changed.v1'\n3. ModelSelectionHandler.ts (Extension) listens to 'chat.model.changed.v1'\n4. Saves to ChatInstance.userSessionSettings.setModel()\n\nCURRENT BROKEN FLOW:\n1. UI emits 'chat.model.changed' ✅\n2. ❌ NO BRIDGE HANDLER (we deleted ModelChangedHandler.js)\n3. ModelSelectionHandler.ts still listens to 'chat.model.changed.v1' \n4. ❌ Event never arrives, model never saves!\n\nUSER CONFUSION:\n- Moti said \"this event is UI only\" → Remove bridge\n- But also said \"UserSessionSettings need to listen to that event\" → Needs Extension to receive it!\n\nNEED TO CLARIFY: Does Moti want:\nA) Pure UI-only (remove ModelSelectionHandler, no Extension update)\nB) Keep Extension update but use direct EventBus (not bridge)\nC) Re-add bridge mapping (contradicts \"UI only\")",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1763041945760,
+      "type": "decision",
+      "content": "CLARIFICATION RECEIVED: Moti wants bridge to send event to Extension host!\n\nOriginal confusion: I thought \"UI only\" meant no Extension at all.\nReality: UserSessionSettings is in Extension (ChatInstance), so we NEED the bridge.\n\nRESTORE PLAN:\n1. Re-create ModelChangedHandler.js (UI bridge handler)\n2. Re-add mapModelChanged() to ChatOutgoingMappers.js\n3. Re-register in OutgoingProcessorOrchestrator.js\n\nPattern to follow: Same as PermissionResponseHandler.js and AgentInterruptHandler.js",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1763042121345,
+      "type": "decision",
+      "content": "✅ BRIDGE MAPPING RESTORED with complete logging!\n\nEVENT FLOW with logs:\n1. UI Dropdown: [OptionsDropdown:Orchestrator] 🎨 Emitting CHAT_MODEL_CHANGED\n2. UI Bridge Handler: [🔄 ModelChangedHandler] 📥 Received UI event → 📤 Sending to Extension bridge\n3. UI Mapper: [🗺️ ChatOutgoingMappers] Mapping model changed → ✅ Bridge payload created\n4. Extension Handler: [🎯 ModelSelectionHandler] 📥 Received from bridge → ✅ Saved to UserSessionSettings\n\nFILES MODIFIED:\n1. ModelChangedHandler.js - Re-created with logs\n2. ChatOutgoingMappers.js - Added mapModelChanged() + registration\n3. OutgoingProcessorOrchestrator.js - Import + register handler\n4. ModelSelectionHandler.ts - Added console logs\n\nNow we can follow the complete flow in console!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1763042444093,
+      "type": "decision",
+      "content": "✅ SHARED EVENT CONTRACTS UPDATED!\n\nAdded chat.model.changed.v1 to shared contracts:\n1. chat.ts - Added ChatModelChangedPayload interface (line 76-82)\n2. chat.ts - Added 'chat.model.changed.v1' to ChatEvents interface (line 255)\n3. chat.json - Added event definition with full payload structure (line 149-158)\n\nNOW THE COMPLETE FLOW IS WIRED:\nUI → Bridge Handler → Mapper → postMessage → Extension EventBus → ModelSelectionHandler → UserSessionSettings\n\nEventBus will now recognize the event and route it properly!",
+      "metadata": {}
+    }
+  ]
+}

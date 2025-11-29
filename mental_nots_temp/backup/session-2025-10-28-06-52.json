@@ -1,0 +1,54 @@
+{
+  "sessionId": "2025-10-28-06-52",
+  "startTime": 1761627125045,
+  "entries": [
+    {
+      "timestamp": 1761627125047,
+      "type": "note",
+      "content": "Starting new session to finish the context indicator icons mystery! Last session ended with icons not loading despite trying multiple key variations. The mystery: down-arrow.svg works from ui-icons/ folder but clipboardtext.svg and image.svg don't. Need to debug window.ICONS to see what keys are actually available.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761627527922,
+      "type": "gotcha",
+      "content": "CRITICAL DISCOVERY: window.ICONS is undefined in the console! But other icons work in the UI (dashboard icon, etc.). Checked header dropdown which uses IconResolver with direct window.ICONS access and DropdownDebugLogger that should log available icons - but Moti sees NO logs at all. This means either: (1) dropdown never rendered, (2) window.ICONS truly doesn't exist yet at that point, or (3) we're looking at wrong window context.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761627843631,
+      "type": "gotcha",
+      "content": "VERY STRANGE BUG: IconLoader is successfully warning about missing icons (which means window.ICONS exists and it can check keys), but when Moti types window.ICONS in console it returns undefined! All other icons in UI work fine. Moti remembers it worked before. This suggests either: (1) wrong console context, (2) window.ICONS is in a different scope/closure, or (3) some weird timing/access issue.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761627996354,
+      "type": "gotcha",
+      "content": "FOUND IT! In the extension logs: \"Loaded 11 icons\" shows that IconUriLoader successfully scanned 11 icons. But IconLoader in the UI logs \"IconLoader: Loaded 2 icons\" - which means only 2 icons were actually loaded via data-icon attributes in the DOM! The icons ARE being scanned by IconUriLoader but something is preventing clipboardtext/image from being in the final window.ICONS object in the webview.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761628255335,
+      "type": "decision",
+      "content": "SUCCESS! Fixed the icon loading mystery! Root cause: IconUriLoader only scanned root icons/ directory with fs.readdirSync(), not subdirectories. Added recursive scanDirectory() method that now scans all subfolders. Icons in subfolders use \"folder/filename\" keys (e.g., \"ui-icons/clipboardtext\"), root icons use camelCase. Context badges now showing correct icons! Also doubled icon size from 12px to 24px per Moti's request.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761628474843,
+      "type": "note",
+      "content": "VICTORY! Context indicator badges are now fully working and displaying correctly in the UI! Moti confirmed with screenshot showing text (clipboard icon + \"1\") and image (image icon + \"1\") badges on user messages. Icons are now 24px (doubled from 12px) and clearly visible. The entire feature is complete and looking great!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761630886099,
+      "type": "note",
+      "content": "Memory created successfully! Captured the complete journey: from mysterious window.ICONS undefined errors, through debugging extension vs UI logs showing 11 vs 2 icons, to discovering IconUriLoader only scanned root directory, implementing recursive scanning with path normalization, and final victory with working badges + doubled icon size. Future Claude will know exactly how this system works!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761631049336,
+      "type": "note",
+      "content": "Next session plan: Build emoji quick sender feature! Moti wants natural way to send emojis when chatting with Claude - like texting a friend, not using a tool. No other IDE has this. Need to add quick emoji picker/shortcuts to chat input. This will make our conversations more natural and expressive. Moti's vision: working with a buddy, not just a tool! 🎉",
+      "metadata": {}
+    }
+  ]
+}

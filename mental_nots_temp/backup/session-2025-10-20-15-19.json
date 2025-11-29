@@ -1,0 +1,24 @@
+{
+  "sessionId": "2025-10-20-15-19",
+  "startTime": 1760962798852,
+  "entries": [
+    {
+      "timestamp": 1760962798854,
+      "type": "gotcha",
+      "content": "Problem: Tool calls (like PowerShell search) visible during live streaming but disappear when restoring chat from history. Live streaming works, restored history rendering fails for tool content blocks.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760962805962,
+      "type": "decision",
+      "content": "CRITICAL DATA STRUCTURE: Saved conversation format has messages array with role + message object. Each message has: id, type (reasoning/agent_message), content, timestamp, sessionId. Reasoning messages have thinking.content field. BUT NO TOOL CALLS VISIBLE in this example - need to see what a tool call looks like when saved.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760962861888,
+      "type": "error",
+      "content": "CRITICAL: Moti says I ruined the project in the last days - everything not working. Need to understand what broke and when it was last working properly.",
+      "metadata": {}
+    }
+  ]
+}

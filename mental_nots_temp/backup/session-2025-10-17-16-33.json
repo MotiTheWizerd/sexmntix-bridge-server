@@ -1,0 +1,36 @@
+{
+  "sessionId": "2025-10-17-16-33",
+  "startTime": 1760707986088,
+  "entries": [
+    {
+      "timestamp": 1760707986090,
+      "type": "decision",
+      "content": "MCP Architecture in Sementix Extension:\n\nYES - We have a complete MCP SERVER implementation in the extension, NOT a client!\n\nKey Facts:\n1. **MCP Server** (not client): src/ext/modules/mcp-server/MCPServerManager.ts\n   - Runs as stdio-based MCP server that Claude Code connects to\n   - Provides 4 tools: search_memory, search_memory_by_date, notebook_write, notebook_read\n   - Built with ultra-modular architecture: MCPServerInitializer, ToolRegistry, handlers, schemas\n\n2. **MCP Tool Integration**: src/ext/modules/providers/shared/parsers/mappers/tools/MCPToolMapper.ts\n   - Extension can CONSUME MCP tools from OTHER servers\n   - Parses tool names in format: mcp__server-name__tool-name\n   - Maps them to universal ToolInfo format for UI display\n\n3. **Dual Role**: \n   - We ARE an MCP server (expose memory tools to Claude Code)\n   - We CAN consume MCP tools from other servers (via MCPToolMapper/MCPToolParser)\n\nArchitecture Pattern:\n- Server: MCPServerManager → ToolRegistry → Handlers + Schemas + Services\n- Client Integration: MCPToolMapper + MCPToolParser for consuming external MCP tools\n- Memory provided via MCP-over-HTTP in Semantix Brain (separate Python server)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760708138236,
+      "type": "decision",
+      "content": "MCP CLIENT MODULE - Architecture Pattern Analysis Complete\n\nBased on studying our ultra-modular patterns (file-watcher, notebook, provider-manager), here's what I learned:\n\n## Core Architectural Principles:\n\n1. **Isolated Module Pattern** (from file-watcher):\n   - Zero domain knowledge - generic infrastructure\n   - Single responsibility\n   - DI integration via TOKENS\n   - Clean public API via index.ts exports\n\n2. **Orchestrator + Micro-Components** (all refactorings):\n   - Main class = thin orchestrator (100-150 lines)\n   - Delegate to 6-12 focused components (20-70 lines each)\n   - Each component = single concern\n   - Easy testing, maintenance, visualization\n\n3. **DI Integration Pattern**:\n   - Add token to src/ext/modules/core/di/tokens.ts\n   - Register in DISetup.ts with dependencies\n   - Injectable Logger for unified logging\n   - System-wide singleton availability\n\n4. **Module Structure Template**:\n```\nsrc/ext/modules/mcp-client/\n  index.ts              # Public API exports\n  MCPClient.ts          # Main orchestrator\n  types/\n    MCPClientTypes.ts   # Interfaces, types\n  core/\n    ConnectionManager.ts\n    TransportHandler.ts\n  operations/\n    ToolInvoker.ts\n    ResponseParser.ts\n  config/\n    ClientConfig.ts\n```\n\nReady to create MCP client plan following these patterns!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760708252634,
+      "type": "decision",
+      "content": "MCP CLIENT MODULE - Complete Architecture Design Ready\n\n## Research Complete - Key Findings:\n\n1. **MCP SDK Already Installed**: @modelcontextprotocol/sdk v1.18.2 in package.json\n2. **Client Classes Available**: \n   - Client from '@modelcontextprotocol/sdk/client/index.js'\n   - StdioClientTransport for local servers\n   - SSEClientTransport for remote servers\n\n3. **Provider Pattern Integration**:\n   - IProviderAdapter interface defines: id, name, isActive, processMessage(), initialize(), dispose()\n   - CodexAdapter example shows streaming pattern with AsyncGenerator\n   - ProviderManager orchestrates adapters via DI\n\n4. **Ultra-Modular Architecture Pattern**:\n   - Orchestrator (100-150 lines) + 6-12 micro-components (20-70 lines each)\n   - DI integration via TOKENS\n   - FileWatcher shows perfect isolation pattern\n   - Clean exports via index.ts\n\n## Proposed Structure:\n```\nsrc/ext/modules/mcp-client/\n  index.ts                    # Public API\n  MCPClientService.ts         # Main orchestrator (DI singleton)\n  types/MCPClientTypes.ts     # Interfaces\n  core/\n    ConnectionManager.ts      # Client + Transport lifecycle\n    ServerRegistry.ts         # Track available MCP servers\n  operations/\n    ToolInvoker.ts           # Call MCP tools\n    ResourceFetcher.ts       # Get MCP resources\n  config/ClientConfig.ts     # Connection configs\n```\n\nReady to present complete implementation plan!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760708320934,
+      "type": "note",
+      "content": "MCP CLIENT MODULE IMPLEMENTATION - Starting Now!\n\nPlan approved by Moti. Building ultra-modular MCP client following Sementix patterns:\n- 10 focused components (~600 lines total)\n- DI integration with Logger\n- Supports stdio + SSE transports\n- Isolated, generic infrastructure service\n- Zero breaking changes\n\nFollowing file-watcher isolation pattern - MCP client knows nothing about specific servers, just provides connection infrastructure.\n\nEstimated completion: ~2 hours\nStarting with types and foundation...",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760708584816,
+      "type": "decision",
+      "content": "MCP CLIENT MODULE - IMPLEMENTATION COMPLETE! ✅\n\nSuccessfully built ultra-modular MCP client following Sementix patterns:\n\n**10 Focused Components Created:**\n1. MCPClientTypes.ts (189 lines) - All interfaces & types\n2. TransportFactory.ts (65 lines) - stdio + SSE transport creation\n3. ServerRegistry.ts (96 lines) - Server config tracking\n4. ClientConfig.ts (66 lines) - Preset configurations\n5. ConnectionManager.ts (148 lines) - Connection lifecycle\n6. ToolInvoker.ts (90 lines) - MCP tool execution\n7. ResourceFetcher.ts (88 lines) - Resource fetching\n8. PromptExecutor.ts (88 lines) - Prompt execution\n9. MCPClientService.ts (162 lines) - Main orchestrator\n10. index.ts (42 lines) - Public API\n\n**Total: ~1,034 lines** (slightly more than planned but well-organized)\n\n**DI Integration Complete:**\n- Added TOKENS.MCP_CLIENT to tokens.ts\n- Registered in DISetup.ts with Logger injection\n- System-wide singleton via di.resolve()\n\n**Build Status:** ✅ TypeScript compilation successful!\n\n**Architecture Highlights:**\n- Ultra-modular: Each component has single responsibility\n- Isolated: Zero domain knowledge, generic infrastructure\n- Extensible: Easy to add new server types\n- Testable: Small, focused components\n- DI-integrated: Available system-wide\n\nReady for use! Can now connect to any MCP server (filesystem, memory, git, custom) via stdio or SSE transports.",
+      "metadata": {}
+    }
+  ]
+}

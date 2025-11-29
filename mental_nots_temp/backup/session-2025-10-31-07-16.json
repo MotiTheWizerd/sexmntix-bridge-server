@@ -1,0 +1,30 @@
+{
+  "sessionId": "2025-10-31-07-16",
+  "startTime": 1761887761091,
+  "entries": [
+    {
+      "timestamp": 1761887761112,
+      "type": "decision",
+      "content": "## Focus Event on Provider Selection - COMPLETED\n\nSuccessfully implemented focus event emission when user selects a provider from the popup.\n\n**Changes Made:**\n\n1. **ProviderSelectionPopup.js:**\n   - Added `eventBus` parameter to constructor (line 17)\n   - Imported UI_EVENTS (line 3)\n   - Emit INPUT_FOCUSED event in provider click handler (lines 148-154)\n   - Event payload: { source: 'user', timestamp: Date.now() }\n   - Added debug logging for event emission\n\n2. **ChatTabManager.js:**\n   - Pass `this.eventBus` when creating ProviderSelectionPopup (line 140)\n\n**Result:**\nNow when user clicks a provider, the INPUT_FOCUSED event is emitted with source='user', which will trigger the auto-refocus system and properly track user engagement state.\n\nEvent flow: Provider click → INPUT_FOCUSED event → Auto-refocus logic → Input stays focused for better UX.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761888418442,
+      "type": "note",
+      "content": "## Focus Event Issue - Event Emitted But Focus Not Working\n\n**Logs show:**\n1. ProviderSelectionPopup emits INPUT_FOCUSED event ✓\n2. InputFocusTracker receives it (source: user) ✓\n3. But input doesn't actually get focused ✗\n\n**Hypothesis:**\nThe INPUT_FOCUSED event is being emitted correctly, but nothing is listening to it to actually CALL .focus() on the textarea.\n\nNeed to find:\n1. What listens to INPUT_FOCUSED event\n2. What actually calls textarea.focus()\n3. Whether we need INPUT_REFOCUS_REQUESTED instead of INPUT_FOCUSED",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761888452500,
+      "type": "gotcha",
+      "content": "## INPUT_FOCUSED vs INPUT_REFOCUS_REQUESTED - Critical Difference\n\n**The Problem:**\nWe emitted `INPUT_FOCUSED` event, but nothing actually calls `.focus()` on the textarea.\n\n**How the System Works:**\n\n1. **INPUT_FOCUSED** event (line 31-56 in InputFocusTracker.js):\n   - Tracks focus STATE\n   - Sets userEngaged = true if source is 'mouse' or 'keyboard'\n   - Does NOT trigger actual .focus() call\n   - Just tracking, no action\n\n2. **INPUT_REFOCUS_REQUESTED** event (line 19-34 in EventBusIntegration.js):\n   - Actually calls refocusHandler()\n   - This is what triggers .focus() on textarea\n   - This is the ACTION event\n\n**Solution:**\nWe need to emit `INPUT_REFOCUS_REQUESTED` instead of (or in addition to) `INPUT_FOCUSED`.\n\nBut wait! Looking at line 50, InputFocusTracker only sets userEngaged=true for source='mouse' or 'keyboard', NOT 'user'.\n\nWe're emitting source='user', which doesn't trigger userEngaged state!\n\n**Two options:**\n1. Emit INPUT_REFOCUS_REQUESTED directly (bypasses tracking)\n2. Change source from 'user' to 'mouse' (follows existing pattern)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761888565351,
+      "type": "decision",
+      "content": "## Focus Event Fix - INPUT_REFOCUS_REQUESTED\n\n**Problem:** \nINPUT_FOCUSED event was just tracking state, not actually calling .focus() on textarea.\n\n**Solution:**\nChanged to INPUT_REFOCUS_REQUESTED event (line 149 in ProviderSelectionPopup.js)\n\n**Change:**\n- Event: INPUT_FOCUSED → INPUT_REFOCUS_REQUESTED\n- Payload: { source: 'user' } → { reason: 'Provider selected - user ready to type' }\n\n**How it works:**\n1. User clicks provider\n2. INPUT_REFOCUS_REQUESTED emitted\n3. EventBusIntegration.js (line 19) listens for this event\n4. Calls refocusHandler() which actually focuses the textarea\n\nThis is the correct event for triggering focus action, not just tracking focus state.",
+      "metadata": {}
+    }
+  ]
+}

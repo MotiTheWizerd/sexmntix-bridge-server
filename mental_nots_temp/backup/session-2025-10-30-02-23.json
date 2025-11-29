@@ -1,0 +1,18 @@
+{
+  "sessionId": "2025-10-30-02-23",
+  "startTime": 1761783817915,
+  "entries": [
+    {
+      "timestamp": 1761783817917,
+      "type": "note",
+      "content": "Starting session - Moti wants to discuss refactoring practices we've established for Sementix",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761783976870,
+      "type": "error",
+      "content": "CRITICAL: Moti reported that last session ruined code. Need to understand what broke and fix it before proceeding with any new work. Must be more careful and ask permission before making changes.",
+      "metadata": {}
+    }
+  ]
+}

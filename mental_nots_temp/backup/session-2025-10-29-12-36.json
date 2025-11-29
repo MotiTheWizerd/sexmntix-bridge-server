@@ -1,0 +1,18 @@
+{
+  "sessionId": "2025-10-29-12-36",
+  "startTime": 1761734191778,
+  "entries": [
+    {
+      "timestamp": 1761734191782,
+      "type": "gotcha",
+      "content": "GOTCHA: User wanted to change provider indicator icon animation (typing/placeholder indicator with DNA helix). I incorrectly modified the \"cooking\" indicator files instead of the actual typing indicator files. The correct files are:\n- Animation keyframes: src/ui/templates/css/ui-indicator/dna-keyframes.css (dnaCore animation)\n- Icon styling: src/ui/templates/css/ui-indicator-claude.css (.claude-svg element)\nThe \"cooking\" indicators are a different system entirely.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761734420024,
+      "type": "note",
+      "content": "User wants to use the particleCore animation from src/ui/assets/icons/qwen/particle-explosion/style.css for the provider icon in the typing indicator. This is the actual particle explosion effect they designed, not a custom one.",
+      "metadata": {}
+    }
+  ]
+}

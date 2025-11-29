@@ -1,0 +1,36 @@
+{
+  "sessionId": "2025-10-13-12-45",
+  "startTime": 1760348728619,
+  "entries": [
+    {
+      "timestamp": 1760348728623,
+      "type": "note",
+      "content": "Session started with Moti. Reviewed recent work history:\n\n**Latest Architecture (Oct 2025):**\n- Multi-state architecture: Split UIState into agentState + permissionState to fix permission dialog bug\n- Extension = single source of truth (smart brain), UI = dumb renderer pattern\n- Independent state tracks prevent conflicts\n\n**Recent Work Areas:**\n1. Streaming functionality - SessionIdExtractor, StreamingChunkBuffer, JSON chunk checking\n2. Permission system - Complete glassmorphism UI with designer toggle controls\n3. Tool visualization - Real-time display of Claude's tool usage and thought process\n\n**Key Patterns:**\n- Event-driven architecture (ui.agent.state.change.v1, ui.permission.state.change.v1)\n- Glassmorphism design with backdrop-filter effects\n- Map-based component lifecycle management for tools\n\nReady to continue building!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760349139408,
+      "type": "note",
+      "content": "## Memory System Analysis Complete\n\n**Architecture:**\n- Memory Module: Uses ChromaDB for semantic search\n- Notebook Module: File-based JSON storage\n- Delta files: Legacy format at `.sementix/memories/delta/`\n- Migration: Required to move delta files → ChromaDB\n\n**Problem Found:**\nDelta files exist but NOT migrated to ChromaDB yet! That's why searches return 0 results.\n\n**Path Configuration Issues:**\n1. `settings.py` missing `workspace_path` - causes path calculation issues\n2. Notebook falls back to `chromadb_path.parent.parent` (unreliable)\n3. Migration script uses `Path.cwd().parent` (context-dependent)\n\n**Solution:**\n1. Add workspace_path to settings.py\n2. Run migration script to import delta files\n3. Verify all paths resolve correctly",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760351802795,
+      "type": "decision",
+      "content": "## Send Button State Reset Fix - Oct 13, 2025\n\n**Problem:** Send button stayed in STOP state after streaming completed\n\n**Root Cause:** MessageRouter streaming handler set agent state to 'busy' when tools started, but never reset to 'active' when streaming completed\n\n**Solution:** Added agent state reset in MessageRouter.handleStreamingResponse():\n1. After streaming completes (line 314-330): Reset to 'active' + emit ui.agent.state.change.v1\n2. On streaming error (line 344-360): Reset to 'active' + emit ui.agent.state.change.v1 (error recovery)\n\n**Pattern Used:** Same as existing code (lines 194-206) for setting busy state\n\n**Files Modified:**\n- src/ext/modules/logic-manager/message-router/MessageRouter.ts\n\n**Flow:**\nTool starts → agentState: 'busy' → Send button: STOP icon\nStream completes → agentState: 'active' → Send button: SEND icon ✓\n\n**Same architectural pattern fixes 3 UI issues:**\n1. Permission dialog visibility ✓\n2. Tool box visibility ✓  \n3. Send button state ✓\n\nAll solved by ensuring streaming mode honors the same event contracts as blocking mode!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760352470094,
+      "type": "decision",
+      "content": "## Markdown Table Rendering Implementation - Oct 13, 2025\n\n**Feature:** Added complete markdown table support to MarkdownFormatter\n\n**Implementation:**\n1. **postProcessTables()** method - Detects table blocks (lines with | separators)\n2. **renderTable()** method - Parses and converts to HTML:\n   - Header row extraction\n   - Alignment detection (:---, :---:, ---:)\n   - Data row parsing\n   - HTML table generation with proper styling\n\n**Edge Cases Handled:**\n- Empty cells (shows em dash)\n- Misaligned columns (pads with empty cells)\n- Invalid tables (falls back to original markdown)\n- Inline markdown in cells (bold, code, etc.)\n\n**CSS Styling:**\n- Metallic theme integration\n- Header with blue accent + glow effect\n- Row hover effects\n- Proper borders and spacing\n- Code blocks within table cells\n\n**Files Modified:**\n- src/ui/modules/ui-logic/services/MarkdownFormatter.js\n- src/ui/templates/css/ui-messages-list.css\n\n**Processing Order:**\n1. Escape HTML\n2. Apply regex rules\n3. Process tables (NEW)\n4. Process lists\n5. Process paragraphs",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760352999393,
+      "type": "decision",
+      "content": "## Nested Checklist Rendering Implementation - Oct 13, 2025\n\n**Feature:** Added nested checklist support with visual hierarchy\n\n**Implementation:**\n1. **postProcessChecklists()** - Detects checklist blocks with `- [x]` or `- [ ]`\n2. **renderChecklist()** - Parses indentation (2 spaces per level)\n3. **buildNestedChecklistHTML()** - Builds proper nested `<ul>/<li>` structure with stack-based algorithm\n\n**Visual Features:**\n- Custom styled checkboxes (not native HTML)\n- Blue gradient for checked items with glow effect\n- Connecting lines showing parent-child hierarchy\n- Smooth hover animations\n- Checkmark pop animation\n- Checked items appear dimmed\n\n**Edge Cases Handled:**\n- Multiple nesting levels (unlimited depth)\n- Mixed indentation normalized to 2-space standard\n- Empty lines between checklist items\n- Inline markdown in text (bold, code, etc.)\n\n**CSS Features:**\n- Metallic theme integration\n- Vertical connecting lines for nested items\n- Horizontal connecting lines to parent\n- Hover effects with subtle background\n- Disabled checkboxes (read-only display)\n\n**Files Modified:**\n- src/ui/modules/ui-logic/services/MarkdownFormatter.js\n- src/ui/templates/css/ui-messages-list.css\n\n**Processing Order:**\n1. Tables\n2. Checklists (NEW)\n3. Lists\n4. Paragraphs",
+      "metadata": {}
+    }
+  ]
+}

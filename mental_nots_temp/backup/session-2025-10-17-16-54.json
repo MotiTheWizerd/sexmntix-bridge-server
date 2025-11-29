@@ -1,0 +1,12 @@
+{
+  "sessionId": "2025-10-17-16-54",
+  "startTime": 1760709288395,
+  "entries": [
+    {
+      "timestamp": 1760709288397,
+      "type": "note",
+      "content": "Testing MCP client connection to sementix-memory server!",
+      "metadata": {}
+    }
+  ]
+}

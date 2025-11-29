@@ -1,0 +1,24 @@
+{
+  "sessionId": "2025-10-27-13-54",
+  "startTime": 1761566071163,
+  "entries": [
+    {
+      "timestamp": 1761566071165,
+      "type": "note",
+      "content": "Session with Moti: Reviewed complete tabs architecture for Sementix multi-chat system\n\nKey findings:\n- Ultra-modular architecture with ChatTabManager orchestrating 7 core modules + 6 coordinators\n- Placeholder system ('waiting_for_id') allows instant UI feedback while Extension generates real UUID\n- Per-chat DOM isolation using CSS visibility (no DOM recreation on switch)\n- ChatStore maintains complete per-tab state (messages, provider, sessionId, streaming status, button state)\n- AutoTabCreator handles lazy tab creation from Extension events\n- PlaceholderTransitionCoordinator manages 4-step transition from placeholder to real chatId\n- Smart message routing via ChatIdFilter and MessageManagerRouter\n- Extension-UI sync via chatId in all events\n\nCurrent status: Most features working, some edge cases in sessionId sync and performance optimizations needed\n\nNext work: Will focus on isolated tabs improvements",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761566234276,
+      "type": "note",
+      "content": "Deep-dive analysis requested by Moti on 4 key improvement areas in tabs system:\n1. SessionId sync issues across message types\n2. No message pagination (memory concerns)\n3. No visual feedback during placeholder transition\n4. Edge cases with fast message sends\n\nReviewed: SessionTracker, SessionIdChunkExtractor, ChatStore, PlaceholderTransitionCoordinator, DOMTransitionManager\nUnderstanding: sessionId per-chat extraction working, but some message types may bypass. Messages array unbounded in ChatStore. Transition is instant with no UI feedback. Race conditions possible with rapid sends.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761566748811,
+      "type": "note",
+      "content": "Explaining ChatStore architecture to Moti - how per-tab state management works with Map<chatId, ChatData> structure, message isolation, and switching mechanics",
+      "metadata": {}
+    }
+  ]
+}

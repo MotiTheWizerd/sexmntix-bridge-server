@@ -1,0 +1,36 @@
+{
+  "sessionId": "2025-10-31-08-49",
+  "startTime": 1761893347695,
+  "entries": [
+    {
+      "timestamp": 1761893347696,
+      "type": "note",
+      "content": "## Session Start - Scroll-Stick-to-Bottom Follow-up\n\nPrevious session (2025-10-31-07-00):\n- Implemented scroll-stick-to-bottom feature with 4 stages\n- Feature was not working at end of session\n- Moti reports it's now working from start\n\nNeed to verify what changed and ensure it's working correctly across all scenarios.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761893558263,
+      "type": "decision",
+      "content": "## Message Send Flow Analysis - Complete Picture\n\n**Flow Traced:**\n\n1. **User presses Enter** → [UserUILifecycle.js:44]\n   - `setOnEnterPress(() => this.handleSendButtonClick())`\n\n2. **handleSendButtonClick()** → [UserUILifecycle.js:59-67]\n   - Checks stop state, routes to `messageSendHandler.handleSend()`\n\n3. **MessageSendHandler.handleSend()** → [MessageSendHandler.js:22-67]\n   - Line 23: Gets input value\n   - Line 32-42: Builds and enriches message\n   - Line 45: Clears input\n   - Line 48-53: Gets/creates chatId\n   - Line 57-58: Emits `CHAT_MESSAGE_SEND` event with chatId\n   - Line 64: Emits `INPUT_CLEARED` event\n\n**Key Discovery:**\n- `INPUT_CLEARED` event (line 64) is emitted AFTER user sends message\n- This is already a per-chat event (chatId is in the payload from line 57)\n- Event `CHAT_MESSAGE_SEND` includes chatId\n\n**Best Implementation Strategy:**\nListen for `INPUT_CLEARED` or `CHAT_MESSAGE_SEND` event in InputFocusTracker, and mark user as engaged for that chatId!\n\nWhy this is better:\n✓ No need to modify MessageSendHandler\n✓ Event-driven (follows our architecture)\n✓ Clean separation of concerns\n✓ Already has chatId in the payload\n\n**Alternative considered:**\n- Add engagement marking directly in MessageSendHandler.handleSend()\n- But this violates separation of concerns (message sending shouldn't know about scroll engagement)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761893814667,
+      "type": "gotcha",
+      "content": "## Found Old Implementation! \n\n**Git History Analysis:**\n\nChecked commit `886ad60` (streaming finally working) - found the old scroll behavior:\n\n**OLD (commit 886ad60):**\n```javascript\n// MarkdownRenderer.js line ~103\nthis.scrollManager.scrollToBottom(chatId);  // ALWAYS scrolls\n```\n\n**NEW (current):**\n```javascript\n// MarkdownRenderer.js line 81\nthis.scrollManager.scrollToBottomIfEngaged(chatId);  // Only scrolls if user engaged\n```\n\n**The Change:**\nWe changed from UNCONDITIONAL scroll to CONDITIONAL scroll that checks `isUserEngaged(chatId)`.\n\n**The Problem:**\nUser is NEVER marked as engaged when they send a message! So conditional scroll never fires.\n\n**Solution Confirmed:**\nMust mark user as engaged when they send a message by listening to `CHAT_MESSAGE_SEND` event in InputFocusTracker.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761893887383,
+      "type": "decision",
+      "content": "## ✅ Fix Implemented - Scroll-Stick-to-Bottom on Message Send\n\n**Problem:** User sends message → scroll doesn't stick to bottom during streaming response\n\n**Root Cause Found:** \n- We changed from `scrollToBottom()` to `scrollToBottomIfEngaged()` \n- But forgot to mark user as engaged on message send\n- Only focus/blur events were marking engagement\n\n**Solution Implemented:**\nAdded event listener in `InputFocusTracker.js` (lines 41-46):\n```javascript\n// Listen for message send events (user is engaged when they send a message)\nthis.eventBus.on(UI_EVENTS.CHAT_MESSAGE_SEND, (payload) => {\n  const chatId = payload?.chatId;\n  this._setUserEngaged(chatId, true);\n  this.logger.info(`[InputFocusTracker] User ENGAGED for chat ${chatId} - message sent`);\n});\n```\n\n**Build Status:** ✅ Clean build, no errors\n\n**Expected Behavior Now:**\n1. User sends message → `CHAT_MESSAGE_SEND` event fires\n2. InputFocusTracker marks user as engaged for that chatId\n3. Streaming starts → MarkdownRenderer calls `scrollToBottomIfEngaged(chatId)`\n4. Check passes → scroll sticks to bottom ✅\n\n**Ready for Testing!**",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761894450515,
+      "type": "note",
+      "content": "## Deep Analysis - Scroll Stick Behavior\n\n**Moti's Key Insight:** \n\"When the scrollbar is in 'sticky' status, we need to keep sending events to stick between streaming\"\n\n**What This Means:**\nThe problem isn't about WHEN to mark user as engaged. The problem is about MAINTAINING the scroll position at bottom DURING streaming.\n\n**Current Flow:**\n1. User sends message → marked as engaged\n2. Streaming starts → chunks arrive\n3. Each chunk calls `scrollToBottomIfEngaged(chatId)`\n4. This checks `isUserEngaged(chatId)` ONCE per chunk\n5. If true → scrolls to bottom\n\n**The Real Problem:**\nWe're checking engagement state, but the issue might be:\n- The scroll isn't actually happening on each chunk?\n- The engagement state is getting cleared somewhere?\n- The scroll is happening but content height isn't updating?\n- Race condition between DOM update and scroll?\n\n**Need to investigate:**\n1. Is `scrollToBottomIfEngaged()` being called on EVERY chunk?\n2. Is `isUserEngaged(chatId)` returning true during streaming?\n3. Is the actual scroll operation working?\n4. Are there competing scroll operations?\n\nThis is about the STREAMING behavior, not the initial engagement marking.",
+      "metadata": {}
+    }
+  ]
+}

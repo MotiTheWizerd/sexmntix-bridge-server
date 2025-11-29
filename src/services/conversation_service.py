@@ -125,6 +125,7 @@ class ConversationService:
         self,
         query: str,
         user_id: str,
+        project_id: str,
         limit: int = 10,
         min_similarity: float = 0.0,
         model: Optional[str] = None,
@@ -159,6 +160,7 @@ class ConversationService:
         results = await self.vector_service.search_similar_conversations(
             query=query,
             user_id=user_id,
+            project_id=project_id,
             limit=limit,
             where_filter=combined_filter,
             min_similarity=min_similarity

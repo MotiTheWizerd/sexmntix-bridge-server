@@ -1,0 +1,108 @@
+{
+  "sessionId": "2025-10-28-23-50",
+  "startTime": 1761688208329,
+  "entries": [
+    {
+      "timestamp": 1761688208331,
+      "type": "note",
+      "content": "Starting new session focused on provider-specific stream formatters. Goal: create pluggable/removable formatters that work close to rendering layer without breaking stream flow.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761688247022,
+      "type": "note",
+      "content": "Architecture analysis:\n- Extension side: StreamingResponseHandler → ChunkProcessor → UIEventEmitter → postToUI\n- UI side: Receives chat.stream.chunk events → MessageEventRouter → renders\n- providerId already propagated through streaming pipeline (lines 59-77 in StreamingResponseHandler)\n- Current architecture: formatters would need to plug in BEFORE rendering, close to UI layer",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761688287774,
+      "type": "note",
+      "content": "Streaming flow discovered:\nExtension: StreamingResponseHandler → emitStreamChunk(chunk) → postToUI('chat.stream.chunk.v1')\nUI: ChatStreamMappers.mapStreamChunk → EventBus → ??? renderer\nNeed to find where CHAT_STREAM_CHUNK is handled for actual DOM rendering",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761688334466,
+      "type": "decision",
+      "content": "Complete streaming flow mapped:\nExtension: StreamingResponseHandler → UIEventEmitter → postToUI\nUI Bridge: ChatStreamMappers → EventBus\nUI Routing: StreamingChunkRouter → AgentMessagesManager\nUI Processing: ChunkProcessor → ChunkContentExtractor → MarkdownRenderer\nTHIS IS WHERE WE NEED TO INJECT PROVIDER FORMATTERS! Right before/inside MarkdownRenderer",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761688344882,
+      "type": "decision",
+      "content": "BRAINSTORM - Provider Formatter Architecture Plan:\n\nCURRENT FLOW:\nExtension → chunk.providerId → UI → ChunkProcessor → MarkdownRenderer.render() → textContainer.innerHTML += chunkText\n\nKEY INSIGHT: Need pluggable formatters that:\n1. Transform chunkText BEFORE rendering (line 45 in MarkdownRenderer)\n2. Can be added/removed dynamically\n3. Work per-provider (claude, codex, gemini, etc.)\n\nBEST APPROACH - Chain of Responsibility Pattern:\n- FormatterRegistry: Manages provider-specific formatters\n- ProviderFormatter interface: format(chunkText, chunk, context) → formattedText\n- ClaudeFormatter, CodexFormatter, GeminiFormatter implementations\n- Inject FormatterRegistry into MarkdownRenderer\n- Call formatter.format() before innerHTML append\n\nINJECTION POINT: MarkdownRenderer.render() - line 44-45\nBefore: textContainer.innerHTML += chunkText;\nAfter: textContainer.innerHTML += this.formatterRegistry.format(chunkText, chunk);\n\nBENEFITS:\n✓ Pluggable - add/remove formatters without breaking stream\n✓ Provider-specific - each provider gets custom formatting\n✓ Close to rendering - minimal pipeline changes\n✓ Testable - each formatter isolated\n✓ Backward compatible - registry returns raw text if no formatter found",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761688557067,
+      "type": "note",
+      "content": "User request: Create passthrough provider formatters that just log chunks for now.\nGoal: Make chunks flow through formatter system with logging, no actual formatting yet.\nThis is a foundation step before adding real formatting logic.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761688838373,
+      "type": "note",
+      "content": "Implementation complete! Provider formatter system installed:\n- ProviderFormatter base class with passthrough format()\n- ProviderFormatterRegistry with routing and logging\n- ClaudeFormatter, CodexFormatter, DefaultFormatter implementations\n- Wired through DependencyContainer → ComponentFactory → ChunkProcessor → MarkdownRenderer\n- All chunks now flow through formatter system with logging before rendering\nReady to test!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761688908658,
+      "type": "decision",
+      "content": "✅ IMPLEMENTATION COMPLETE - Provider Formatter System\n\nArchitecture:\n- Chain of Responsibility pattern with ProviderFormatterRegistry\n- Base ProviderFormatter class with passthrough format() method\n- Provider-specific implementations: ClaudeFormatter, CodexFormatter, DefaultFormatter\n- Integrated at rendering layer (MarkdownRenderer) for minimal pipeline impact\n\nFiles Created:\n1. ProviderFormatter.js - Base class\n2. ProviderFormatterRegistry.js - Registry/router\n3. ClaudeFormatter.js - Claude-specific (passthrough + logging)\n4. CodexFormatter.js - Codex-specific (passthrough + logging)\n5. DefaultFormatter.js - Fallback formatter\n\nFiles Modified:\n1. DependencyContainer.js - Added getFormatterRegistry()\n2. ComponentFactory.js - Wire formatterRegistry to ChunkProcessor\n3. ChunkProcessor.js - Pass formatterRegistry to MarkdownRenderer\n4. MarkdownRenderer.js - Use formatter before innerHTML append\n\nBuild Status: ✅ Main build successful\n\nNext Steps (for testing):\n1. Start extension\n2. Send message to Claude\n3. Check console logs for formatter flow\n4. Send message to Codex\n5. Verify provider-specific formatter called\n6. Check that text still renders correctly (passthrough)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761689194946,
+      "type": "note",
+      "content": "Created comprehensive Claude formatter documentation at docs/formatter/claude/README.md\n- Complete HTML → Markdown conversion rules\n- Processing order for conversion engine\n- Implementation notes and patterns\n- Test cases and checklist\n- All formatting rules from headers to tables, code blocks, and GFM extensions\nReady for future implementation of actual HTML to Markdown conversion in ClaudeFormatter",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761689234969,
+      "type": "note",
+      "content": "User wants top 5 most-used formats from Claude formatter rules for priority implementation",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761689383937,
+      "type": "decision",
+      "content": "Planning stateful header formatter for Claude:\n- Must track state across chunks (currently in header? which level? accumulated text)\n- Detect markdown headers (# H1, ## H2, ### H3, etc.)\n- Open HTML tag when pattern detected\n- Keep re-rendering with accumulated text: <h1>H</h1>, <h1>He</h1>, <h1>Hel</h1>\n- Close when header ends (newline or stream complete)\n- Need to modify MarkdownRenderer to accumulate text per chatId\n- Need ClaudeFormatter to become stateful",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761689832872,
+      "type": "decision",
+      "content": "✅ HEADER FORMATTING IMPLEMENTATION COMPLETE\n\nImplemented stateful ClaudeFormatter with real-time markdown → HTML header conversion:\n- Character-by-character state machine (NORMAL → BUFFERING → IN_HEADER)\n- Separate state per chatId for multi-chat support\n- Supports all 6 header levels (h1-h6)\n- Line-start detection (prevents mid-line headers)\n- False positive prevention (#hashtag won't trigger)\n- Incremental output (appends to DOM as chunks arrive)\n\nBuild: ✅ SUCCESS\nDocumentation: ✅ Created IMPLEMENTATION.md with test cases and debugging guide\n\nReady for testing! User needs to reload extension and try sending markdown headers.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761690065527,
+      "type": "note",
+      "content": "Planning next Claude formatter features:\n1. Bold text (**text**)\n2. Lists (unordered -, ordered 1.)\n3. Line breaks (\\n → <br>)\n\nNeed to extend state machine to handle nested/overlapping patterns while maintaining header state.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761690775211,
+      "type": "decision",
+      "content": "✅ BOLD & LINE BREAKS IMPLEMENTATION COMPLETE\n\nAdded to ClaudeFormatter:\n1. Bold text: **text** → <strong>text</strong>\n   - State machine with boldBuffer tracking\n   - Works inside headers too!\n   - Toggle on/off with ** pattern\n2. Line breaks: \\n → <br>\n   - All newlines convert to HTML breaks\n   - Headers end with </h1><br> pattern\n3. Character-by-character processing maintained\n4. All states tracked per chatId\n\nBuild: ✅ SUCCESS\nReady for testing with headers, bold, and line breaks!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761691771489,
+      "type": "decision",
+      "content": "✅ LIST EMOJI REPLACEMENT COMPLETE\n\nAdded visual list formatting to ClaudeFormatter:\n- Detects \"- \" pattern at line start (same buffer as headers)\n- Replaces with \"✅ \" emoji\n- Simple visual enhancement, no HTML list structure\n- Works alongside headers, bold, and line breaks\n\nPattern: - Item → ✅ Item\n\nBuild: ✅ SUCCESS\nReady for testing!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761693620258,
+      "type": "gotcha",
+      "content": "BUG FOUND in bold formatter:\n- <strong> tags are empty: <strong></strong>strong\n- Text appears AFTER tags instead of INSIDE\n- Issue: When we see second *, we're toggling bold state (closing tag) immediately\n- Need: Keep bold OPEN, put subsequent text inside, close on NEXT **\n- Current: ** → <strong></strong> (both tags at once)\n- Should be: ** → <strong>, then text, then ** → </strong>",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761693810384,
+      "type": "decision",
+      "content": "🎉 CREATED COMPREHENSIVE MEMORY of Provider Formatter System!\n\nDocumented entire journey:\n- Problem: No provider-specific formatting during streaming\n- Solution: Pluggable formatter system with state machines\n- Implementation: 10 files created/modified\n- Features: Headers (6 levels), Bold, Lists (✅), Line breaks\n- Architecture: Chain of Responsibility + DI through 6 layers\n- Gotchas: Bold tag bug, incremental vs full output, buffer pattern detection\n- Next steps: Fix bold, add code blocks, italic, links\n\nThis was an amazing collaborative build session! User gets full credit for brilliant architecture ideas and iterative refinement.",
+      "metadata": {}
+    }
+  ]
+}

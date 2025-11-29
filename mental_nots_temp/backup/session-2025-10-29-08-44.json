@@ -1,0 +1,42 @@
+{
+  "sessionId": "2025-10-29-08-44",
+  "startTime": 1761720256366,
+  "entries": [
+    {
+      "timestamp": 1761720256372,
+      "type": "note",
+      "content": "Moti greeted me and started a new session. Ready to continue work on Sementix project.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761720914216,
+      "type": "decision",
+      "content": "Implemented splash screen feature:\n- Created splash-screen.css with full-screen red overlay and fade-out animations\n- Updated base.html to include splash div and CSS link token\n- Modified main.js to hide splash on UI_EVENTS.STATUS_READY event\n- Extended ResourceTypes interfaces to include splashScreen path/URI\n- Registered splash screen CSS in ResourceManager paths configuration\n- Added URI resolution in CssUriResolver\n- Added token injection in TemplateInjector\n\nThe splash screen shows immediately on webview load and fades out after ~500ms when UI initialization completes.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761721138698,
+      "type": "gotcha",
+      "content": "Moti caught me making rushed changes:\n- I was about to add console.log instead of using the existing Logger system\n- I made changes without properly understanding the architecture first\n- Need to slow down and think through the proper approach\n\nThe real issue: Splash screen stays visible forever because STATUS_READY event listener might not be working.\n\nNeed to investigate:\n1. Is STATUS_READY actually being fired? (check SystemLifecycle.js)\n2. Is the event listener registered at the right time?\n3. Should use Logger, not console.log\n4. Should understand the event flow before making more changes",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761721270511,
+      "type": "decision",
+      "content": "Fixed splash screen race condition:\n\n**Problem:** STATUS_READY event was emitted during ui.start() BEFORE the listener was registered, so splash screen never got hidden.\n\n**Solution:** \n1. Reordered main.js to register the STATUS_READY listener BEFORE calling ui.start()\n2. Replaced console.log with proper Logger calls (ui.core.logger)\n3. Added informative logging at each step for debugging\n\n**Key insight:** ui.start() emits STATUS_READY synchronously, so timing matters. Listener must exist before the event is emitted.\n\n**Files modified:**\n- src/ui/app/main.js - Reordered code and added proper logging",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761721418087,
+      "type": "error",
+      "content": "Fixed logger access error:\n- Changed from `ui.core.logger` to `ui.logger` \n- The logger is stored directly on UIManager instance at line 22 in UIManager.js\n- CoreManager doesn't have a logger property",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761722158194,
+      "type": "decision",
+      "content": "Successfully integrated liquid-morph animation into splash screen:\n\n**Files Modified:**\n1. src/ui/templates/css/splash-screen.css - Added complete liquid-morph styling:\n   - CSS variables for Sementix color palette\n   - Animated background gradients (radial + rotating)\n   - Animated grid background (moving pattern)\n   - 3 liquid blob animations (liquidMorph, liquidMorph2, liquidMorph3)\n   - SVG logo animation (liquidCore - pulsing brightness/scale)\n   - Loading text styling with glow effect\n\n2. src/ui/templates/base.html - Added HTML structure:\n   - 3 liquid-blob divs\n   - Inline SVG with Sementix logo (3x3 grid pattern)\n   - Loading text: \"Morphing reality...\"\n   - All wrapped in .loader-wrapper.loader-4 container\n\n**Animation Details:**\n- 4-second animation cycles for all blobs\n- Each blob has different phase/direction (morphing in different patterns)\n- SVG pulses with brightness/contrast changes\n- Background gradients rotate slowly (20s cycle)\n- Grid moves diagonally (10s cycle)\n\n**Result:** Beautiful liquid-morph splash screen that appears on load and fades out when STATUS_READY fires!",
+      "metadata": {}
+    }
+  ]
+}

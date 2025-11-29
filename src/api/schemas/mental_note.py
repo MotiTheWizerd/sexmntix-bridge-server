@@ -32,12 +32,23 @@ class MentalNoteResponse(BaseModel):
 
 class MentalNoteSearchRequest(BaseModel):
     """Schema for semantic search of mental notes"""
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "query": "claude cli",
+                "user_id": "84e17260-ff03-409b-bf30-0b5ba52a2ab4",
+                "project_id": "08fd3ab5-215c-4405-a5b6-17b2620e064",
+                "limit": 1
+            }
+        }
+    }
+
     query: str
     session_id: Optional[str] = None  # Filter by specific session
     user_id: str  # Required: UUID from users table
     project_id: Optional[str] = "default"  # Default project_id if not provided
-    limit: Optional[int] = 10
-    min_similarity: Optional[float] = 0.0
+    limit: Optional[int] = 5
+    min_similarity: Optional[float] = 0.8
     note_type: Optional[str] = None  # Filter by note_type if provided
     format: Optional[str] = "json"  # Response format: 'json' or 'text'
 

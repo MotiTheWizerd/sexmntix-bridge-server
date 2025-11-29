@@ -1,0 +1,36 @@
+{
+  "sessionId": "2025-10-29-23-54",
+  "startTime": 1761774891204,
+  "entries": [
+    {
+      "timestamp": 1761774891206,
+      "type": "gotcha",
+      "content": "User is exhausted (no sleep 2 days), frustrated that I'm taking too long. Asked me to use memory FIRST, not read files. Need to move fast and focus.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761775009003,
+      "type": "decision",
+      "content": "COMPLETE UNDERSTANDING from memory:\n\n1. There WAS a working streaming formatter with character-by-character state machine (provider-formatter-system-with-streaming-markdown.json)\n2. It had ClaudeFormatter with getChatState(chatId) that maintained: inHeader, inBold, buffer, boldBuffer, atLineStart\n3. It was integrated in MarkdownRenderer.render() line 34 (now shows: textContainer.innerHTML += chunkText)\n4. The MarkdownRenderer STILL has formatterRegistry parameter (line 8-10) but it's \"unused - kept for backward compatibility\"\n5. The working formatter was DELETED and replaced with post-processing batch formatter\n6. Current ClaudeFormatter is batch mode (reads .textContent, parses all, converts all, replaces DOM)\n7. HTMLConverter methods are CORRECT and tested (convertInlineCode, convertBold, convertHeading)\n\nTHE FIX: Rebuild the character-by-character ClaudeFormatter from memory with state machine (inHeader, inBold, buffer) and call it from MarkdownRenderer line 34.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761775223391,
+      "type": "decision",
+      "content": "COMPLETE PICTURE from claude-markdown-formatter-removal-failed.json:\n\nThe character-by-character streaming formatter (1000+ lines) was OVER-ENGINEERED and had fundamental architecture mismatch:\n- Only processed streaming chunks\n- Missed initial non-streaming text (where backticks appeared)  \n- Tried 3 fixes, all failed: (1) fix existing formatter (2) add CodeBlockPatternHandler (3) post-processing regex\n- Backticks disappeared completely - HTML already rendered without them\n- User gave up and wanted complete deletion\n\nCurrent state:\n- Formatter disabled in MarkdownRenderer (just appends raw text)\n- We built NEW simple batch formatter (HTMLConverter + MarkdownParser + ClaudeFormatter) that works in MessagePostProcessor\n- This causes markdown flash → HTML conversion (bad UX)\n\nWhat user wants NOW:\n- Fix the markdown flash issue\n- Use the SIMPLE approach we built (HTMLConverter is correct and tested)\n- NOT the over-engineered 1000+ line character-by-character state machine\n- Simple streaming solution that actually works",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761775470674,
+      "type": "decision",
+      "content": "Successfully converted ClaudeFormatter to simple line-buffering streaming mode:\n\nWHAT WE DID:\n1. ClaudeFormatter: Changed from batch mode (format entire message after streaming) to streaming mode (formatChunk during streaming)\n2. Simple line-buffering approach: Buffer chunks until complete line (\\n), then parse and convert to HTML\n3. MarkdownRenderer: Integrated ClaudeFormatter.formatChunk() - calls it for every chunk during streaming\n4. MessagePostProcessor: Removed ClaudeFormatter call - no longer does post-processing formatting\n\nKEY DESIGN:\n- NO complex 1000+ line character-by-character state machine (that was broken)\n- Simple Map of line buffers per chatId\n- Processes complete lines only (buffers incomplete lines for next chunk)\n- Reuses existing HTMLConverter methods (convertHeading, convertBold, convertInlineCode)\n- ~60 lines of code vs 1000+ lines in old broken formatter\n\nFILES MODIFIED:\n1. ClaudeFormatter.js - Added formatChunk() and clearBuffer() methods with line buffering\n2. MarkdownRenderer.js - Calls claudeFormatter.formatChunk() during streaming\n3. MessagePostProcessor.js - Removed ClaudeFormatter import and _formatClaudeMarkdown() method\n\nNEXT: Test with real streaming to verify no markdown flash and proper HTML generation",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761778869738,
+      "type": "gotcha",
+      "content": "User reports triple bold rendering: \"**Visual comparison:**\" appears as nested bold 3 times.\n\nNeed to investigate:\n1. Is the text being sent 3 times in chunks?\n2. Is the line being processed 3 times in formatChunk?\n3. Is there an issue with the line buffer not clearing properly?\n\nWaiting for clarification on whether user typed the text 3 times or if formatter is tripling it.",
+      "metadata": {}
+    }
+  ]
+}

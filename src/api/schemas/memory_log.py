@@ -161,12 +161,23 @@ class MemoryLogResponse(BaseModel):
 class MemoryLogSearchRequest(BaseModel):
     query: str
     user_id: str  # Required: UUID from users table
-    project_id: Optional[str] = "default"  # Default project_id if not provided
-    limit: Optional[int] = 10
-    min_similarity: Optional[float] = 0.0
+    project_id: Optional[str] = "n/a"  # Default project_id if not provided
+    limit: Optional[int] = 5
+    min_similarity: Optional[float] = 0.7
     filters: Optional[Dict[str, Any]] = None
     tag: Optional[str] = None  # Filter by individual tag (e.g., "chromadb")
     format: Optional[Literal["json", "text"]] = "json"  # Output format: json or text
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "query": "claude cli",
+                "user_id": "84e17260-ff03-409b-bf30-0b5ba52a2ab4",
+                "project_id": "08fd3ab5-215c-4405-a5b6-17b2620e0640",
+                "limit": 1
+            }
+        }
+    }
 
 
 class MemoryLogSearchResult(BaseModel):

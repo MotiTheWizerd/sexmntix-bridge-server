@@ -1,0 +1,18 @@
+{
+  "sessionId": "2025-10-17-11-10",
+  "startTime": 1760688650681,
+  "entries": [
+    {
+      "timestamp": 1760688650684,
+      "type": "decision",
+      "content": "Fixed markdown rendering bug caused by HtmlEscaper converting backticks to HTML entities, preventing code block regex patterns from matching. Changed escape() to only escape HTML-dangerous chars (&, <, >, \", ') while preserving markdown syntax chars (backticks, asterisks, brackets, hashes).",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760688934701,
+      "type": "gotcha",
+      "content": "UNRESOLVED: Markdown rendering bug persists after HtmlEscaper fix. User still sees raw text blocks. Need to debug with browser DevTools console next time - verify MarkdownFormatter.toHtml() is called, check Prism.js loads, verify innerHTML insertion, test regex patterns in isolation. Multiple MarkdownFormatter instances exist - need to identify which one is active.",
+      "metadata": {}
+    }
+  ]
+}

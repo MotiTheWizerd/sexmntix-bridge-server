@@ -1,0 +1,12 @@
+{
+  "sessionId": "2025-10-30-20-34",
+  "startTime": 1761849266521,
+  "entries": [
+    {
+      "timestamp": 1761849266524,
+      "type": "gotcha",
+      "content": "CRITICAL ISSUE: Moti is getting \"could not find the task npm:build\" error when debugging the extension. This is a VSCode launch configuration issue, NOT related to our CSS changes. Need to investigate .vscode/tasks.json and .vscode/launch.json to find the missing build task. DO NOT make any changes - just diagnose.",
+      "metadata": {}
+    }
+  ]
+}

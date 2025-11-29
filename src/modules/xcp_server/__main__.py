@@ -48,9 +48,9 @@ async def main():
     # Setup logging
     logger = Logger("xcp_server")
 
-    logger.info("=" * 60)
-    logger.info(f"Starting {config.server_name} v{config.server_version}")
-    logger.info("=" * 60)
+    # logger.info("=" * 60)
+    # logger.info(f"Starting {config.server_name} v{config.server_version}")
+    # logger.info("=" * 60)
 
     # Check if server is enabled
     if not config.enabled:
@@ -59,7 +59,7 @@ async def main():
 
     # Initialize Event Bus
     event_bus = EventBus()
-    logger.info("Event bus initialized")
+    # logger.info("Event bus initialized")
 
     # Initialize Database
     database_url = os.getenv("DATABASE_URL")
@@ -68,7 +68,7 @@ async def main():
         sys.exit(1)
 
     db_manager = DatabaseManager(database_url)
-    logger.info("Database connection initialized")
+    # logger.info("Database connection initialized")
 
     # Create async context manager factory for database sessions
     @asynccontextmanager
@@ -82,7 +82,7 @@ async def main():
         logger.error("GOOGLE_API_KEY not set in environment")
         await db_manager.close()
         sys.exit(1)
-
+   
     try:
         embedding_config = ProviderConfig(
             provider_name="google",
@@ -103,26 +103,30 @@ async def main():
             cache=embedding_cache,
             cache_enabled=os.getenv("EMBEDDING_CACHE_ENABLED", "true").lower() == "true"
         )
-        logger.info("Embedding service initialized")
+        # logger.info("Embedding service initialized")
     except Exception as e:
         logger.error(f"Failed to initialize embedding service: {e}")
         await db_manager.close()
         sys.exit(1)
-
+    
     # Initialize ChromaDB
     try:
         # Use absolute path for ChromaDB to work from any project
         chromadb_path = os.getenv("CHROMADB_PATH")
         if not chromadb_path:
+           
             chromadb_path = str(project_root / "data" / "chromadb")
+        print("sds")
         chromadb_client = ChromaDBClient(storage_path=chromadb_path)
         vector_repository = VectorRepository(chromadb_client)
-        logger.info("ChromaDB client initialized")
+        # logger.info("ChromaDB client initialized")
+       
     except Exception as e:
         logger.error(f"Failed to initialize ChromaDB: {e}")
         await db_manager.close()
+        print("here")  
         sys.exit(1)
-
+   
     # Initialize Vector Storage Service
     vector_storage_service = VectorStorageService(
         event_bus=event_bus,
@@ -130,8 +134,8 @@ async def main():
         embedding_service=embedding_service,
         vector_repository=vector_repository
     )
-    logger.info("Vector storage service initialized")
-
+    # logger.info("Vector storage service initialized")
+   
     # Initialize event handlers for background vector storage
     initialize_event_handlers(
         event_bus=event_bus,
@@ -139,8 +143,8 @@ async def main():
         db_session_factory=db_session_factory,
         embedding_service=embedding_service
     )
-    logger.info("Event handlers initialized for background vector storage")
-
+    # logger.info("Event handlers initialized for background vector storage")
+  
     # Initialize XCP Server Service
     xcp_service = XCPServerService(
         event_bus=event_bus,
@@ -156,20 +160,20 @@ async def main():
 
     # Display server info
     server_info = xcp_service.get_server_info()
-    logger.info("=" * 60)
-    logger.info("Server Configuration:")
-    logger.info(f"  Name: {server_info['server_name']}")
-    logger.info(f"  Version: {server_info['server_version']}")
-    logger.info(f"  Transport: {server_info['transport']}")
-    logger.info(f"  Registered Tools ({len(server_info['tools'])}):")
-    for tool_name in server_info['tools']:
-        logger.info(f"    - {tool_name}")
-    logger.info("=" * 60)
+    # logger.info("=" * 60)
+    # logger.info("Server Configuration:")
+    # logger.info(f"  Name: {server_info['server_name']}")
+    # logger.info(f"  Version: {server_info['server_version']}")
+    # logger.info(f"  Transport: {server_info['transport']}")
+    # logger.info(f"  Registered Tools ({len(server_info['tools'])}):")
+    # for tool_name in server_info['tools']:
+    #     logger.info(f"    - {tool_name}")
+    # # logger.info("=" * 60)
 
     try:
         # Start the XCP server (blocking call for stdio)
-        logger.info(f"Starting XCP server ({config.transport} transport)")
-        logger.info("Waiting for MCP client connection...")
+        # logger.info(f"Starting XCP server ({config.transport} transport)")
+        # logger.info("Waiting for MCP client connection...")
         await xcp_service.start()
 
     except KeyboardInterrupt:
@@ -185,10 +189,10 @@ async def main():
 
     finally:
         # Cleanup
-        logger.info("Cleaning up resources...")
+        # logger.info("Cleaning up resources...")
         await xcp_service.stop()
         await db_manager.close()
-        logger.info("XCP server stopped")
+        # logger.info("XCP server stopped")
 
 
 def cli_main():

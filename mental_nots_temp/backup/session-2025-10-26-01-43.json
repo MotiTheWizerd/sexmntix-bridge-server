@@ -1,0 +1,18 @@
+{
+  "sessionId": "2025-10-26-01-43",
+  "startTime": 1761432198661,
+  "entries": [
+    {
+      "timestamp": 1761432198662,
+      "type": "decision",
+      "content": "Moti is uncertain which approach to take for Claude tool positioning fix:\n- Solution 1: Everything in stream (tools as DOM nodes inside stream-text)\n- Solution 2: Break stream (create new stream-text segments when tools arrive)\n\nKey constraint: UI must work universally for all providers (Claude, Codex, etc.) because we have universal message format. The fix cannot be provider-specific.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761432346817,
+      "type": "decision",
+      "content": "DECISION MADE: Going with Solution 2 (Break Stream) for Claude tool positioning fix.\n\nReasoning:\n- Solution 1 (everything in stream) is the \"right\" architecture for the future\n- But NOT now - too risky, requires major refactor of MarkdownRenderer\n- Solution 2 is pragmatic: minimal changes, preserves existing rendering logic\n- Cursor management: When stream breaks, cursor moves to new stream-text element\n\nImplementation approach: When tool arrives during streaming, close current stream-text, insert tool, create new stream-text for subsequent text chunks, move cursor to new element.",
+      "metadata": {}
+    }
+  ]
+}

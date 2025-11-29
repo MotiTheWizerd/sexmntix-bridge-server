@@ -133,9 +133,9 @@ class QwenClient:
             if "expiry_date" in creds:
                 expiry = creds["expiry_date"]
                 # Add 5 minute buffer
-                if time.time() * 1000 > expiry - (5 * 60 * 1000):
-                    print("⚠️  Warning: Qwen CLI token is expired or expiring soon.")
-                    return None
+                # if time.time() * 1000 > expiry - (5 * 60 * 1000):
+                #     print("⚠️  Warning: Qwen CLI token is expired or expiring soon.")
+                #     return None
             
             return creds
             

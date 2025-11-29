@@ -101,14 +101,14 @@ class XCPMCPServer:
         # Setup MCP handlers
         self._setup_handlers()
 
-        self.logger.info(
-            f"XCP MCP Server initialized",
-            extra={
-                "server_name": config.server_name,
-                "server_version": config.server_version,
-                "tools_count": len(self.tools)
-            }
-        )
+        # self.logger.info(
+        #     f"XCP MCP Server initialized",
+        #     extra={
+        #         "server_name": config.server_name,
+        #         "server_version": config.server_version,
+        #         "tools_count": len(self.tools)
+        #     }
+        # )
 
     def _register_tools(self):
         """Register all tools with the MCP server"""
@@ -116,10 +116,10 @@ class XCPMCPServer:
             definition = tool.definition
             self.tool_registry[definition.name] = tool
 
-            self.logger.info(
-                f"Registered tool: {definition.name}",
-                extra={"tool_name": definition.name}
-            )
+            # self.logger.info(
+            #     f"Registered tool: {definition.name}",
+            #     extra={"tool_name": definition.name}
+            # )
 
     def _setup_handlers(self):
         """Setup MCP protocol handlers
@@ -163,7 +163,7 @@ class XCPMCPServer:
 
     async def shutdown(self):
         """Gracefully shutdown the MCP server"""
-        self.logger.info("Shutting down XCP MCP Server")
+        # self.logger.info("Shutting down XCP MCP Server")
 
         # Cleanup any active sessions using SessionManager
         self.session_manager.clear_all_sessions()

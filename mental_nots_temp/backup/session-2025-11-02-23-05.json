@@ -1,0 +1,54 @@
+{
+  "sessionId": "2025-11-02-23-05",
+  "startTime": 1762117529976,
+  "entries": [
+    {
+      "timestamp": 1762117529978,
+      "type": "note",
+      "content": "## Tool UI Design Architecture in Sementix\n\n### Core Philosophy: Action-Specific Nested Structure with Ultra-Modular Formatters\n\nWe recently completed a **major architectural shift** from flat to action-specific nested structures across both backend and UI.\n\n---\n\n## Backend: Tool Result Structure\n\n**Old (Flat) Structure - DEPRECATED:**\n```typescript\n// Confusing flat structure with duplicate fields\n{\n  toolId: string,\n  action: string,\n  target: string,      // duplicate - also in action-specific data\n  params: {...},\n  result: any          // duplicate - also in action-specific data\n}\n```\n\n**New (Action-Specific Nested) Structure:**\n```typescript\ninterface ChatToolEndPayload {\n  toolId: string;\n  action: string;\n  \n  // Action-specific nested structures\n  search?: {\n    input: { pattern: string, path?: string },\n    result: { files: string[] }\n  };\n  \n  read?: {\n    input: { file_path: string },\n    result: { content: string }\n  };\n  \n  // Legacy fields populated conditionally for backward compatibility\n  target?: string;\n  result?: any;\n}\n```\n\n**Key Principles:**\n- Clean separation of inputs and results per action\n- Conditional legacy field population during transition\n- Eliminates confusion from flat mixed-field structure\n\n---\n\n## UI: Tool Notification Formatters\n\n**Architecture Pattern: Orchestrator + Action-Specific Formatters**\n\nLocated in: `src/ui/modules/ui-logic/core/events/bridge-handler/mapping/event-mapper/incoming/`\n\n### Orchestrator Pattern:\n```javascript\n// ToolTemplates.js acts as orchestrator\nstatic formatToolNotification(payload) {\n  const { action } = payload;\n  \n  switch(action) {\n    case 'search': return SearchFormatter.format(payload);\n    case 'read': return ReadFormatter.format(payload);\n    case 'edit': return EditFormatter.format(payload);\n    case 'write': return WriteFormatter.format(payload);\n    default: return GenericFormatter.format(payload);\n  }\n}\n```\n\n### Ultra-Modular Formatters:\nEach formatter is a **micro-component** (~30-60 lines) with single responsibility:\n\n1. **SearchFormatter** - Formats Glob/Grep search results\n2. **ReadFormatter** - Formats file read operations\n3. **EditFormatter** - Formats file edit operations\n4. **WriteFormatter** - Formats file write operations\n\n**Design Principles:**\n- **Single Responsibility**: Each formatter handles one action type\n- **Delegation Pattern**: Orchestrator delegates to specific formatters\n- **No Legacy References**: Clean break from flat structure (no backward compatibility in UI)\n- **Testability**: Small, focused components easy to test\n\n---\n\n## CSS Architecture: Ultra-Modular Organization\n\n**Tool notification styles** follow our ultra-modular CSS pattern:\n\n### Main Orchestrator File:\n`ui-messages-tool-use.css` (22 lines)\n```css\n/* Orchestrator - imports only */\n@import './tool-use/base.css';\n@import './tool-use/components/tool-card.css';\n@import './tool-use/components/tool-header.css';\n@import './tool-use/components/tool-content.css';\n/* ... 9 focused imports total */\n```\n\n### Modular Structure:\n```\ntool-use/\n├── base.css                    # Variables, base classes\n├── components/\n│   ├── tool-card.css          # Container styles\n│   ├── tool-header.css        # Header/title area\n│   ├── tool-content.css       # Content area\n│   └── tool-icon.css          # Icon styles\n├── states/\n│   ├── working.css            # Spinner/loading state\n│   ├── completed.css          # Success state\n│   └── error.css              # Error state\n└── utilities/\n    └── animations.css          # Shared animations\n```\n\n**Benefits:**\n- **Maintainability**: Find styles by component/state\n- **Single Responsibility**: Each file has one purpose\n- **Reusability**: Shared utilities across components\n- **Scalability**: Easy to add new tool types/states\n\n---\n\n## Tool Visualization During Streaming\n\n**Real-time tool state transitions:**\n\n1. **tool_use_start** event → Show tool card with spinner\n2. **input_json_delta** events → Stream tool parameters in real-time\n3. **tool_use_end** event → Update to completed state with results\n\n**DOM Positioning Strategy:**\n```\n.message-content\n├── .thinking-box           (if reasoning exists)\n├── .tool-notification      (tool cards)\n├── .stream-text            (assistant text)\n└── .streaming-indicator    (typing indicator at bottom)\n```\n\n**Critical Implementation Detail:**\n- Tools must be correctly positioned during streaming\n- Global DOM search fallback handles element relocation\n- Tool elements preserved in final message (not removed on completion)\n\n---\n\n## Key Gotchas & Lessons Learned\n\n1. **Unknown Command Bug**: Tool notifications showing \"Unknown command\" instead of proper names\n   - **Solution**: Added inline action-to-tool-name mapper in ToolTemplates.js\n   - Location: `src/ui/modules/ui-logic/core/events/bridge-handler/mapping/event-mapper/incoming/ToolTemplates.js`\n\n2. **Tool Positioning During Streaming**: Tools appearing in wrong position (all text merged)\n   - **Solution**: Tools inserted inside `.stream-text`, chunks appended incrementally\n   - Tools must be repositioned correctly: thinking → tools → text → indicator\n\n3. **Stuck Spinner State**: Tool notifications stuck in \"working\" spinner forever\n   - **Solution**: Global DOM search fallback to find relocated tool elements during streaming\n   - File: `src/ui/modules/ui-logic/core/events/bridge-handler/mapping/event-mapper/incoming/ChatStreamMappers.js`\n\n4. **Backend-UI Coordination**: Backend sends nested structure, UI expects nested structure\n   - **Clean Break**: UI has NO backward compatibility - uses nested structure only\n   - **Backend Migration**: Backend populates both new nested + legacy flat fields during transition\n\n---\n\n## Recent Refactoring Journey (Nov 2025)\n\n**Complete Tool Backend Refactor:**\n- Migrated from flat to action-specific nested payload structure\n- Updated all tool result processors and coordinators\n- Maintained backward compatibility at backend level\n\n**UI Formatter Migration:**\n- Created action-specific formatters (Search, Read, Edit, Write)\n- Implemented orchestrator pattern in ToolTemplates.js\n- Removed all legacy flat structure references (clean break)\n\n**Result:**\n- ✅ Clear separation between action types\n- ✅ Easy to extend (add new tool types)\n- ✅ Maintainable and testable\n- ✅ Consistent with our ultra-modular architecture philosophy\n\n---\n\n## Design Patterns We Follow\n\n1. **Orchestrator Pattern**: Main coordinator delegates to specialized components\n2. **Ultra-Modular**: Small, focused files/components (avg 30-60 lines)\n3. **Single Responsibility**: Each component does ONE thing well\n4. **Dependency Injection**: Components receive dependencies, don't create them\n5. **Action-Specific Design**: Different tool actions get different structures/formatters\n6. **Glassmorphism UI**: Premium visual design with backdrop-filter effects\n\nThis architecture makes tools a **first-class citizen** in the UI, showing users Claude's complete problem-solving process in real-time with transparency and elegance.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762117614440,
+      "type": "decision",
+      "content": "User wants to create a visual design reference/mockup for tool notifications in tests/design/tools folder. Goal: static HTML with just background and container (no state icons like spinner/complete/failed), using real production CSS files. This is for design testing/iteration.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762117733407,
+      "type": "decision",
+      "content": "Created tool notification design mockup at tests/design/tools/tool-notification-mockup.html for visual design testing. File shows only container background and structure (no state icons) using real production CSS files via relative paths. Includes examples of all action types (read, write, search, execute, analyze) in various layouts.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762117813592,
+      "type": "note",
+      "content": "Updated tool notification mockup to show only icon and tool name - removed all file names and details from the right side per user request. Clean minimal design for background/container testing.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762117893090,
+      "type": "note",
+      "content": "Updated tool notification mockup to use --dark-gradient background instead of the default rgba background, and added border using --border-primary variable. This gives the tools a richer, more premium look with the metallic gradient theme.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762118141506,
+      "type": "decision",
+      "content": "User wants to redesign tool status indicator: Replace current spinner with simple dot-based status system:\n1. Working: Yellow blinking rounded circle\n2. Complete: Green solid dot (no blink)\n3. Error: Red solid dot (no blink)\n\nThis will replace the tool action icon in the demo HTML. Start with demo implementation first before touching production code.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762118209226,
+      "type": "decision",
+      "content": "Created new dot-based status indicator system for tool notifications in demo mockup. Replaced action icons with simple 8px status dots:\n- Working: Yellow (#e0af68) with smooth pulsing animation (1.5s)\n- Complete: Green (#9ece6a) solid, no animation\n- Error: Red (#e65b5b) solid, no animation\n\nDemo organized in 3 sections showing each state clearly. Using CSS variables from theme (--state-active, --state-success, --state-error).",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762118281640,
+      "type": "note",
+      "content": "Enhanced status dots with depth and shine effects:\n- Radial gradient backgrounds (lighter at 30% 30% position for 3D effect)\n- Multi-layered box-shadows (outer drop shadow + inset highlights/shadows)\n- ::before pseudo-element for top-left shine overlay\n- Subtle glow effect on each state (yellow 8px, green/red 6px)\n- Creates glossy, premium LED-like appearance matching metallic theme",
+      "metadata": {}
+    }
+  ]
+}

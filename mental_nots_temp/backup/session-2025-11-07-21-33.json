@@ -1,0 +1,36 @@
+{
+  "sessionId": "2025-11-07-21-33",
+  "startTime": 1762544005403,
+  "entries": [
+    {
+      "timestamp": 1762544005405,
+      "type": "note",
+      "content": "Continuing debugging thinkingEnabled undefined issue from last session. Already have strategic logging in MessageRouter at lines 169-185 to track payload before/after conversion.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762544071942,
+      "type": "note",
+      "content": "Analyzed thinkingEnabled flow:\n- UI: MessageSendHandler gets boolean from ThinkingToggleController.isThinkingEnabled() (defaults to false)\n- UI: createChatMessageSend() has conditional spread: ...(thinkingEnabled !== null && { thinkingEnabled })\n- UI: ChatOutgoingMappers passes it through at line 81\n- Extension: MessageValidator receives and passes through at line 29\n- Extension: MessageRouter logs it before/after conversion\n\nWaiting for actual console logs from Moti to see where undefined appears.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762544391949,
+      "type": "gotcha",
+      "content": "FOUND THE BUG! There are TWO copies of ChatEventFactories.js:\n1. src/ui/modules/ui-logic/core/events/categories/chat/ChatEventFactories.js (updated with thinkingEnabled)\n2. src/ui/modules/core/events/categories/chat/ChatEventFactories.js (OLD VERSION - missing thinkingEnabled param!)\n\nMessageSendHandler imports from the OLD file via ../../../../../core/events/events.js, which is why thinkingEnabled was always undefined!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762544765145,
+      "type": "gotcha",
+      "content": "There are DUPLICATE UI module hierarchies:\n1. src/ui/modules/core/* (OLD)\n2. src/ui/modules/ui-logic/* (NEW)\n\nThe logs show ChatMessageHandler from CORE is being used (no mapper logs), but we updated the ui-logic version. Need to update the CORE version of ChatOutgoingMappers with thinkingEnabled support!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762544992885,
+      "type": "decision",
+      "content": "SOLUTION: thinkingEnabled field was missing in the CORE ChatOutgoingMappers!\n\nProblem: UI was creating event with thinkingEnabled=true, but extension received undefined.\n\nRoot cause: There are DUPLICATE UI module hierarchies:\n- src/ui/modules/core/* (ACTIVE - being used)\n- src/ui/modules/ui-logic/* (INACTIVE - not being used)\n\nWe updated the ui-logic version, but the CORE version in src/ui/modules/core/events/bridge-handler/mapping/event-mapper/outgoing/ChatOutgoingMappers.js was missing the thinkingEnabled field in bridgePayload.\n\nFix: Added `thinkingEnabled: payload.thinkingEnabled` to line 72 of the CORE ChatOutgoingMappers.js",
+      "metadata": {}
+    }
+  ]
+}

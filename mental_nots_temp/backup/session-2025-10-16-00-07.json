@@ -1,0 +1,54 @@
+{
+  "sessionId": "2025-10-16-00-07",
+  "startTime": 1760562420194,
+  "entries": [
+    {
+      "timestamp": 1760562420195,
+      "type": "note",
+      "content": "Goal clarification: Moti wants multiple chat instances within the SAME webview (not duplicate webviews). Think like Slack channels or Discord - one UI, multiple conversations. Need to implement chat session management, switching, and state isolation within the existing WebviewView architecture.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760562493440,
+      "type": "decision",
+      "content": "Architecture Analysis Complete:\n\nCURRENT STATE:\n- Single UIStateManager with one sessionId\n- Messages displayed directly in DOM (not stored in JS data structures)\n- Single LogicManager instance handles all communication\n- No concept of multiple chat contexts\n\nNEEDED FOR MULTI-CHAT:\nBackend (Extension):\n1. ChatInstanceManager - Map<chatId, ChatInstance>\n2. Per-instance state isolation (sessionId, UIStateManager, message history)\n3. Message routing with chatId in protocol\n4. Provider context per chat\n\nFrontend (UI):\n1. ChatTabManager - UI for switching chats\n2. Message storage Map<chatId, messages[]>\n3. Load/hide messages when switching chats\n4. All UI events include chatId\n\nThis is MUCH simpler than multi-webview approach - just need proper state management and routing within existing architecture.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760562910789,
+      "type": "decision",
+      "content": "Backend Phase 1 Complete! ✅\n\nCreated:\n- ChatInstance.ts - Per-chat state isolation (sessionId, UIStateManager, message history)\n- ChatInstanceManager.ts - Manages multiple chat instances with active tracking\n- Updated LogicManager.ts - Routes messages based on chatId, switches active chat dynamically\n- Updated bridge.ts & chat.ts protocols - Added optional chatId field to all key event payloads\n\nArchitecture: \n- Each chat has own UIStateManager → independent agent/permission state\n- chatId defaults to 'default' for backward compatibility\n- LogicManager creates/switches chat instances on demand\n- State manager references updated when switching chats\n\nNext: Frontend implementation (ChatTabManager, UI storage, message display)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760563152656,
+      "type": "decision",
+      "content": "Phase 2 Complete - Backend & Frontend Integration! ✅\n\nBackend (Extension):\n- ChatInstance.ts: Per-chat state (UIStateManager, sessionId, message history)\n- ChatInstanceManager.ts: Multi-chat orchestration  \n- LogicManager.ts: chatId routing, dynamic chat switching\n- Protocol: Added chatId to all event payloads\n\nFrontend (UI):\n- ChatTabManager.js: Tab management, message storage per chat, DOM state save/restore\n- Integrated into UIControllerManager\n- MessageTransport.js: Automatic chatId injection in all outgoing messages\n- BridgeHandler: ChatTabManager injection for active chat tracking\n- UIManager: Wired up ChatTabManager ↔ BridgeHandler\n\nMessage Flow:\nUI → MessageTransport (adds chatId) → Extension → LogicManager (routes by chatId) → ChatInstance\n\nNext: UI styling (tab bar with glassmorphism)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760563405595,
+      "type": "decision",
+      "content": "Multi-Chat Implementation COMPLETE! 🎉\n\n✅ All Phases Complete:\n\nBackend (Extension):\n- ChatInstance.ts: Per-instance state isolation\n- ChatInstanceManager.ts: Multi-instance orchestration  \n- LogicManager.ts: chatId routing & dynamic switching\n- Protocol: chatId in all event payloads\n\nFrontend (UI):\n- ChatTabManager.js: Tab management, DOM save/restore, message storage\n- UIControllerManager: Integrated ChatTabManager\n- MessageTransport.js: Auto chatId injection\n- BridgeHandler: ChatTabManager wiring\n- Chat tabs UI: Glassmorphism design with animations\n\nStyling:\n- ui-chat-tabs.css: Premium glassmorphism tab bar\n- Responsive design, dark mode support\n- Active indicators, badges, close buttons, new chat button\n\nBuild: ✅ Successful compilation\n\nArchitecture:\n- Same webview, multiple chat contexts\n- Per-chat sessionId tracking\n- Independent agent/permission states\n- DOM preservation on tab switch\n\nReady to test!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760563821173,
+      "type": "gotcha",
+      "content": "ISSUE FOUND: ES6 Module Loading in Webview\n\nThe error `Error using fileReader` for events.js is caused by VS Code webview security restrictions on ES6 module imports.\n\nRoot Cause:\n- main.js is loaded via webview:// protocol (secure)\n- main.js imports UIManager, which imports UIControllerManager, which imports ChatTabManager\n- ChatTabManager imports from '../../../core/events/events.js'\n- Browser tries to resolve this import relative to ChatTabManager's location\n- VS Code webview blocks the file access due to security policy\n\nThe webview needs `localResourceRoots` to include the entire src/ui directory so all ES6 imports can be resolved.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760564068662,
+      "type": "error",
+      "content": "CRITICAL ERROR - CSP Misconfiguration\n\nWhat I did wrong:\n- Removed `https:` from script-src\n- This blocked ALL CDN scripts including Prism.js from cdnjs.cloudflare.com\n- VS Code adds its own CSP restrictions (`'self'` and `https://*.vscode-cdn.net`)\n- cdnjs.cloudflare.com doesn't match *.vscode-cdn.net, so blocked\n\nOriginal CSP had: `script-src https: 'unsafe-inline'`\nMy broken CSP: `script-src 'unsafe-inline' vscode-resource: vscode-webview:`\n\nThe events.js 404 is STILL happening - CSP change didn't fix module loading.\n\nReal issue: Module import resolution, NOT CSP.\nNeed different approach.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760564387823,
+      "type": "decision",
+      "content": "CSP Issue RESOLVED - Multi-Chat Temporarily Disabled\n\nWhat I Did:\n1. REVERTED broken CSP change - restored original: `script-src https: 'unsafe-inline'`\n2. COMMENTED OUT ChatTabManager import and registration in UIControllerManager\n3. COMMENTED OUT ChatTabManager injection in UIManager\n\nResult:\n✅ Prism.js CDN loading restored (syntax highlighting works)\n✅ No CSP violations\n✅ No events.js 404 errors\n✅ Extension loads normally\n\nMulti-Chat Status:\n⚠️ Temporarily disabled - needs investigation\n📁 All code preserved (commented out, not deleted)\n🔍 Need to investigate module loading for chat-tabs/ directory\n\nNext Steps:\n- Research why ChatTabManager module loading fails\n- Check webview localResourceRoots configuration\n- Verify if UI files need special handling\n- Compare with working controllers for patterns",
+      "metadata": {}
+    }
+  ]
+}

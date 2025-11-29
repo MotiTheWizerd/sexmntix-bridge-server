@@ -1,0 +1,54 @@
+{
+  "sessionId": "2025-10-17-11-33",
+  "startTime": 1760689981344,
+  "entries": [
+    {
+      "timestamp": 1760689981345,
+      "type": "error",
+      "content": "User (Moti) reports: streaming not formatting well - need to investigate markdown/formatting issues in real-time streaming responses",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760690176291,
+      "type": "decision",
+      "content": "Root cause identified: ChunkProcessor.js:65 uses textContent instead of innerHTML, showing raw markdown during streaming. Markdown only applied after completion in StreamCompleter. Need to apply MarkdownFormatter during streaming for real-time formatted display.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760690261092,
+      "type": "decision",
+      "content": "FIXED streaming markdown formatting bug! Changed ChunkProcessor.js to apply MarkdownFormatter.toHtml() and PrismHighlighter during streaming (lines 69-73) instead of showing raw text. Now users see formatted markdown in real-time instead of only after completion.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760690538038,
+      "type": "decision",
+      "content": "Fixed streaming code block gray wrapper: Changed .stream-output to transparent background with no border/padding, and .stream-text to display:block instead of inline. This removes unwanted gray box around streaming code blocks.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760690618848,
+      "type": "note",
+      "content": "✅ Created delta memory: streaming-markdown-real-time-formatting-fix.json - Captured complete solution for real-time markdown formatting during streaming with syntax highlighting. User very happy with the fix! ❤️",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760690784364,
+      "type": "note",
+      "content": "User wants to reduce streaming delay. Found StreamingResponseHandler.ts line 60 already set to 100ms (await sleep(100)). Need to clarify if user wants it faster or if there's another delay they're experiencing.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760690817302,
+      "type": "decision",
+      "content": "User wants streaming delay reduced from 100ms to 50ms for faster typewriter effect",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760690925274,
+      "type": "decision",
+      "content": "✅ Successfully reduced streaming delay from 100ms to 50ms in StreamingResponseHandler.ts line 60. Build completed successfully. Streaming will now be 2x faster while maintaining smooth typewriter effect.",
+      "metadata": {}
+    }
+  ]
+}

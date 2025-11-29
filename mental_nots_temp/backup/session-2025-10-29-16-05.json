@@ -1,0 +1,18 @@
+{
+  "sessionId": "2025-10-29-16-05",
+  "startTime": 1761746701110,
+  "entries": [
+    {
+      "timestamp": 1761746701112,
+      "type": "note",
+      "content": "Found checklist transformation system - markdown \"- [ ]\" and \"- [x]\" patterns converted to interactive checkboxes with blue gradient styling via ChecklistProcessor → NestedChecklistBuilder → message-content-checklists.css",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761746833229,
+      "type": "note",
+      "content": "Found dash-to-checkmark transformation: TagGenerator.listBullet() returns '✅ ' at line 57 in TagGenerator.js. User wants to revert to plain dash '-'",
+      "metadata": {}
+    }
+  ]
+}

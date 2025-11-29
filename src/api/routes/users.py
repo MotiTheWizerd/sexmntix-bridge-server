@@ -49,29 +49,52 @@ async def create_user(
 @router.get("/{id}", response_model=UserResponse)
 async def get_user(
     id: str,
+    withProjectCount: bool = False,
+    withProjects: bool = False,
     db: AsyncSession = Depends(get_db_session),
     logger: Logger = Depends(get_logger),
 ):
-    logger.info(f"Fetching user: {id}")
+    logger.info(f"Fetching user: {id} (withProjectCount: {withProjectCount}, withProjects: {withProjects})")
     
     repo = UserRepository(db)
-    user = await repo.get_by_id(id)
     
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    return user
+    # withProjects takes precedence as it includes project_count
+    if withProjects:
+        user_data = await repo.get_by_id_with_projects(id)
+        if not user_data:
+            raise HTTPException(status_code=404, detail="User not found")
+        return user_data
+    elif withProjectCount:
+        user_data = await repo.get_by_id_with_project_count(id)
+        if not user_data:
+            raise HTTPException(status_code=404, detail="User not found")
+        return user_data
+    else:
+        user = await repo.get_by_id(id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        return user
 
 
 @router.get("", response_model=List[UserResponse])
 async def list_users(
     limit: int = 100,
+    withProjectCount: bool = False,
+    withProjects: bool = False,
     db: AsyncSession = Depends(get_db_session),
     logger: Logger = Depends(get_logger),
 ):
-    logger.info(f"Listing users (limit: {limit})")
+    logger.info(f"Listing users (limit: {limit}, withProjectCount: {withProjectCount}, withProjects: {withProjects})")
     
     repo = UserRepository(db)
-    users = await repo.get_all(limit=limit)
     
-    return users
+    # withProjects takes precedence as it includes project_count
+    if withProjects:
+        users = await repo.get_all_with_projects(limit=limit)
+        return users
+    elif withProjectCount:
+        users = await repo.get_all_with_project_count(limit=limit)
+        return users
+    else:
+        users = await repo.get_all(limit=limit)
+        return users

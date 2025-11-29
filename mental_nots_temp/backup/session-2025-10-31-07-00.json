@@ -1,0 +1,24 @@
+{
+  "sessionId": "2025-10-31-07-00",
+  "startTime": 1761886853405,
+  "entries": [
+    {
+      "timestamp": 1761886853407,
+      "type": "note",
+      "content": "## User Input Focus Events Architecture Recap\n\nFrom memory search, learned our input focus system has these key components:\n\n### 1. Focus Source Tracking (Oct 8, 2025)\n- **Problem**: Need to distinguish user-initiated focus/blur from programmatic actions\n- **Solution**: Complete focus source tracking architecture with intent flags and user engagement state\n- Built into UserInputController to detect if focus changes are from user or system\n\n### 2. Auto-Refocus System (Oct 8, 2025)  \n- **Problem**: Input should stay focused when user is engaged but agent becomes busy\n- **Solution**: Event-driven auto-refocus infrastructure\n- Architecture simplified by removing input disable on agent busy\n- Uses directive events to manage refocus behavior\n\n### 3. UserInputController Architecture (Oct 17, 2025)\n- Refactored from 205-line monolith → 120-line orchestrator + 8 micro-components\n- Handles 7 concerns: DOM init, keyboard events, focus/blur tracking, input state, sub-controller coordination, lifecycle, event bus\n- Components size: 35-70 lines each\n- Has focus-source-detection capability built in\n\n### Key Events & Flow:\n- Focus/blur events tracked with source metadata (user vs programmatic)\n- User engagement state tracked to enable smart refocus\n- Event-driven architecture for coordinating focus behavior\n- Integration with event bus for system-wide coordination\n\nNext: Need to understand what specific UI improvement Moti wants related to focus events.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761886994404,
+      "type": "note",
+      "content": "## Provider Selection Focus Event Task\n\nMoti wants to emit focus event when user clicks a provider in the provider selection popup.\n\n**Current Flow (from memory):**\n1. User clicks \"New Chat\" button\n2. Provider selection popup opens\n3. User clicks a provider\n4. Provider stored in ChatStore\n5. Popup closes\n\n**Missing:** Focus event emission after provider selection\n\n**What I Found:**\n- Provider selection popup implemented Oct 24-25, 2025\n- Focus source tracking architecture exists (Oct 8)\n- Auto-refocus system exists\n- But couldn't find specific memory about focus event on provider click\n\n**Need to investigate:**\n- Where provider click handler is (likely in ProviderSelectionPopup component)\n- Current ChatOutgoingMappers structure\n- How to emit focus event with source='user' flag\n\nMoti says we worked on this together before - need to find the right files to understand the implementation.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761887050357,
+      "type": "note",
+      "content": "## Provider Selection Focus Event - Solution Found\n\n**Current Flow:**\n1. User clicks \"New Chat\" button\n2. ChatTabManager creates/shows ProviderSelectionPopup (line 140)\n3. Popup displays, user clicks provider button (line 140-146 in ProviderSelectionPopup.js)\n4. Callback fired with providerId\n5. Popup closes\n\n**What needs to happen:**\nWhen user clicks provider button, emit INPUT_FOCUSED event before closing popup.\n\n**Implementation Details:**\n- ChatTabManager has `this.eventBus` (line 38)\n- Need to pass eventBus to ProviderSelectionPopup constructor\n- In provider button click handler (line 140-151 in ProviderSelectionPopup.js), emit focus event\n- Use pattern from FocusEventHandler.js (line 50-53)\n- Event: UI_EVENTS.INPUT_FOCUSED\n- Payload: { source: 'user', timestamp: Date.now() }\n\n**Files to modify:**\n1. ProviderSelectionPopup.js - Add eventBus param to constructor, emit event on provider click\n2. ChatTabManager.js - Pass eventBus when creating ProviderSelectionPopup (line 140)",
+      "metadata": {}
+    }
+  ]
+}

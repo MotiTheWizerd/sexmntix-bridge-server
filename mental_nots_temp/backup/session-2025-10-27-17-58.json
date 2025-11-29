@@ -1,0 +1,18 @@
+{
+  "sessionId": "2025-10-27-17-58",
+  "startTime": 1761580695810,
+  "entries": [
+    {
+      "timestamp": 1761580695812,
+      "type": "gotcha",
+      "content": "PROBLEM: payload.provider is undefined when placeholder created from agent.state='busy' event. Need to get provider from ChatStore.get(chatId).providerId instead.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761581775035,
+      "type": "decision",
+      "content": "SAVED memory: provider-icon-per-message-isolation-incomplete.json. Task incomplete - provider still undefined because placeholder created from agent.state='busy' event which doesn't have provider field. Need to inject ChatStore to look up providerId.",
+      "metadata": {}
+    }
+  ]
+}

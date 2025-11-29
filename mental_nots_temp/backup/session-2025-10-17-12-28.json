@@ -1,0 +1,12 @@
+{
+  "sessionId": "2025-10-17-12-28",
+  "startTime": 1760693292425,
+  "entries": [
+    {
+      "timestamp": 1760693292446,
+      "type": "decision",
+      "content": "Best Practice: Module Refactoring Ultra\n\nKey principle for maintaining clean architecture in Sementix:\n\nWhen refactoring modules, follow the \"ultra\" approach:\n1. Break down large modules into focused, single-responsibility components\n2. Establish clear dependency hierarchies\n3. Extract reusable utilities and factories\n4. Separate concerns: UI templates, business logic, state management\n5. Create dedicated managers for complex features (like indicators, message handling)\n6. Use factory patterns for component creation to centralize instantiation logic\n\nThis approach helps maintain code clarity as the project grows and makes debugging/testing much easier.\n\nRecent example: Refactoring the agent messages manager with dedicated TypingIndicatorTemplateManager and ComponentFactory.",
+      "metadata": {}
+    }
+  ]
+}

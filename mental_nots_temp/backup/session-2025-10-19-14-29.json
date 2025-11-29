@@ -1,0 +1,60 @@
+{
+  "sessionId": "2025-10-19-14-29",
+  "startTime": 1760873361587,
+  "entries": [
+    {
+      "timestamp": 1760873361590,
+      "type": "note",
+      "content": "Starting session: Implementing conversation history loading functionality. User wants to load selected conversation into UI. Need to understand current rendering architecture and message structure.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760873441795,
+      "type": "note",
+      "content": "Found key architecture pieces:\n- AgentMessagesManager: displays agent messages with streaming support\n- UserConversationHistory: stores conversation history in JSON files\n- Events: chat.stream.start, chat.stream.chunk, chat.stream.complete\n- Need to understand stored conversation structure to replay messages",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760873523665,
+      "type": "decision",
+      "content": "ARCHITECTURE UNDERSTANDING:\n\n1. Message Storage (Backend):\n   - SessionData contains messages[] array\n   - Each message is UserMessage or AgentMessage\n   - AgentMessage.message is ConversationMessage type (complex object with content/toolUse/thinking)\n\n2. Current Message Display Flow:\n   - UI: AgentMessagesManager.displayAgentMessage(payload)\n   - Streaming: startStreamingMessage → appendStreamChunk → completeStreamingMessage\n   - Events: chat.stream.start, chat.stream.chunk, chat.stream.complete\n\n3. Key Components:\n   - MessageListController: manages .message-list DOM\n   - AgentMessagesManager: displays agent messages with 22 micro-components\n   - UserUIController: handles user messages\n   \nNeed to brainstorm how to replay historical messages into the UI",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760873645196,
+      "type": "decision",
+      "content": "USER DECISION: Load historical conversations in NEW TAB (not clearing current chat)\n\nStage 1 Focus: Click handler + New tab opening\n- When user clicks session in dropdown → open new tab with that conversation\n- Keep current chat intact (multi-chat architecture)\n- Need to understand current tab system and how to create new tabs",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760873705816,
+      "type": "note",
+      "content": "ChatTabManager Architecture:\n- createNewChat() → generates chatId, creates chat in store, creates message-list DOM, switches to it\n- Each chat has its own message-list DOM element (MessageListFactory pattern)\n- ChatOperationsCoordinator handles CRUD operations\n- Need to create new tab with sessionId/title from history dropdown",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760873720769,
+      "type": "decision",
+      "content": "STAGE 1 DESIGN - Click Handler + New Tab Opening:\n\nARCHITECTURE DISCOVERED:\n- ChatTabManager.createNewChat() creates new tab with generated chatId\n- ChatStore stores: { id, title, messages[], sessionId, agentState, isStreaming, timestamps }\n- Each chat gets dedicated message-list DOM via MessageListFactory\n- ChatOperationsCoordinator handles tab CRUD + rendering\n\nSTAGE 1 PLAN:\n1. HeaderDropdown.handleSessionClick() → create new tab with session metadata\n2. Instead of random chatId, use sessionId from history\n3. Set chat.title from session metadata (first user message or timestamp)\n4. Mark tab somehow that it's loading historical data\n5. Switch to the new tab\n6. Next stages will load the actual messages\n\nKEY INSIGHT: Chat already has sessionId field! Perfect for linking to conversation history.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760873733651,
+      "type": "note",
+      "content": "Preparing Stage 1 implementation plan. Need to:\n1. Understand current session click handler in HeaderDropdown\n2. Understand how to inject ChatTabManager into HeaderDropdown\n3. Design the flow: click → create tab with sessionId → switch to it\n4. Prepare for Stage 2 (loading messages) with proper state management",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760873798880,
+      "type": "decision",
+      "content": "STAGE 1 COMPLETE ARCHITECTURE PLAN:\n\nDEPENDENCY INJECTION PATTERN:\n- HeaderController owns HeaderDropdown (line 30, 87)\n- Need to inject ChatTabManager into HeaderDropdown\n- Follow existing pattern: HeaderController receives ChatTabManager, passes to HeaderDropdown\n\nIMPLEMENTATION APPROACH:\n1. Add setChatTabManager() method to HeaderDropdown (like UserUIController has)\n2. HeaderController receives ChatTabManager injection from DependencyInjector\n3. When session clicked: create new tab with sessionId, set title, switch to it\n4. Chat.sessionId field already exists in ChatStore - perfect for linking!\n\nNEXT STAGES:\n- Stage 2: Load session data from extension\n- Stage 3: Replay messages into the new tab",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760874083055,
+      "type": "gotcha",
+      "content": "GOTCHA: Tried to build React UI but dropdown is vanilla JS!\n- HeaderDropdown is vanilla JavaScript (not React)\n- Changes are in .js files in src/ui/modules/\n- Need to run pnpm build (not pnpm build:react)\n- The UI modules get copied/bundled during the main build process",
+      "metadata": {}
+    }
+  ]
+}

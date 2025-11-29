@@ -1,0 +1,90 @@
+{
+  "sessionId": "2025-11-12-21-16",
+  "startTime": 1762975001215,
+  "entries": [
+    {
+      "timestamp": 1762975001217,
+      "type": "decision",
+      "content": "Moti wants to change permission architecture: Move from permission-on-request to proactive allowedTools injection. Each chat session maintains allowedTools array that gets injected into every user message sent to Claude CLI.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762975020119,
+      "type": "note",
+      "content": "Current Architecture Analysis:\n- AllowedToolsTracker: Stores Set<string> of tool types per chat session\n- AllowedToolsResolver: Merges global settings + session tools → final array\n- ChatInstance: Exposes getAllowedTools() API to get session tools\n- Tools are mapped via ToolPermissionMapper (e.g., 'Write' → ['Write', 'Edit', 'MultiEdit', 'Bash'])\n- Current flow: Permission denied → Dialog → User approves → Add to tracker → Resolver merges → CLI gets --allowedTools",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762975116022,
+      "type": "note",
+      "content": "Moti asks: Do we inject AllowedToolsTracker for each user message currently? Need to investigate where --allowedTools flag is actually used in CLI commands.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762975176236,
+      "type": "gotcha",
+      "content": "FINDING: Currently we do NOT inject AllowedToolsTracker on each user message!\n\nCurrent flow:\n- ConversationManager.askClaudeAsConversation() sets allowedTools = [] (line 69)\n- This empty array is passed to CLIExecutor.claudeMessage()\n- Result: NO tools are pre-approved, all tools trigger permission dialogs\n\nThe AllowedToolsResolver exists but is NOT being called from ConversationManager!\nThe three-choice permission system stores choices but doesn't use them proactively.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762975418220,
+      "type": "note",
+      "content": "Moti wants to replace the old two-button system (Deny/Allow + checkbox) with the three visual choice options:\n1. \"Yes\" → Allow once (single approval)\n2. \"Yes, and don't ask again\" → Allow for session (store in AllowedToolsTracker)\n3. \"No\" → Deny\n\nCurrent HTML has both systems. Need to remove old buttons/checkbox and wire up click handlers to the three choice divs.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762975511604,
+      "type": "decision",
+      "content": "IMPORTANT CLARIFICATION from Moti:\n- Choice 2 \"Yes, and don't ask again\" should be ONLY for current session/conversation\n- NOT a global \"always allow\" setting\n- It should add to ChatInstance's AllowedToolsTracker for this specific chat session only\n- When user starts a new chat, permissions reset (clean slate)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762975559397,
+      "type": "gotcha",
+      "content": "KEY FINDING - Current permission flow:\n1. UI sends decision: 'allow' OR 'always_allow' OR 'deny'\n2. PermissionWorkflowManager line 39-47: If 'always_allow', saves to GLOBAL SettingsManager\n3. This is stored as persistent user preference across ALL chats\n4. Problem: No per-chat session storage being used!\n5. AllowedToolsTracker exists in ChatInstance but never gets tools added to it\n6. Need to: Add 'allow_session' decision type that stores in ChatInstance instead of SettingsManager",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762975908409,
+      "type": "decision",
+      "content": "CRITICAL ARCHITECTURAL SHIFT - Moti's real vision:\n\nOLD (Reactive): User message → Claude tries tool → Permission denied → Dialog → Approve → Resume with allowedTools\n\nNEW (Proactive): User message → Inject allowedTools from ChatInstance → Claude uses tools directly (no permission denial!)\n\nThe AllowedToolsTracker should be injected BEFORE sending message, not after permission denial.\nThis means:\n1. Each chat maintains its allowedTools array\n2. EVERY user message includes these tools in CLI command\n3. No permission denials for already-allowed tools\n4. Only NEW tools trigger permission dialog\n\nThis is a fundamental shift from reactive to proactive permission model!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762975990098,
+      "type": "note",
+      "content": "PLANNING SESSION START:\nMoti confirmed the architectural shift from reactive to proactive permission model.\nPriority 1: Inject allowedTools from ChatInstance into EVERY user message\nPriority 2: Wire up three-choice UI to populate ChatInstance.allowedTools\n\nNeed to plan full implementation path using memory to understand:\n- How message sending flows from UI → Extension → Provider\n- Where ChatInstance is accessible in the flow\n- How to pass ChatInstance/chatId through the layers\n- How ConversationManager gets access to resolved allowedTools",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762976287633,
+      "type": "note",
+      "content": "ARCHITECTURE MAPPING - Message flow found:\n1. UI sends chat.user.message.v1 with chatId\n2. MessageRouter.routeUserMessage() - line 182: Gets ChatInstance via chatInstanceManager.getOrCreateInstance(chatId)\n3. ChatInstance has sessionId and providerId\n4. Routes to StreamingHandler or BlockingHandler\n5. Need to find where provider.sendMessage() is called to inject allowedTools\n\nCurrent: ChatInstance is already accessible in MessageRouter!\nNext: Find where provider methods are called to add allowedTools parameter",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762976314219,
+      "type": "note",
+      "content": "Found the message flow chain:\n1. MessageRouter → ProviderDispatcher.processMessageStream() \n2. ProviderDispatcher calls provider.processMessageAsConversationStream(message)\n3. Need to find where this is implemented in claude-code-cli-adapter\n4. That's where ConversationManager.askClaudeAsConversationStream() is called\n5. THAT'S where we need to inject allowedTools from ChatInstance\n\nKey insight: ExtensionMessage needs to carry chatId, so we can lookup ChatInstance and get allowedTools",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762976385442,
+      "type": "decision",
+      "content": "COMPLETE ARCHITECTURE MAPPED:\n\nMessage Flow Chain:\n1. UI → MessageRouter.routeUserMessage(payload with chatId)\n2. MessageRouter gets ChatInstance via chatInstanceManager.getOrCreateInstance(chatId) ✅ Already has access!\n3. MessageRouter → ProviderDispatcher → provider.processMessageAsConversationStream(message)\n4. Provider (ClaudeCodeCLIAdapter) → ConversationStrategy.execute()\n5. ConversationStrategy → ClaudeCodeService.askClaudeAsConversation()\n6. ClaudeCodeService → ConversationManager.askClaudeAsConversation() ← HARDCODED empty array line 69!\n7. ConversationManager → CLIExecutor.claudeMessage(prompt, options, allowedTools)\n8. CLIExecutor → ClaudeArgsBuilder.buildMessageArgs({ allowedTools })\n9. Final: claude --allowedTools [tools] command\n\nSOLUTION PATH:\n- Need to pass chatId through the chain OR pass allowedTools directly\n- Option 1: Add chatId to ExtensionMessage, pass to providers, providers lookup ChatInstance\n- Option 2: Resolve allowedTools in MessageRouter, add to ExtensionMessage.allowedTools field\n- Option 3: Inject ChatInstanceManager into providers to lookup on demand\n\nBest approach: Option 2 - Resolve in MessageRouter and add to message payload",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762977243558,
+      "type": "decision",
+      "content": "IMPLEMENTATION COMPLETE! ✅\n\nPhase 1 - Proactive Permission Injection:\n✅ Added allowedTools field to ExtensionMessage\n✅ MessageRouter resolves allowedTools from ChatInstance + global settings\n✅ Threaded through provider chain to ConversationManager\n✅ ConversationManager passes to Claude CLI via --allowedTools flag\n\nPhase 2 - Three-Choice UI Integration:\n✅ Removed old checkbox/button UI\n✅ Wired up three-choice divs (Yes / Yes, and don't ask again / No)\n✅ AllowButtonHandler accepts decision parameter ('allow' | 'allow_session')\n✅ PermissionWorkflowManager handles 'allow_session' → adds to ChatInstance\n✅ Updated TypeScript types for decision field\n\nArchitecture Flow:\n1. User sends message → MessageRouter injects allowedTools from ChatInstance\n2. Tools passed through to Claude CLI with --allowedTools flag\n3. Claude uses tools directly (no permission denial!)\n4. If NEW tool needed → Permission dialog appears\n5. User clicks \"Yes, and don't ask again\" → Adds to ChatInstance.allowedTools\n6. Next message includes the new tool → No dialog for that tool anymore!\n\nPer-session storage working! Each chat maintains its own allowedTools array.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762977386766,
+      "type": "decision",
+      "content": "BUILD SUCCESS! ✅\n\nFixed TypeScript compilation errors by updating PermissionResponse type in:\n- src/shared/events/ui-state.ts: Added 'allow_session' to decision union type\n\nAll type definitions now consistent:\n✅ ExtensionTypes.ts - UniversalPermissionResponse\n✅ ui-state.ts - PermissionResponse  \n✅ PermissionWorkflowManager.ts - Handles all decision types\n\nProject builds cleanly with no errors!",
+      "metadata": {}
+    }
+  ]
+}

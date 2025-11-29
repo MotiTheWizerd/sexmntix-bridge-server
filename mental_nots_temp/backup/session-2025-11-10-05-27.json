@@ -1,0 +1,12 @@
+{
+  "sessionId": "2025-11-10-05-27",
+  "startTime": 1762745260350,
+  "entries": [
+    {
+      "timestamp": 1762745260353,
+      "type": "note",
+      "content": "Semantix Memory Chunking Strategy Discovery:\n\nFound the answer in memory.py:67-104. Semantix uses **WHOLE DOCUMENT** embedding strategy, NOT chunking!\n\nEach delta memory JSON file is treated as a single semantic unit and embedded as one vector:\n- Combines: date, temporal context, component, agent, task, summary, tags, root_cause, solution, lesson\n- Uses to_embedding_text() method to concatenate all fields with space separation\n- Single embedding per memory file\n\nThis is different from typical RAG systems that chunk large documents. Makes sense because:\n1. Delta memories are already atomic units (one completed task each)\n2. Average size is reasonable (few hundred words)\n3. Maintains semantic coherence of the entire task context\n4. Simpler architecture - no chunk reassembly needed\n\nThe thinking content question becomes more interesting now - if thinking is stored, it would likely be embedded as part of the whole memory document.",
+      "metadata": {}
+    }
+  ]
+}

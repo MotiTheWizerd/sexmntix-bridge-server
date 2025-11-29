@@ -1,0 +1,48 @@
+{
+  "sessionId": "2025-11-02-21-41",
+  "startTime": 1762112510872,
+  "entries": [
+    {
+      "timestamp": 1762112510874,
+      "type": "note",
+      "content": "Starting new session with Moti. Reviewing our recent UI tool display work - we've been migrating to action-specific formatters (SearchFormatter, ReadFormatter, EditFormatter, WriteFormatter) with orchestrator pattern. This is part of our ongoing ultra-modular refactoring philosophy across the Sementix codebase.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762112600842,
+      "type": "note",
+      "content": "Reviewed tool start/end display lifecycle: tool_use_start creates placeholder with spinner → tool streams parameters → tool_use_end finds element (with DOM search fallback for relocated elements) → updates to completion state with checkmark. Critical fixes included: DOM search fallback for element relocation, tool name display mapper, positioning fixes, and placeholder lifecycle management during streaming.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762114438615,
+      "type": "decision",
+      "content": "Fixed ToolChunkTransformer.js to use clean nested action-specific structure. Removed flat payload structure (target, params, result) and replaced with nested structures (search, read, edit, write). This allows SearchFormatter and other action-specific formatters to receive the correct payload structure and display proper text.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762114857532,
+      "type": "gotcha",
+      "content": "Issue: Even with correct backend payload and ToolChunkTransformer changes, Search still shows \"Unknown\". The code path looks correct: ToolRenderer → ToolFormatter → SearchFormatter. Need to add debug logging to trace exactly what payload is being received at each step.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762115727419,
+      "type": "gotcha",
+      "content": "CRITICAL FINDING: ToolChunkTransformer logs don't appear in UI, meaning tool events are NOT flowing through ToolChunkTransformer at all! The backend sends perfect payload with nested search structure, but it's taking a different path to the UI. Need to find the actual event flow.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762115861183,
+      "type": "gotcha",
+      "content": "ROOT CAUSE FOUND! ChatStreamMappers was the culprit - it was converting backend's perfect nested structure {search, read, edit, write} back to old flat structure {target, params, result}. Fixed mapToolStart and mapToolEnd in ChatStreamMappers.js to preserve nested structure. ToolChunkTransformer was a red herring - not in the event flow at all!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762116245323,
+      "type": "decision",
+      "content": "Session ending at 22:43. FOUND THE ISSUE: Backend sends INCONSISTENT structures - tool_start has flat {target, params} but tool_end has nested {search: {...}}. Tomorrow: fix backend tool_start emission to use nested structure like tool_end does. UI side is already ready with ChatStreamMappers and all formatters.",
+      "metadata": {}
+    }
+  ]
+}

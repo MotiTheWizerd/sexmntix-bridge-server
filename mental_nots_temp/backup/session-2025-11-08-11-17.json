@@ -1,0 +1,60 @@
+{
+  "sessionId": "2025-11-08-11-17",
+  "startTime": 1762593449628,
+  "entries": [
+    {
+      "timestamp": 1762593449630,
+      "type": "note",
+      "content": "Starting new session - Moti mentioned we were working on the welcome page last session",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762593606555,
+      "type": "decision",
+      "content": "Successfully decoupled \"Sementix\" text from SVG in welcome screen. \n\nChanges:\n1. Removed SVG <text> element from WelcomeLogoSVG.js (line 175)\n2. Added HTML <div class=\"logo-text\">Sementix</div> in WelcomeScreenDOM.js after SVG\n3. Updated CSS to use background gradient with -webkit-background-clip: text for metallic effect\n4. Changed selector from .welcome-logo .logo-text to .logo-text\n\nBenefits: Better separation of concerns (SVG = cubes only), easier text modifications, cleaner architecture. Build passes ✅",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762594343089,
+      "type": "decision",
+      "content": "Added static grid net background to welcome screen. Pure CSS implementation using ::before pseudo-element with repeating-linear-gradient. Grid cell size: 40px x 40px (fine net pattern). Stroke-only lines (no fill), rgba(255, 255, 255, 0.03) for subtle appearance. No animation, completely static. Background positioned behind content with proper z-index stacking.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762594692907,
+      "type": "decision",
+      "content": "Added RGB explosion effect to background grid! Created BackgroundGridController.js following ultra-modular pattern. Highlights 10-20 random background grid cells every 6 seconds (synchronized with GridShineSweep timing). Uses same ColorPaletteProvider (RGB-only: 9 shades). Cells fade in with radial gradient, hold for 4 seconds, then fade out. Integrated into WelcomeScreen orchestrator as 7th animation controller. CSS added for .background-grid-overlay and .grid-cell-highlight. Build passes ✅",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762594804259,
+      "type": "decision",
+      "content": "Modified BackgroundGridController for radial RGB gradient explosion effect. Changed from random colored cells to radial-gradient expanding from center. RGB gradient transitions: red → green → blue. CSS @keyframes animation scales from 0 to 4x over 4 seconds with opacity fade. Explosion triggers every 6 seconds synchronized with other animations. Build passes ✅",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762594901889,
+      "type": "decision",
+      "content": "Applied CSS mask to RGB explosion effect so it's only visible through grid line strokes. Used repeating-linear-gradient masks matching the grid pattern (40px cells, 1px strokes). RGB explosion now appears only on the grid lines, creating a \"neon grid\" effect. Both -webkit-mask and standard mask properties for cross-browser compatibility. Build passes ✅",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762595005192,
+      "type": "decision",
+      "content": "Removed BackgroundGridController from WelcomeScreen. Removed import, config, initialization, and start/stop calls. Grid now has no effects - just static stroke lines. BackgroundGridController.js file still exists but is not used. Build passes ✅",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762595247461,
+      "type": "decision",
+      "content": "Randomized RGB sweep explosion end colors! Created RGBGradientGenerator.js that shuffles RGB order (red, green, blue) using Fisher-Yates algorithm. Modified GridShineSweepController to generate random gradient each sweep. Updated SweepAnimationExecutor.executeSweep() to accept dynamic gradient parameter. Removed hardcoded gradient from WelcomeScreen config. Now each sweep has randomized color order - cubes end with different colors (red, green, or blue) instead of always red. Build passes ✅",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762595408096,
+      "type": "decision",
+      "content": "Fixed sweep explosion alignment after logo SVG viewBox height reduction (120→110). Updated CubeMaskGenerator.js to use viewBoxWidth: 120 and viewBoxHeight: 110 (instead of single viewBoxSize: 120). Mask SVG now matches logo SVG viewBox dimensions exactly. Build passes ✅",
+      "metadata": {}
+    }
+  ]
+}

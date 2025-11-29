@@ -1,0 +1,24 @@
+{
+  "sessionId": "2025-10-28-09-25",
+  "startTime": 1761636358104,
+  "entries": [
+    {
+      "timestamp": 1761636358106,
+      "type": "decision",
+      "content": "Completed ultra-modular refactoring of EmojiPickerController - transformed 574-line monolith into 12 focused modules:\n\n## Architecture\n- Main orchestrator: 219 lines (was 574)\n- 11 micro-components across 4 subsystems\n- Average component size: 75 lines\n- Total: 1,049 lines (slight increase due to proper separation)\n\n## Modules Created\n**Config (38 lines)**: EmojiPickerConfig - centralized configuration\n**Data (164 lines)**: EmojiDataProvider - emoji database with keywords\n**DOM (261 lines)**: DOMElementFinder, PickerElementBuilder, EmojiItemRenderer\n**State (116 lines)**: RecentEmojisManager, PickerStateManager\n**Logic (72 lines)**: EmojiSearchEngine, TextInsertionService\n**Events (179 lines)**: PickerEventHandler, SelectionHandler\n\n## Benefits Achieved\n✅ Single responsibility - each module has ONE clear purpose\n✅ Testability - all components can be unit tested in isolation\n✅ Reusability - TextInsertionService, EmojiSearchEngine are reusable utilities\n✅ Backward compatibility - same public API (initialize/destroy/setOnEmojiSelect)\n✅ Dependency injection - components receive dependencies, no tight coupling\n✅ Build success - pnpm build passed with no errors\n\n## Pattern Consistency\nFollows exact same orchestrator pattern used in 18+ previous refactorings (MarkdownFormatter, MemorySearchProvider, ConversationProcessor, etc.)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761636464405,
+      "type": "gotcha",
+      "content": "Fixed import path issue in EmojiItemRenderer.js - ProviderIconComponent import needed 7 levels up (../../../../../../) instead of 4 (../../../../) because emoji-picker is nested deeper in the directory structure:\n- emoji-picker location: ui-logic/ui-controllers/chat-controller/user-ui/emoji-picker/dom/\n- providers location: ui-logic/providers/\nPath traversal: dom -> emoji-picker -> user-ui -> chat-controller -> ui-controllers -> ui-logic -> providers",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761636582857,
+      "type": "gotcha",
+      "content": "CORRECTION: Fixed import path in EmojiItemRenderer.js - should be 6 levels up (../../../../../) not 7.\nPath breakdown from dom/ to providers/:\n1. dom -> emoji-picker (../)\n2. emoji-picker -> user-ui (../../)\n3. user-ui -> chat-controller (../../../)\n4. chat-controller -> ui-controllers (../../../../)\n5. ui-controllers -> ui-logic (../../../../../)\n6. Then into providers/components/ (../../../../../providers/components/)\n\nThis matches the pattern used in ProviderIconBuilder.js which is at a similar nesting depth.",
+      "metadata": {}
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-from sqlalchemy import String, DateTime, ForeignKey
+from sqlalchemy import String, DateTime, ForeignKey, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
@@ -12,3 +12,5 @@ class UserProject(Base):
     user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False)
     project_name: Mapped[str] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    project_type: Mapped[str] = mapped_column(Enum('vscode', 'vim', 'intellij', 'general', name='projecttype'), nullable=True)
+    platform_type: Mapped[str] = mapped_column(Enum('desktop', 'web', 'mobile', 'general', name='platformtype'), nullable=True)

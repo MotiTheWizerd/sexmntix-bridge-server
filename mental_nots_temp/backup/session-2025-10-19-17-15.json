@@ -1,0 +1,18 @@
+{
+  "sessionId": "2025-10-19-17-15",
+  "startTime": 1760883354878,
+  "entries": [
+    {
+      "timestamp": 1760883354880,
+      "type": "decision",
+      "content": "User wants to restore the repository to commit 97796d0 \"restore previous chat\", discarding the most recent \"ui refactor\" commit (9dcc5d0)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760883400305,
+      "type": "decision",
+      "content": "Performing hard reset to commit 97796d0 \"restore previous chat\" - will discard all changes from the \"ui refactor\" commit (9dcc5d0) and any uncommitted work",
+      "metadata": {}
+    }
+  ]
+}

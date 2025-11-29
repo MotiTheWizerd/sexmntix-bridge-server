@@ -180,6 +180,7 @@ class ConversationStorageHandler(BaseStorageHandler):
             conversation_db_id=validated["conversation_db_id"],
             memory_log=validated["raw_data"],
             user_id=validated["user_id"],
+            project_id=validated["project_id"],
             session_id=validated.get("session_id"),
             gemini_analysis=validated.get("gemini_analysis", [])
         )

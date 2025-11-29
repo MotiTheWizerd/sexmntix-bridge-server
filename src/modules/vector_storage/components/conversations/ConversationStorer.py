@@ -30,6 +30,7 @@ class ConversationStorer:
         conversation_db_id: int,
         conversation_data: Dict[str, Any],
         user_id: str,
+        project_id: str,
         session_id: Optional[str] = None,
         gemini_analysis: List[Dict[str, Any]] = None
     ) -> Tuple[List[str], List[List[float]]]:
@@ -113,7 +114,7 @@ class ConversationStorer:
                 embedding=embedding,
                 memory_data=memory_unit_data,
                 user_id=user_id,
-                project_id="conversations",  # Fixed project scope for conversations
+                project_id=project_id,
                 collection_prefix="conversations"
             )
 

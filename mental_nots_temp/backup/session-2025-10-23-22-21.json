@@ -1,0 +1,24 @@
+{
+  "sessionId": "2025-10-23-22-21",
+  "startTime": 1761247298351,
+  "entries": [
+    {
+      "timestamp": 1761247298353,
+      "type": "gotcha",
+      "content": "🎯 SMOKING GUN FOUND!\n\nLogs show:\n1. First message \"hel;lo\" → chatId: 'waiting_for_id' → Generated UUID: 3ef02135-5b64-474c-8d56-511d0d77df32\n2. Second message \"hello\" → chatId: 'waiting_for_id' → Generated UUID: 478f2466-d4b4-4a90-b2ae-4b80f33dd35f\n\nTWO DIFFERENT UUIDs GENERATED! But user says they show \"same id\" in UI.\n\nThis means:\n- Extension IS generating different UUIDs ✅\n- BUT UI tabs are showing same ID ❌\n\nThe bug is in the UI! AutoTabCreator or the tab rename logic is NOT working. Both tabs are being renamed to the FIRST UUID, not their respective UUIDs!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761247519089,
+      "type": "gotcha",
+      "content": "🎯 REAL BUG IDENTIFIED!\n\nUser shows:\n- Chat 1 has messages: \"hello\", \"my name is moti\" \n- Chat 2 has messages: \"hello\", \"what my name\"\n- BUT both show SAME SESSION: \"d976dbe7-f453\"\n- AND Chat 2's messages appear in Chat 1!\n\nAll responses going to first chat even though they're different tabs!\n\nProblem: When sending message to host, we're NOT taking the CURRENT chat ID from the active tab. We're probably always sending the first tab's chatId or always sending 'waiting_for_id'.\n\nNeed to check MessageSendHandler and MessageTransport - where do they get the chatId when sending user messages?",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761247778509,
+      "type": "error",
+      "content": "❌ CRITICAL ERROR: My changes broke the UI! User is very upset. Need to immediately reverse ALL changes made to AutoTabCreator.js. DO NOT use git - must manually undo the changes.",
+      "metadata": {}
+    }
+  ]
+}

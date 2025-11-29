@@ -1,0 +1,42 @@
+{
+  "sessionId": "2025-10-16-02-23",
+  "startTime": 1760570605457,
+  "entries": [
+    {
+      "timestamp": 1760570605458,
+      "type": "note",
+      "content": "Bug Report: When opening new tab while sending message, response from host not routed to correct tab. Previous fix attempted chatId propagation but marked as INCOMPLETE with CRITICAL-BUG tag. Need to trace full message flow from UI → Extension → Host → Extension → UI to find where chatId is dropped.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760570694797,
+      "type": "gotcha",
+      "content": "ROOT CAUSE FOUND: createChatMessageSend() factory function in ChatEventFactories.js doesn't accept or include chatId parameter. This causes all outgoing messages to lose their chat context, breaking multi-chat routing. Need to:\n1. Add chatId param to createChatMessageSend\n2. Add chatId param to createAgentInterrupt  \n3. Update UserUIController to pass active chatId when calling these factories",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760570892917,
+      "type": "decision",
+      "content": "MULTI-CHAT MESSAGE ROUTING FIX COMPLETE:\n\nFixed the critical bug where messages sent from one chat tab would not route responses correctly when a new tab was opened during message send.\n\nChanges made:\n1. ChatEventFactories.js: Added chatId parameter to createChatMessageSend() and createAgentInterrupt()\n2. UIControllerManager.js: Injected ChatTabManager into UserUIController for chatId access\n3. UserUIController.js: \n   - Added setChatTabManager() injection method\n   - Updated handleSendMessage() to get active chatId and pass it to event factories\n   \nThis ensures every outgoing message includes its originating chat tab ID, allowing the Extension to route responses back to the correct tab.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760571323212,
+      "type": "decision",
+      "content": "MULTI-CHAT STREAMING ROUTING FIX COMPLETE:\n\nThe problem was that streaming chunks had chatId at the message root level, but:\n1. IncomingProcessor was dropping chatId (only extracting event & payload)\n2. MessageManagerRouter was routing ALL streaming events regardless of which chat they belonged to\n\nSolution implemented:\n1. IncomingProcessor.js: Extract chatId from message and enrich UI payload with it\n2. MessageManagerRouter.js: \n   - Added injectChatTabManager() method\n   - Added isForActiveChat(payload) method to check chatId\n   - Updated all streaming event handlers to filter by chatId before routing\n3. UIControllerManager.js: Inject ChatTabManager into MessageManagerRouter\n\nNow streaming chunks are only processed if they match the active chat tab, preventing UI updates in the wrong tab!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760571553983,
+      "type": "note",
+      "content": "ANALYSIS - Multi-Chat Streaming Bug Investigation\n\nLooking at the latest logs, I can see:\n1. ✅ Message sent with chatId: \"default\" \n2. ✅ Chunks arrive with chatId: \"default\"\n3. ✅ IncomingProcessor extracts chatId correctly: \"Processing: chat.stream.chunk.v1 (chat: default)\"\n4. ✅ Chunks ARE being routed: \"[StreamingChunkRouter] 💬 Message chunk detected\"\n5. ✅ ChunkProcessor IS processing: \"[ChunkProcessor] 🚀 Appending chunk 0\"\n\nBUT: Moti says \"data return but ui not updated\"\n\nThis means the chunks ARE reaching the processors, but they're not appearing in the DOM!\n\nKey observation from logs:\n- When user switches tabs DURING streaming, DOM state is saved/restored\n- [DOMStateManager] Saved state for chat: default (includes placeholder)\n- [DOMStateManager] Restored state for chat: default\n- But when chunks arrive, they might be appending to a stale DOM reference!\n\nREAL PROBLEM: The ChunkProcessor/StreamingMessageHandler might be holding a reference to a DOM element that gets replaced when tab switching happens!\n\nNeed to investigate:\n1. How ChunkProcessor gets its DOM references\n2. Whether those references get invalidated on tab switch\n3. If we need to refresh DOM references after tab restoration",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760571980930,
+      "type": "decision",
+      "content": "MULTI-CHAT STREAMING DOM REFERENCE FIX:\n\nROOT CAUSE: When switching tabs during streaming, DOMStateManager uses innerHTML to save/restore state. This destroys and recreates all DOM elements, making the currentStreamingElement reference stale. ChunkProcessor tries to append to a non-existent element → UI not updated.\n\nSOLUTION: Track streaming state per chat and refresh DOM references after restoration.\n\nFiles Modified:\n1. DOMReferences.js: Added refreshStreamingElement() to re-query streaming container in restored DOM\n2. ChatStore.js: Added isStreaming flag and setIsStreaming()/isStreaming() methods\n3. AgentMessagesManager.js: \n   - Added setChatTabManager() injection\n   - startStreamingMessage() sets isStreaming=true\n   - completeStreamingMessage() sets isStreaming=false\n4. ChatSwitcher.js:\n   - Added setAgentDOMReferences() injection\n   - After DOM restore, checks if chat.isStreaming\n   - Calls domReferences.refreshStreamingElement() to update reference\n5. UIControllerManager.js:\n   - Injects ChatTabManager into AgentMessagesManager\n   - Injects AgentMessagesManager.domReferences into ChatSwitcher\n\nNow when you switch back to a streaming chat, the DOM element reference is refreshed and chunks can append correctly!",
+      "metadata": {}
+    }
+  ]
+}

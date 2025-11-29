@@ -1,0 +1,18 @@
+{
+  "sessionId": "2025-10-25-00-06",
+  "startTime": 1761339969091,
+  "entries": [
+    {
+      "timestamp": 1761339969093,
+      "type": "note",
+      "content": "Session continuation: Gemini provider integration completed in last session\n- Phase 1: Basic implementation with SessionIdGenerator (shared utility for providers without server-provided IDs)\n- Phase 2: Real CLI integration with simulated streaming (Gemini CLI returns complete JSON, we chunk it for UX consistency)\n- Status: WORKING - User confirmed \"perfect! working great\"\n- Current state: Gemini is fully functional with CLI integration, appearing in provider selection popup\n",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761340106116,
+      "type": "gotcha",
+      "content": "PROBLEM IDENTIFIED: Gemini CLI not spawning in correct workspace\n\nRoot Cause Analysis:\n1. Codex pattern: WorkspaceResolver gets vscode.workspace.workspaceFolders[0].uri.fsPath\n2. CodexService constructor calls workspaceResolver.getWorkspaceFolder() and stores in StateManager\n3. StreamingApiOrchestrator passes stateManager.getWorkspaceFolder() to CLI executor as cwd option\n4. CodexCLIExecutor uses cwd in spawn options: spawnOptions.cwd = cwd\n\nGemini current state:\n- GeminiService line 83: passes this.config.workspaceFolder to executor\n- But GeminiService constructor doesn't set config.workspaceFolder\n- Need to create WorkspaceResolver for Gemini and populate workspaceFolder\n\nSolution needed: Follow Codex ultra-modular pattern with WorkspaceResolver component",
+      "metadata": {}
+    }
+  ]
+}

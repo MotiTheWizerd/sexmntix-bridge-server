@@ -1,0 +1,30 @@
+{
+  "sessionId": "2025-11-13-14-39",
+  "startTime": 1763037558260,
+  "entries": [
+    {
+      "timestamp": 1763037558262,
+      "type": "note",
+      "content": "Session started with Moti. Reviewing model selection work from last session:\n✅ DONE: CHAT_MODEL_CHANGED event emission (fires with modelId, modelName, providerId, chatId)\n❌ TODO: UserSessionSettings component implementation\n- Following AllowedToolsTracker pattern\n- Location: src/ext/modules/logic-manager/chat-instance/components/session/UserSessionSettings.ts\n- Integration into ChatInstance\n- Wire to CHAT_MODEL_CHANGED event in Extension\n\nAlso found that thinking indicator per-chat preference was completed in parallel.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1763037877385,
+      "type": "note",
+      "content": "## UI → Extension Event Bridge Architecture\n\nThe event flow from UI to Extension follows this pattern:\n\n1. **UI Event Emission**: Component emits event via eventBus\n   - Example: `this.eventBus.emit(UI_EVENTS.CHAT_MODEL_CHANGED, payload)`\n   - Location: `OptionsDropdownOrchestrator.js:248`\n\n2. **Outgoing Handler**: UI bridge-handler registers handler\n   - Pattern: Create handler class in `src/ui/modules/ui-logic/core/events/bridge-handler/outgoing/outgoing-processor/handlers/`\n   - Handler pattern: `constructor(logger)`, `handle(payload, processor)`, `getEventName()`\n   - Handler calls: `processor.processOutgoingEvent(this.eventName, payload)`\n\n3. **Handler Registration**: Add to `OutgoingProcessorOrchestrator.js`\n   - Import handler\n   - Add to `registerHandlers()` array\n   - Handler auto-registers with event bus in `setupEventHandlers()`\n\n4. **Extension Event Listener**: Extension side handler\n   - Pattern: Create handler in `src/ext/modules/logic-manager/handlers/ui-event-handlers/handlers/`\n   - Pattern: `constructor(bus, chatInstanceManager, logger)`, `setup()`, `handle(payload)`\n   - `setup()` calls: `this.bus.on('event.name.v1', (payload) => this.handle(payload))`\n\n5. **Handler Lifecycle**: Add to `UIEventHandlers.ts`\n   - Import handler\n   - Instantiate in `buildComponents()`\n   - Add to `HandlersLifecycle` constructor\n   - Call `handler.setup()` in `setupAll()`\n\n6. **ChatInstance Access**: Use ChatInstanceManager\n   - `const activeChatInstance = this.chatInstanceManager.getActive()`\n   - OR with chatId: `const instance = this.chatInstanceManager.getInstance(chatId)` or `getOrCreateInstance(chatId)`\n   - Then call methods: `activeChatInstance.methodName(value)`\n\n**Key Pattern**: UI events use kebab-case (chat.model.changed), Extension listens to versioned events (chat.model.changed.v1 or similar pattern based on existing events)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1763037974620,
+      "type": "decision",
+      "content": "Research complete for UserSessionSettings implementation:\n\nKey Patterns Found:\n1. AllowedToolsTracker: Set-based storage, simple CRUD, toJSON/fromJSON serialization\n2. ChatInstance integration: Property + constructor instantiation + public API delegation\n3. Handler pattern: setup() → bus.on() → handle() → delegate to manager\n4. Event flow: UI emit → Bridge (optional) → Extension handler → ChatInstanceManager → ChatInstance\n\nCritical Discovery:\n- CHAT_MODEL_CHANGED event exists in UI (ChatEventConstants.js)\n- Event payload includes: modelId, modelName, providerId, chatId, timestamp\n- OptionsDropdownOrchestrator already emits this event\n- Missing: UI bridge handler (maybe) + Extension handler (definitely)\n\nImplementation needs 4-5 phases:\n1. UserSessionSettings component (following AllowedToolsTracker)\n2. ChatInstance integration\n3. UI bridge handler (if event doesn't reach Extension)\n4. Extension event handler (ModelSelectionHandler)\n5. Event contract verification",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1763039093241,
+      "type": "decision",
+      "content": "UserSessionSettings implementation COMPLETE! ✅\n\nFiles Created:\n1. UserSessionSettings.ts - Micro-component storing model {id, name}\n2. ModelSelectionHandler.ts (Extension) - Handles chat.model.changed.v1 event\n3. ModelChangedHandler.js (UI) - Bridges UI event to Extension\n\nFiles Modified:\n1. ChatInstance.ts - Added UserSessionSettings integration (import, property, constructor, public API)\n2. UIEventHandlers.ts - Registered ModelSelectionHandler\n3. HandlersLifecycle.ts - Added ModelSelectionHandler to lifecycle\n4. OutgoingProcessorOrchestrator.js - Registered ModelChangedHandler\n\nComplete Event Flow:\nUI (dropdown) → emit('chat.model.changed') → ModelChangedHandler → \nBridge('chat.model.changed.v1') → ModelSelectionHandler → \nChatInstance.setSelectedModel(id, name) → UserSessionSettings stores {id, name}\n\nArchitecture:\n- Follows AllowedToolsTracker pattern\n- Per-chat session isolation\n- Ultra-modular micro-component\n- Serializable for future persistence\n- Clean separation of concerns",
+      "metadata": {}
+    }
+  ]
+}

@@ -348,6 +348,7 @@ class VectorStorageOrchestrator:
         conversation_db_id: int,
         conversation_data: Dict[str, Any],
         user_id: str,
+        project_id: str,
         session_id: Optional[str] = None,
         gemini_analysis: List[Dict[str, Any]] = None
     ) -> Tuple[List[str], List[List[float]]]:
@@ -376,6 +377,7 @@ class VectorStorageOrchestrator:
             conversation_db_id=conversation_db_id,
             conversation_data=conversation_data,
             user_id=user_id,
+            project_id=project_id,
             session_id=session_id,
             gemini_analysis=gemini_analysis
         )
@@ -384,6 +386,7 @@ class VectorStorageOrchestrator:
         self,
         query: str,
         user_id: str,
+        project_id: str,
         limit: int = 10,
         where_filter: Optional[Dict[str, Any]] = None,
         min_similarity: float = 0.0
@@ -407,6 +410,7 @@ class VectorStorageOrchestrator:
         return await self.conversation_searcher.search_similar_conversations(
             query=query,
             user_id=user_id,
+            project_id=project_id,
             limit=limit,
             where_filter=where_filter,
             min_similarity=min_similarity

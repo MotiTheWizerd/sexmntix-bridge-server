@@ -1,0 +1,60 @@
+{
+  "sessionId": "2025-10-28-20-24",
+  "startTime": 1761675892911,
+  "entries": [
+    {
+      "timestamp": 1761675892913,
+      "type": "note",
+      "content": "Session start: UI flaw elimination mission. Previous work includes massive CSS modular refactoring across multiple components (chat-tabs, tool-use, code-highlighting, header, indicators). Now focusing on identifying and fixing remaining visual/UI bugs.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761676164805,
+      "type": "decision",
+      "content": "Moved header dropdown from right side (.header-actions) to left side (.header-title). Updated CSS positioning from right:0 to left:0 and adjusted triangle connector position to align left.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761676569267,
+      "type": "decision",
+      "content": "Converted header layout from absolute positioning to proper flexbox organization. Changes: .header-title (flex: 1, flex-wrap: wrap), .header-dropdown (display: flex, flex-shrink: 0), .header-actions (flex-shrink: 0, margin-left: auto). This allows flexible addition of tools and badges while maintaining dropdown overlay behavior.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761676850679,
+      "type": "decision",
+      "content": "Reduced dropdown size by 50%: label (80px min-width, 4px/6px padding, 11px font), menu (120px min-width, 6px border-radius), items (6px/10px padding, 11px font), icons (12px), triangle connector (6px borders). Compact size better fits header with other tools.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761676964558,
+      "type": "decision",
+      "content": "Increased dropdown menu width by 2x: min-width 120px → 240px. Keeps the compact button size but gives more breathing room for menu items.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761677113233,
+      "type": "decision",
+      "content": "Removed tab removal restriction - tabs can now be closed even when only one tab remains. Changed TabElementBuilder to always show close button (removed totalChats > 1 check).",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761677271605,
+      "type": "decision",
+      "content": "Removed last chat deletion restriction from ChatOperationsCoordinator. Changed deleteChat() to allow deleting the final chat, with graceful handling: renders null/empty state when no chats remain instead of blocking deletion.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761677707128,
+      "type": "decision",
+      "content": "Moved \"+\" new chat button from chat-tabs-container to header (.header-title), positioning it next to the dropdown. Updated RenderCoordinator to append to header with fallback, and adjusted CSS for compact header sizing (28x28px, 4px border-radius, 14px font). Tabs remain in original location.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761678089635,
+      "type": "decision",
+      "content": "Refined + button styling: matched dropdown height (32px), added black gradient background (var(--black-gradient) + metallic-shine), reduced header gap from 12px to 6px for tighter spacing between dropdown and + button.",
+      "metadata": {}
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{ "mcpServers": {
+   "semantic-bridge": {
+      "type": "stdio",
+      "command": "poetry",
+      "args": ["run", "python", "-m", "src.modules.xcp_server"],
+      "cwd": "c:/project/semantix-bridge/semantix-bridge-server",
+      "env": {
+        "XCP_USER_ID": "84e17260-ff03-409b-bf30-0b5ba52a2ab4",
+        "XCP_PROJECT_ID": "bc2b08e5-a603-43fc-b15c-b572f56b55b8"
+      }
+    }
+  }}

@@ -1,0 +1,60 @@
+{
+  "sessionId": "2025-11-09-20-22",
+  "startTime": 1762712566521,
+  "entries": [
+    {
+      "timestamp": 1762712566523,
+      "type": "note",
+      "content": "Icon System Pattern in Semantix:\n- Auto-loading system scans assets/icons folder recursively\n- All SVGs available via window.ICONS global object\n- For subfolder icons, use 'folder/filename' key pattern (e.g., window.ICONS['ui-icons/arrow-down'])\n- IconUriLoader recursively scans all subdirectories\n- Icons are automatically discovered with zero configuration\n- Use data-icon attribute for declarative loading or direct window.ICONS access",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762715002854,
+      "type": "decision",
+      "content": "Fixed down-arrow icon loading issue:\n- Changed from window.ICONS?.['down-arrow'] to data-icon=\"ui-icons/down-arrow\"\n- Using data-icon attribute is the recommended pattern in Semantix\n- Icon path must include subfolder: \"ui-icons/down-arrow\" not just \"down-arrow\"\n- IconLoader will automatically load icons with data-icon attribute",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762715514802,
+      "type": "error",
+      "content": "STOP - I made a mistake. I need to learn the PROPER icon implementation pattern for Semantix UI before making any changes. The collapse arrow icon implementation was already COMPLETE according to memory (SUCCESS tag), but I jumped in and modified code without understanding the actual working pattern.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762715567632,
+      "type": "note",
+      "content": "Icon Loading Pattern in Semantix:\n1. Use data-icon=\"path/to/icon\" attribute on img elements\n2. Call IconLoader.init() AFTER adding elements to DOM\n3. IconLoader.init() scans all img[data-icon] and populates src from window.ICONS\n4. For subfolder icons: use \"ui-icons/down-arrow\" format\n5. Must call IconLoader.init() after EVERY dynamic DOM addition with icons",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762715806723,
+      "type": "decision",
+      "content": "Fixed down-arrow icon not loading in streaming thinking containers:\n- Added IconLoader import to ReasoningChunkHandler.js\n- Added IconLoader.init() call after prepending thinking container (line 116)\n- Pattern now matches MessageAppender which also calls IconLoader.init() after adding elements\n- Icon will now display immediately during streaming instead of only after stream completes",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762716036914,
+      "type": "error",
+      "content": "GOTCHA - Import path error broke extension loading:\n- Used 8 levels up (../../../../../../../) instead of 7 levels up\n- Error: \"Webview.loadLocalResource - Error using fileReader\"\n- Tried to load from wrong path: src/ui/modules/services/ instead of src/ui/modules/ui-logic/services/\n- Fixed to: ../../../../../../services/IconLoader.js (7 levels)\n- Extension was stuck on splash screen due to this import error",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762716316878,
+      "type": "decision",
+      "content": "Fixed down-arrow icon appearing black:\n- SVG uses fill=\"currentColor\" which inherits from parent\n- Added explicit \"color: inherit;\" to .thinking-collapse-arrow CSS\n- Icon will now match the provider-specific color from .thinking-indicator parent\n- Claude = orange, OpenAI = white, Gemini = blue, Qwen = purple",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762716647338,
+      "type": "note",
+      "content": "LEARNED - Icon color pattern from dropdown:\n- Dropdown uses: filter: brightness(0) saturate(100%) invert(100%); to make icons white\n- This CSS filter approach works on ANY SVG/image regardless of original color\n- NO need for data-icon or window.ICONS or IconLoader for simple color changes\n- Just apply CSS filter to .thinking-collapse-arrow class",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762717120409,
+      "type": "note",
+      "content": "Session ending - Arrow icon implementation progress:\n✓ Fixed IconLoader import path (was 8 levels, corrected to 7)\n✓ Added IconLoader.init() call in ReasoningChunkHandler after creating container\n✓ Added CSS filters for provider-specific colors (Claude orange, OpenAI white, Gemini blue, Qwen purple)\n✓ Icon now loads and displays in correct colors\n\n⚠️ INCOMPLETE - Animation issues remain:\n- Arrow rotation only 90 degrees (should rotate 180 degrees when collapsed?)\n- Animation not working properly\n- User reports animation issues to continue next session",
+      "metadata": {}
+    }
+  ]
+}

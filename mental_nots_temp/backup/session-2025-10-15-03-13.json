@@ -1,0 +1,54 @@
+{
+  "sessionId": "2025-10-15-03-13",
+  "startTime": 1760487180725,
+  "entries": [
+    {
+      "timestamp": 1760487180726,
+      "type": "gotcha",
+      "content": "## Bug Discovery: Codex Tool Events Not Displayed in UI\n\nMoti found that when Codex uses tools, the UI doesn't show tool boxes. The logs show:\n- Codex sends: `tool_use_start` and `tool_use_end` events\n- Events are being transformed by CodexEventTransformer\n- But UI doesn't know how to render them\n\nSolution approach: Export tool event prefixes from each provider so UI knows what event types to expect for tool usage.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760487265315,
+      "type": "gotcha",
+      "content": "## Root Cause Analysis: Codex Tool Events Not Displayed\n\nFound the issue! The EventMapper [EventMapper.js:23-24] maps bridge events to UI events:\n- Bridge: `chat.tool_start.v1` → UI: `UI_EVENTS.TOOL_USE_START`  \n- Bridge: `chat.tool_end.v1` → UI: `UI_EVENTS.TOOL_USE_END`\n\nBut Codex sends DIFFERENT event types in the stream:\n- Codex sends: `tool_use_start` and `tool_use_end` (in chunks)\n- These come through streaming, not through bridge events\n\nThe streaming messages have `type: \"tool_use_start\"` but nothing routes them to tool UI handlers!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760487337205,
+      "type": "decision",
+      "content": "## Solution Architecture for Codex Tool Events\n\n**Current Flow (Claude):**\n1. Extension sends bridge events: `chat.tool_start.v1`, `chat.tool_end.v1`\n2. EventMapper maps to: `UI_EVENTS.TOOL_USE_START`, `UI_EVENTS.TOOL_USE_END`\n3. ToolManager listens to these events and displays tool boxes\n\n**Broken Flow (Codex):**\n1. Codex sends streaming chunks with `type: \"tool_use_start\"` and `type: \"tool_use_end\"`\n2. These chunks go through `CHAT_STREAM_CHUNK` events\n3. `MessageManagerRouter` routes ALL chunks to `AgentMessagesManager.appendStreamChunk()`\n4. `ChunkContentExtractor` doesn't recognize tool types - only handles: `reasoning`, `assistant`, `agent_message`\n5. Tool events are ignored - NO TOOL BOXES DISPLAYED!\n\n**Solution:**\nNeed to detect tool chunk types in streaming and route them to ToolManager instead of AgentMessagesManager.\n\n**Two Approaches:**\n1. **Provider-aware routing**: Add provider-specific event type config to ProviderRegistry, route chunks based on type\n2. **Universal type detection**: Make ChunkContentExtractor detect tool types and emit TOOL_USE events to EventBus",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760487472193,
+      "type": "decision",
+      "content": "## Implementation Plan: Fix Codex Tool Event Display\n\n### Architecture Decision\nFollowing our ultra-modular pattern, I'll create a **StreamingChunkRouter** component that:\n1. Inspects chunk types before routing\n2. Routes tool chunks to ToolManager via EventBus\n3. Routes other chunks to AgentMessagesManager\n4. Transforms Codex tool chunks into UI event format\n\n### Files to Modify\n1. **MessageManagerRouter.js** - Add StreamingChunkRouter component\n2. **ProviderRegistry.js** - Add provider-specific event type mappings\n3. Create **StreamingChunkRouter.js** - New micro-component for intelligent chunk routing\n4. Create **ToolChunkTransformer.js** - Transform Codex tool chunks to UI events\n\n### Benefits\n- Clean separation: chunk type detection isolated\n- No changes to existing AgentMessagesManager or ToolManager\n- Provider-agnostic: supports future providers\n- Follows our orchestrator pattern",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760487565945,
+      "type": "note",
+      "content": "✅ Step 1 Complete: Added eventTypes mapping to ProviderRegistry\n\nEach provider now defines its tool event type names:\n- Claude: 'tool_call' / 'tool_result'\n- Codex: 'tool_use_start' / 'tool_use_end'\n\nThis makes the system provider-agnostic and easy to extend for future providers.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760487607997,
+      "type": "note",
+      "content": "✅ Step 2 Complete: Created ToolChunkTransformer component\n\nKey features:\n- Detects tool chunk types: 'tool_use_start', 'tool_use_end', 'tool_call', 'tool_result'\n- Transforms Codex tool chunks into UI_EVENTS format (TOOL_USE_START, TOOL_USE_END)\n- Extracts toolId, action, target, result from chunk data\n- Emits events to EventBus for ToolManager to consume\n- Provider-agnostic: supports both Claude and Codex naming conventions",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760487633906,
+      "type": "note",
+      "content": "✅ Step 3 Complete: Created StreamingChunkRouter component\n\nKey features:\n- Inspects chunk.type before routing\n- Routes tool chunks to ToolChunkTransformer\n- Routes message chunks (reasoning, agent_message, assistant) to AgentMessagesManager\n- Provides routing methods for all streaming events: start, chunk, complete, error\n- Clean separation: routing logic isolated from transformation logic\n- ~100 lines, single responsibility",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760487668931,
+      "type": "note",
+      "content": "✅ Step 4 Complete: Updated MessageManagerRouter to use new routing\n\nChanges made:\n1. Imported ToolChunkTransformer and StreamingChunkRouter\n2. Instantiated both transformers in buildComponents()\n3. Created StreamingChunkRouter with injected dependencies\n4. Replaced direct AgentMessagesManager routing with StreamingChunkRouter delegation\n5. All streaming events now go through intelligent routing that detects tool chunks\n\nThe router is now provider-agnostic and automatically routes tool events correctly!",
+      "metadata": {}
+    }
+  ]
+}

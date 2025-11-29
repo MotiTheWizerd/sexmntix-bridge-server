@@ -1,0 +1,12 @@
+{
+  "sessionId": "2025-11-05-21-24",
+  "startTime": 1762370676501,
+  "entries": [
+    {
+      "timestamp": 1762370676503,
+      "type": "gotcha",
+      "content": "CSS height issue with .message-list container:\n- Setting explicit height (e.g., height: 10px) has no effect\n- Container always sized to content regardless of height value\n- Using flex: 1, overflow-y: auto, and min-height: 100%\n- Issue: likely flex parent container constraints or flex behavior overriding explicit height",
+      "metadata": {}
+    }
+  ]
+}

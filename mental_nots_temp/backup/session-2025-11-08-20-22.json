@@ -1,0 +1,42 @@
+{
+  "sessionId": "2025-11-08-20-22",
+  "startTime": 1762626140376,
+  "entries": [
+    {
+      "timestamp": 1762626140380,
+      "type": "note",
+      "content": "Reviewed session 2025-10-08-20-24 which documented major FileMonitor refactoring work:\n\nKEY REFACTORING ACHIEVEMENTS:\n- FileMonitor.tsx: 102 lines → 66 lines (8 modules)\n- JobsList: 133 lines → 77 lines TSX, 210 lines → 5 CSS modules (10 React modules)\n- NewJobForm: 245 lines → 138 lines TSX, 295 lines → 7 CSS modules (13 React modules)\n\nPATTERN APPLIED:\n- Custom hooks for business logic (state, actions, validation, submission)\n- Micro-components for presentation (fields, states, cards)\n- Clean orchestrators with dependency injection\n- Modular CSS by concern\n- Single responsibility per module\n\nBROWSE BUTTON REFACTORING:\nCreated ui-host-components architecture (src/ext/ui-host-components/):\n- folder-picker/FolderPickerOptions.ts - Preset dialog options\n- folder-picker/FolderPickerService.ts - VS Code dialog wrapper\n- BrowseFolderField shared component on React side\n- 75% code reduction in extension side folder picking logic",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762626145947,
+      "type": "gotcha",
+      "content": "FileWatcherService API usage pattern:\n- DO NOT use 'onChange' callback\n- Use onAdd/onModify/onDelete callbacks instead\n- Callbacks receive filePath: string (not event object)\n- debounceMs and recursive go in separate config parameter, not in callbacks\n- CRITICAL: Must call fileWatcher.start() after creating service or watchers won't trigger (this.running = false means fs.watch() never set up)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762626150784,
+      "type": "gotcha",
+      "content": "React setState type compatibility issue with verbatimModuleSyntax:\nWhen using verbatimModuleSyntax in TypeScript, changing FormActions from simplified types to proper Dispatch<SetStateAction<T>> fixes build errors. Use type-only imports: import type { Dispatch, SetStateAction } from 'react'",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762626440075,
+      "type": "gotcha",
+      "content": "Multiple thinking blocks bug DISCOVERED:\n\nPROBLEM: Claude thinks → uses tool → thinks again, but second thinking goes into FIRST thinking container (all thinking text accumulates in one box).\n\nROOT CAUSE: Anthropic streaming API includes `event.index` (content block index) in content_block_delta events. When Claude thinks multiple times in one response, each thinking block has a different index (0, 1, 2...).\n\nCURRENT FLOW:\n1. ChunkRouter line 114: thinking_delta arrives with event.index (e.g., 0, then 2 after tool)\n2. Lines 118-125: Transform to reasoning format BUT THROW AWAY event.index\n3. ReasoningChunkHandler line 77: querySelector('.thinking-container') finds FIRST container\n4. Line 105: Appends to same thinking-text element forever\n\nSOLUTION:\n- Thread blockIndex through transform → reasoning chunk → UI handler\n- ReasoningChunkHandler needs to create/target SEPARATE containers per blockIndex\n- Use querySelector(`.thinking-container[data-block-index=\"${blockIndex}\"]`) instead of first match",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762626451126,
+      "type": "decision",
+      "content": "Multiple thinking blocks implementation plan:\n\nCHANGES NEEDED:\n\n1. ChunkRouter.ts (line 114-126):\n   - Add blockIndex: event.index to normalizedChunk\n   - Thread block index through to reasoning format\n\n2. ThinkingTransformer.ts:\n   - Accept blockIndex in chunk\n   - Include blockIndex in transformed reasoning message\n   - Ensure blockIndex propagates to ConversationMessage\n\n3. ChunkContentExtractor.js:\n   - Extract blockIndex from reasoning chunks\n   - Return blockIndex in extraction result\n\n4. ChunkProcessor.js (line 89):\n   - Pass blockIndex to reasoningChunkHandler.handle()\n\n5. ReasoningChunkHandler.js (MAIN CHANGE):\n   - Accept blockIndex parameter in handle()\n   - Use data-block-index attribute on thinking-container\n   - querySelector with blockIndex: `.thinking-container[data-block-index=\"${blockIndex}\"]`\n   - Create NEW container if blockIndex doesn't exist\n   - Each thinking block gets isolated container\n\nRESULT:\n- Think #1 (block 0) → container[data-block-index=\"0\"]\n- Tool use (block 1) → (not thinking)\n- Think #2 (block 2) → NEW container[data-block-index=\"2\"]\n\nClean separation, no mixing!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762627067249,
+      "type": "decision",
+      "content": "Multiple thinking blocks fix COMPLETE! ✅\n\nPROBLEM SOLVED: Claude thinks → uses tool → thinks again, second thinking now creates NEW container instead of mixing with first.\n\nFILES CHANGED (9 total):\n\nBACKEND (Extension):\n1. ChunkRouter.ts - Capture event.index from content_block_delta, add to normalizedChunk\n2. ThinkingTransformer.ts - Accept chunk.blockIndex, pass to ClaudeMessageBuilder\n3. ClaudeMessageBuilder.ts - Add blockIndex parameter to createWithThinking(), include in message\n4. ExtensionTypes.ts - Add blockIndex?: number to ConversationMessage interface\n\nUI (Webview):\n5. ReasoningContentExtractor.js - Return {content, blockIndex} object instead of string\n6. ChunkContentExtractor.js - Extract blockIndex from reasoning result, return in output\n7. ChunkProcessor.js - Extract blockIndex from chunkContentExtractor, pass to handler\n8. ReasoningChunkHandler.js - Accept blockIndex param (default 0), querySelector by data-block-index, setAttribute on new containers\n9. ReasoningMessageBuilder.js - Extract blockIndex from message, setAttribute for history restore\n\nRESULT:\n- Each thinking block isolated: data-block-index=\"0\", \"2\", \"4\"...\n- No mixing between separate thinking sessions\n- Backward compatible (defaults to 0)\n- History restore preserves block separation\n\nBuild successful!",
+      "metadata": {}
+    }
+  ]
+}

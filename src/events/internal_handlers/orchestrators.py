@@ -116,6 +116,7 @@ class VectorStorageOrchestrator:
         conversation_db_id: int,
         memory_log: Dict[str, Any],
         user_id: str,
+        project_id: str,
         session_id: str = None,
         gemini_analysis: List[Dict[str, Any]] = None
     ) -> Tuple[List[str], List[List[float]]]:
@@ -135,13 +136,13 @@ class VectorStorageOrchestrator:
         Returns:
             Tuple of (list of conversation_ids, list of embedding vectors)
         """
-        # Create vector service with empty project_id (conversations are user-scoped)
-        vector_service = self.create_vector_service(user_id, "")
+        vector_service = self.create_vector_service(user_id, project_id)
 
         conversation_ids, embeddings = await vector_service.store_conversation_vector(
             conversation_db_id=conversation_db_id,
             conversation_data=memory_log,
             user_id=user_id,
+            project_id=project_id,
             session_id=session_id,
             gemini_analysis=gemini_analysis
         )

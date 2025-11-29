@@ -1,0 +1,72 @@
+{
+  "sessionId": "2025-11-04-08-46",
+  "startTime": 1762238771529,
+  "entries": [
+    {
+      "timestamp": 1762238771532,
+      "type": "note",
+      "content": "Session started. Moti provided comprehensive notebook from session 2025-11-04-08-10. Last session we FIXED search tool end state to display \"Done. {pattern}\" with file count badge. KEY ISSUES TO ADDRESS: 1) Duplicate file structure (core/ vs ui-logic/core/), 2) Debug console.logs still in SearchFormatter.js, 3) Need to map which files are actually active/used. Plan: Investigate duplicates, consolidate, clean up debug logs.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762238802874,
+      "type": "gotcha",
+      "content": "CRITICAL DISCOVERY: Both core/ and ui-logic/core/ exist with nearly identical structure! Found ChatStreamMappers in BOTH locations: 1) src/ui/modules/core/events/bridge-handler/mapping/event-mapper/incoming/ChatStreamMappers.js, 2) src/ui/modules/ui-logic/core/events/bridge-handler/mapping/event-mapper/incoming/ChatStreamMappers.js. This confirms the duplicate file structure problem from last session.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762238881600,
+      "type": "gotcha",
+      "content": "CRITICAL PATH DISCOVERY! main.js imports UIManager from '../modules/ui-logic/UIManager.js'. UIManager imports DIBootstrap from './bootstrap/DIBootstrap.js'. DIBootstrap imports BridgeHandler from '../../core/events/BridgeHandler.js'. From ui-logic/bootstrap/, ../../core resolves to ui-logic/core/. This means THE ACTIVE PATH is ui-logic/core/, NOT core/!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762238904106,
+      "type": "gotcha",
+      "content": "COMPARED ChatStreamMappers FILES! ACTIVE: ui-logic/core/ChatStreamMappers.js has: 1) constructor(logger, eventBus), 2) debug logs in mapToolStart (lines 53-55), 3) logger.info in mapStreamChunk (line 130). INACTIVE: core/ChatStreamMappers.js has: 1) constructor(logger) only, 2) NO debug logs. The ACTIVE file has the debug logs, INACTIVE is cleaner. This confirms ui-logic/core/ is the ACTIVE path!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762239087139,
+      "type": "decision",
+      "content": "IMPORT AUDIT COMPLETE! Found ONE import that needs updating: main.js:4 imports UI_EVENTS from '../modules/core/events/events.js' which points to INACTIVE core/. Must update to '../modules/ui-logic/core/events/events.js'. All other imports from '../../core/' are within ui-logic/ and correctly resolve. Extension code (src/ext) has ZERO imports from UI core. Safe to delete inactive core/ after fixing main.js import!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762239204719,
+      "type": "decision",
+      "content": "CLEANUP COMPLETE! Successfully executed all steps: 1) Fixed main.js import from '../modules/core/' to '../modules/ui-logic/core/', 2) Removed debug console.logs from ChatStreamMappers.js (mapToolStart and mapStreamChunk), 3) Removed debug console.logs from SearchFormatter.js (lines 18-20, 34-36, 40), 4) DELETED entire inactive core/ directory (69 files removed). Now ready for testing!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762239343810,
+      "type": "error",
+      "content": "CRITICAL MISTAKE! Deleted src/ui/modules/core/ thinking it was dead code, but it contains ESSENTIAL system modules (EventBus, Logger, DI, CoreManager, BridgeHandler) used by ENTIRE application. The webview failed to load with errors for CoreManager.js, EventBus.js, Logger.js, BridgeHandler.js. RESTORED from git. Need to re-analyze: BOTH core/ directories are ACTIVE and serve DIFFERENT purposes!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762239531968,
+      "type": "gotcha",
+      "content": "KEY DISCOVERY! Both core/ directories have IDENTICAL 76-file structure. But contents DIFFER: CoreManager.js = identical, EventBus.js = DIFFERENT, Logger.js = identical, ChatStreamMappers.js = DIFFERENT (ui-logic version has constructor(logger, eventBus) vs core version has constructor(logger) only, plus ui-logic has debug comments removed). This suggests ui-logic/core is NEWER/MODIFIED version!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762239560333,
+      "type": "gotcha",
+      "content": "ARCHITECTURE DISCOVERY! Out of 76 files in each core/ directory, only 9 files DIFFER: 1) EventBus.js, 2) IncomingProcessorOrchestrator.js, 3) EventMapperOrchestrator.js, 4) ChatStreamMappers.js, 5) ChatOutgoingMappers.js, 6) EventMapper.js, 7) OutgoingPipeline.js, 8) MessageTransport.js, 9) BridgeHandler.js. The other 67 files are IDENTICAL! This appears to be a refactoring in progress where changes were made to ui-logic/core but not synced back to core/",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762239594761,
+      "type": "decision",
+      "content": "COMPLETE ANALYSIS: BOTH core/ directories exist but serve SAME purpose with PARTIAL SYNC. Structure: 76 identical files in each. Differences: 9 files modified in ui-logic/core (newer versions with bug fixes like ChatStreamMappers debug logs removed, EventBus with eventBus parameter). Import analysis: main.js was importing from modules/core (now fixed to ui-logic/core), DIBootstrap imports from ../../core which resolves to ui-logic/core. CONCLUSION: ui-logic/core is the ACTIVE newer version, core/ is OUTDATED but required because some imports might resolve to it!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762239848399,
+      "type": "decision",
+      "content": "SESSION COMPLETE - Duplicate core/ investigation documented! Created 3 docs: 1) duplicate-core-directories.md (problem overview, 67 identical + 9 different files), 2) duplicate-core-cleanup-plan.md (step-by-step Option C execution with prerequisites, rollback plan), 3) duplicate-core-files-detailed.md (file-by-file comparison). Decision: Will execute Option C later (delete core/, keep ui-logic/core/). Already cleaned: ChatStreamMappers debug logs, SearchFormatter debug logs, main.js import fixed. Ready for future consolidation!",
+      "metadata": {}
+    }
+  ]
+}

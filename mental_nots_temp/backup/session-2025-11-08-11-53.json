@@ -1,0 +1,60 @@
+{
+  "sessionId": "2025-11-08-11-53",
+  "startTime": 1762595605640,
+  "entries": [
+    {
+      "timestamp": 1762595605651,
+      "type": "note",
+      "content": "Session start with Moti - Final tweaks on welcome page. Recent work includes: animated metallic logo with rotating gradients, RGB explosion effects, interactive \"Start New Chat\" button, grid background with 40px pattern, and color infection animations. Ready to polish and finalize.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762596229673,
+      "type": "note",
+      "content": "Planning to add new circle-fading-plus icon to replace \"+\" in welcome screen button. Research complete:\n\nIcon System:\n- Icons stored in src/ui/assets/icons/ (auto-discovered)\n- Icons in ui-icons/ subdirectory are accessed as 'ui-icons/filename'\n- Icons loaded into window.ICONS global object at page load\n- IconLoader.js provides helper to load icons via data-icon attribute\n- Current newchat.svg exists, but user wants to replace with new circle-fading-plus design\n\nCurrent Implementation:\n- WelcomeScreenDOM.js line 76: Uses plain \"+\" text in span\n- Need to replace with img element using data-icon attribute\n- IconLoader pattern: <img data-icon=\"ui-icons/iconname\">\n\nPlan:\n1. Save new SVG as circle-fading-plus.svg in ui-icons folder\n2. Update WelcomeScreenDOM.js to use img with data-icon\n3. Call IconLoader.init() after button creation\n4. Update CSS to style the icon properly",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762596337842,
+      "type": "decision",
+      "content": "Successfully replaced \"+\" text with circle-fading-plus SVG icon in welcome screen button.\n\nImplementation:\n1. Created circle-fading-plus.svg in ui-icons/ folder\n2. Updated WelcomeScreenDOM.js to use <img data-icon=\"ui-icons/circle-fading-plus\">\n3. Added IconLoader.init() call to populate icon from window.ICONS\n4. Updated CSS to style .button-icon with cream color filter matching send button\n5. Added hover state with brightened filter effect\n\nThe icon will automatically load through the window.ICONS system with zero manual configuration.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762597369407,
+      "type": "gotcha",
+      "content": "Found the RGB sweep issue! \n\nProblem: Most colored cells stay colored between sweeps instead of being reset.\n\nRoot cause investigation:\n- GridShineSweepController.triggerSweep() calls cubeHighlighter.highlightRandomCubes()\n- RandomCubeHighlighter.highlightRandomCubes() resets ONLY previousCubes (line 30)\n- But previousCubes only contains cubes from the LAST sweep (line 114)\n- If a cube was colored 2+ sweeps ago but not in the last sweep, it never gets reset!\n\nExample:\n- Sweep 1: Colors cubes [2, 5, 8]\n- Sweep 2: Colors cubes [1, 3, 9] → Resets [2, 5, 8]\n- Sweep 3: Colors cubes [4, 6, 7] → Resets [1, 3, 9] BUT NOT [2, 5, 8]!\n\nSolution: Reset ALL currentCubes, not just previousCubes. The previousCubes tracking is redundant.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762597391395,
+      "type": "decision",
+      "content": "Fixed RGB sweep cube reset bug!\n\nChanged RandomCubeHighlighter.resetPreviousCubes() to reset BOTH currentCubes and previousCubes before each sweep. This ensures all colored cubes from any previous sweep are fully reset to their original metallic gradients, giving completely fresh randomization every time.\n\nThe bug was that only previousCubes (last sweep) were reset, so cubes from 2+ sweeps ago stayed colored forever.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762597602840,
+      "type": "note",
+      "content": "Planning alternating explosion/implosion animation for welcome screen RGB sweeps.\n\nCurrent: Always explodes from center outward (scale 0 → 1.5)\nGoal: Alternate between:\n1. Explosion: center → edges (scale 0 → 1.5)\n2. Implosion: edges → center (scale 1.5 → 0)\n\nImplementation approach:\n- Add toggle state to SweepAnimationExecutor to track explosion vs implosion\n- Modify animateExplosion() to handle both directions based on state\n- Toggle state after each sweep\n\nThis will create a breathing/pulsing effect!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762597639171,
+      "type": "decision",
+      "content": "Implemented alternating explosion/implosion breathing animation for welcome screen RGB sweeps!\n\nChanges to SweepAnimationExecutor:\n1. Added isExplosion toggle state to track current animation direction\n2. Modified resetToCenter() to only reset for explosion (implosion starts expanded)\n3. Updated animateExplosion() to handle both modes:\n   - Explosion: scale 0 → 1.5 (center to edges)\n   - Implosion: scale 1.5 → 0 (edges to center)\n4. Toggle state after each animation completes\n\nResult: Beautiful breathing/pulsing effect - every other sweep reverses direction!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762597712916,
+      "type": "gotcha",
+      "content": "Found the mask issue with implosion animation!\n\nProblem: During implosion, the shrinking gradient loses the SVG mask effect and appears as a full circle overlay.\n\nRoot cause: The mask is applied to the OVERLAY container (grid-shine-overlay), but the shine bar inside is animated beyond the masked area's scale during implosion.\n\nHow masking works:\n- SweepOverlayBuilder creates overlay div with SVG mask applied (line 72-77)\n- Mask is logo shape, applied to overlay container\n- Shine bar inside animates with transform: scale()\n- When shine bar scales from 1.5 → 0 (implosion), the gradient is INSIDE the mask boundaries but the scale animation makes it visible outside the logo shape\n\nIssue: The mask is `mask-size: contain` which means it scales to fit the overlay. When the shine bar shrinks, it's still within the overlay but the visual effect breaks.\n\nNeed to investigate if we should use a different approach for implosion or adjust the mask behavior.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762597869710,
+      "type": "decision",
+      "content": "Reverted implosion animation back to explosion-only due to SVG mask limitation.\n\nProblem: During implosion (edges → center), the shrinking gradient lost the logo mask effect and appeared as full circle overlay.\n\nRoot cause: SVG mask is applied to overlay CONTAINER, not the animated shine bar element. When shine bar scales down from 1.5 → 0, it breaks the mask constraint.\n\nSolution: Removed implosion feature, kept explosion-only (center → edges) which works perfectly with the mask system.\n\nThe 10-second interval with 1.5-second explosion duration still creates beautiful, smooth RGB color sweeps through the logo cubes.",
+      "metadata": {}
+    }
+  ]
+}

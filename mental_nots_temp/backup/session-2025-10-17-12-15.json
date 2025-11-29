@@ -1,0 +1,90 @@
+{
+  "sessionId": "2025-10-17-12-15",
+  "startTime": 1760692552206,
+  "entries": [
+    {
+      "timestamp": 1760692552209,
+      "type": "note",
+      "content": "Starting session focused on visual polish after streaming migration. First target: typing indicator visual problems. Taking it slow, brainstorming before implementation.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760692619270,
+      "type": "decision",
+      "content": "Goal: Make typing indicator template system dynamic. Currently hardcoded, want multiple templates switchable via events. This will allow different visual styles/animations to be changed on the fly.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760692721904,
+      "type": "note",
+      "content": "Learned existing template systems:\n1. ToolTemplates.js - Method-based templates (getToolContentTemplate, getLoadingTemplate, etc.) - simple string generation\n2. ComponentOrchestrator + TemplateLoader - File-based templates loaded from HTML files with variable replacement\n3. For typing indicator, we should follow the ToolTemplates pattern (method-based) since indicators are dynamic and don't need file loading",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760692809777,
+      "type": "decision",
+      "content": "Moti prefers HTML files for templates (not JS strings) + separate JS for logic. This matches the ComponentOrchestrator pattern. Will create HTML template files for typing indicators that can be loaded and swapped via events.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760692882664,
+      "type": "note",
+      "content": "Template architecture discovered:\n1. Extension loads base.html with {{PLACEHOLDERS}}\n2. TemplateManager replaces placeholders with component HTML files from src/ui/templates/components/\n3. All happens at webview initialization (server-side)\n4. For runtime template switching, we need CLIENT-side template system using ComponentOrchestrator (already exists in webview)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760693254551,
+      "type": "note",
+      "content": "Successfully integrated TypingIndicatorTemplateManager:\n- Created 5 HTML templates in src/ui/templates/typing-indicators/\n- Built TemplateManager with event-driven switching (typing-indicator.template.set)\n- Refactored ClaudeWorkingIndicator & ProviderWorkingIndicator to use async template loading\n- Injected TemplateManager via ComponentFactory dependency injection\n- Templates use placeholders: {{providerIcon}}, {{providerName}}, {{effect}}, etc.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760693574239,
+      "type": "decision",
+      "content": "✅ Typing Indicator Template System - COMPLETE\n\nCreated event-driven, template-based typing indicator system following Sementix best practices:\n\n**HTML Templates** (src/ui/templates/typing-indicators/):\n- claude-cooking.html - Provider-specific with pulse animation\n- minimal-dots.html - Simple three-dot bounce\n- matrix-grid.html - Current default matrix style\n- pulse-wave.html - Wave animation with branding\n- provider-working.html - Generic provider working\n\n**JavaScript** (TypingIndicatorTemplateManager.js):\n- Template registry with 5 templates\n- Async template loading with fetch + caching\n- Variable replacement ({{providerIcon}}, {{providerName}}, {{effect}})\n- Event listeners: typing-indicator.template.set/get/changed\n- Dependency injected via ComponentFactory\n\n**CSS** (ultra-modular pattern):\n- typing-indicators.css - @import orchestrator\n- variables.css - Design tokens\n- templates/*.css - Individual template styles\n- states/*.css - Animations & transitions\n- utilities/common.css - Shared helpers\n\n**Integration**:\n- Updated ResourceManager, TemplateInjector, CssUriResolver\n- Added TYPING_INDICATORS_CSS_URI to base.html\n- Refactored ClaudeWorkingIndicator & ProviderWorkingIndicator to use templates\n\n**How to use**:\neventBus.emit('typing-indicator.template.set', { templateId: 'minimal-dots' })\n\nReady for testing!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760693836672,
+      "type": "gotcha",
+      "content": "Issue: When indicator switches, there's a flash of another indicator for split second. Need to investigate the indicator switching flow to find where overlap/double rendering occurs.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760693987171,
+      "type": "gotcha",
+      "content": "Identified the double indicator flash issue:\n1. ProviderWorkingIndicator shows \"CLAUDE WORKING\" with matrix-grid\n2. Then ClaudeWorkingIndicator replaces it with \"Claude is cooking...\"\n3. Both use .outerHTML replacement causing visual flash\n\nNeed to prevent ProviderWorkingIndicator from showing during streaming, OR make both use same template to avoid mismatch.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760694042327,
+      "type": "decision",
+      "content": "✅ Fixed double indicator flash issue!\n\nRoot cause: StreamingChunkRouter was showing TWO indicators:\n1. ProviderWorkingIndicator (\"CODEX WORKING\" matrix-grid) \n2. Wait 300ms\n3. ClaudeWorkingIndicator (\"Claude is cooking...\")\n\nSolution: Removed intermediate indicator in StreamingChunkRouter.routeStreamStart()\n- Removed showProviderWorking() call\n- Removed 300ms setTimeout delay\n- Go directly to startStreamingMessage() which shows cooking indicator\n\nResult: Clean, instant transition to cooking indicator without flash!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760694154868,
+      "type": "note",
+      "content": "Moti asking about \"Claude is working...\" text source - need to trace where this text comes from in the template system.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760694500253,
+      "type": "gotcha",
+      "content": "Issue persists: User still sees \"Claude is working...\" \nThe template fetch is failing. Need to inline templates directly in TypingIndicatorTemplateManager instead of using fetch() to make it work in VSCode webview.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760694554453,
+      "type": "decision",
+      "content": "Fixed template loading issue!\n- Changed from fetch('templates/typing-indicators/...') to inline HTML in templates registry\n- Templates now have .html property with inline template strings\n- loadTemplate() now directly returns templateInfo.html\n- This works in VSCode webview without needing file access\n\nShould now show \"Claude is cooking...\" instead of fallback \"Claude is working...\"",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760694729569,
+      "type": "decision",
+      "content": "Removed background from claude-cooking indicator - removed background, border, border-radius, and backdrop-filter to make it transparent.",
+      "metadata": {}
+    }
+  ]
+}

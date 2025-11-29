@@ -1,0 +1,54 @@
+{
+  "sessionId": "2025-11-08-09-20",
+  "startTime": 1762586458412,
+  "entries": [
+    {
+      "timestamp": 1762586458415,
+      "type": "note",
+      "content": "Welcome screen logo cube opacity randomization - Fixed initial opacity issue where all 16 cubes started with only two values (0.3 and 0.4 alternating pattern), causing no visible animation for 3-5 seconds until flash/fade animations kicked in. Added randomization logic in createWelcomeElement() to set each cube's initial opacity to random value between 0.3 and 0.85, creating immediate visual variation on load. Modified WelcomeScreen.js lines 234-240.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762586688297,
+      "type": "note",
+      "content": "Welcome screen radius morphing limit - Reduced maxRadius from 10 to 7.5 (75% of full circle) to prevent cubes from morphing into full circles. Cubes are 20x20px, so radius 10 would create perfect circles, but 7.5 keeps them recognizably square-ish with rounded corners. Modified radiusConfig in WelcomeScreen.js line 50.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762586909170,
+      "type": "note",
+      "content": "Welcome screen gradient morphing animation - Added trippy gradient shape morphing to combine with existing rotation and fade animations. Gradients now morph their stop positions (0%, 50%, 100%) using sine waves with independent random phases per cube. Center stop oscillates ±20% (30%-70%), outer stops ±15%. Creates breathing metallic shine effect. Added gradientMorphConfig (morphSpeed: 0.003, centerStopRange: 0.2, outerStopRange: 0.15) and enhanced animateGradients() to morph stops alongside rotation. Modified WelcomeScreen.js lines 59-64, 628-644, 650-694.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762587041136,
+      "type": "note",
+      "content": "Welcome screen sharp corners default - Changed default cube shape from rounded (rx=3) to sharp/square (rx=0) for less linear look. Updated normalRadius from 3 to 0 in radiusConfig and changed all 16 SVG rect elements from rx=\"3\" to rx=\"0\". Cubes now default to sharp corners and occasionally morph to rounded (up to 7.5) during animation. Modified WelcomeScreen.js line 48 and lines 198-216.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762587183382,
+      "type": "note",
+      "content": "Welcome screen radial gradients with wider shade range - Converted all 16 linear gradients to radial gradients for glowing metallic sphere effect. Wider shade range: white (#ffffff) → light gray (#cccccc) → dark gray (#666666) → black (#000000). Each gradient has unique center position (cx, cy). Updated animation to orbit light source around cube center (±20% radius), morph gradient radius (70% ± 15% breathing effect), and oscillate stop positions (30% ± 10%, 60% ± 15%). Creates trippy, dynamic, spherical metallic cubes. Modified WelcomeScreen.js lines 106-203 (gradients) and 666-715 (animation).",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762587315859,
+      "type": "note",
+      "content": "Welcome screen radial gradient refinement - Made gradient more spread across cube (r=\"100%\" instead of 70%) and darkened brightest color from pure white to mid-gray (#aaaaaa instead of #ffffff). New color range: light gray (#aaaaaa) → gray (#888888) → dark gray (#444444) → black (#000000) with stops at 0%, 40%, 70%, 100%. Updated animation baseRadius to 100 with ±20% variation. Creates more subtle, darker metallic effect that spreads across entire cube. Modified WelcomeScreen.js lines 107-203 (gradients) and 690-691 (animation radius).",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762587536115,
+      "type": "note",
+      "content": "Welcome screen linear gradients with extended range - Switched back to linear gradients but extended coordinates beyond cube boundaries (e.g., x1=\"-50%\", x2=\"150%\") so gradient is never fully visible within cube, creating smooth shade transitions across entire cube surface. Added 5 color stops with soft transitions: #999999 → #777777 → #555555 → #333333 → #222222 at 0%, 25%, 50%, 75%, 100%. Stops oscillate during animation (25%±8%, 50%±12%, 75%±8%). Gradient direction rotates. Effect: whole cube changes shades of gray smoothly without visible gradient pattern. Modified WelcomeScreen.js lines 107-219 (gradients) and 685-732 (animation).",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762587655397,
+      "type": "note",
+      "content": "Welcome screen opacity and radius adjustments - Increased minimum opacity from 0.3 to 0.5 for better cube visibility. Reduced maximum corner radius from 7.5 to 5 for subtler morphing effect (50% of full circle instead of 75%). Cubes now more visible overall and corner rounding is less dramatic. Modified WelcomeScreen.js line 28 (minOpacity) and line 50 (maxRadius).",
+      "metadata": {}
+    }
+  ]
+}

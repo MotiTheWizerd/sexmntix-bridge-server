@@ -1,0 +1,30 @@
+{
+  "sessionId": "2025-11-12-02-50",
+  "startTime": 1762908624129,
+  "entries": [
+    {
+      "timestamp": 1762908624132,
+      "type": "note",
+      "content": "User wants to redesign system message UI - currently too large and breaks design consistency. Need to match header-dropdown styling: smaller icon, smaller headline, metallic/glassmorphism theme with backdrop-blur",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762909390864,
+      "type": "decision",
+      "content": "User wants system messages to match header-dropdown color scheme - dark metallic theme with subtle borders, NOT the current bright orange/brown/colored backgrounds. Need to replace the colored gradients with metallic dark backgrounds.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762909833200,
+      "type": "note",
+      "content": "User wants to replace emoji icon (🚫) in system messages with SVG icon (stop.svg / shield-x). Currently using emojis directly in MessageTypeConfig. System has window.ICONS auto-loading from assets/icons with IconLoader for data-icon attributes. Need to determine best approach: use window.ICONS directly or data-icon pattern.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762910158397,
+      "type": "decision",
+      "content": "Successfully replaced system message refusal emoji icon (🚫) with SVG icon (ui-icons/stop.svg) using data-icon pattern. Implementation: MessageTypeConfig uses 'ui-icons/stop', MessageBuilder auto-detects icon type (emoji vs SVG path), CSS handles both span and img elements, MessageInjector calls IconLoader.init() after injection.",
+      "metadata": {}
+    }
+  ]
+}

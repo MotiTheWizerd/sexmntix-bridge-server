@@ -1,0 +1,108 @@
+{
+  "sessionId": "2025-10-17-04-32",
+  "startTime": 1760664732439,
+  "entries": [
+    {
+      "timestamp": 1760664732441,
+      "type": "note",
+      "content": "Preparing comprehensive module building guide for Moti. Will create new model using established ultra-modular patterns and best practices from past refactorings.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760665400063,
+      "type": "note",
+      "content": "Hybrid architecture pattern discovered:\n1. React components render UI in ide-dashboard\n2. Vanilla JS controllers in ui-logic manage DOM interaction and events\n3. EventBus bridges React <-> Vanilla JS\n4. VSCode API service handles webview communication\n5. Controllers use querySelector to find React-rendered elements by ID/class\n6. React components trigger events via EventBus, controllers listen and respond",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760665410548,
+      "type": "decision",
+      "content": "Building Notification Module using hybrid architecture:\n- React components in ide-dashboard for UI rendering\n- Vanilla JS NotificationController in ui-logic for state management\n- EventBus for React <-> Vanilla JS communication\n- Toast-style notifications with position control (top-right, bottom-right, etc.)\n- Support types: success, error, warning, info\n- Auto-dismiss with configurable duration\n- Manual dismiss capability",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760665501743,
+      "type": "note",
+      "content": "Correction: Chat UI is in chat-react folder, NOT ide-dashboard. The ide-dashboard is separate. Will build notification module for chat-react React app.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760665517417,
+      "type": "decision",
+      "content": "Simplified Notification Architecture for chat-react (Pure React):\n- Pure React implementation (no vanilla JS controller needed for chat-react)\n- NotificationContainer component with positioning\n- Notification cards with glassmorphic design\n- useNotification hook for easy access\n- EventBus integration for cross-component notifications\n- Types: success, error, warning, info\n- Auto-dismiss with configurable duration\n- Toast-style positioning (top-right default)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760666833981,
+      "type": "note",
+      "content": "Creating implementation plan for notification module. Already created base files:\n- types.ts (notification types)\n- NotificationIcon.tsx (SVG icons)\n- Notification.tsx (single toast card)\n- NotificationContainer.tsx (positioning container)\n- Notifications.css (glassmorphic styles)\n- NotificationContext.tsx (global state)\n- useNotification.ts (convenience hook)\n- index.ts (exports)\n\nNext: Need to integrate into App.tsx and update EventTypes",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760666983147,
+      "type": "note",
+      "content": "User approved folder structure display. Now preparing final implementation plan with detailed integration steps.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760667121873,
+      "type": "decision",
+      "content": "Notification Module Implementation Complete:\n- Created 8 ultra-modular React components following Sementix patterns\n- Integrated NotificationProvider and NotificationContainer into App.tsx\n- Added NotificationPayload type to EventTypes for EventBus integration\n- System ready for testing with useNotification() hook or EventBus emissions\n- Average component size: ~50 lines (within our 30-60 line target)\n- Glassmorphic design matching Sementix theme",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760667247663,
+      "type": "note",
+      "content": "Provider Switch Flow Analysis:\n1. ProviderSelector renders buttons for each provider (claude, openai, gemini, qwen)\n2. onClick calls onProviderChange(provider) from ChatHeader\n3. ChatHeader passes switchProvider from useProviderState hook\n4. switchProvider updates local state AND posts to extension via EventBus\n5. Need to add notification in switchProvider callback after state update\n6. Should show: \"Switched to [Provider Name]\" with info type",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760667303910,
+      "type": "decision",
+      "content": "Provider Switch Notification Implementation Complete:\n- Added getProviderDisplayName() helper function in useProviderState hook\n- Added notification emission in switchProvider callback after state update\n- Notification shows \"Switched to [Provider Name]\" with info type, 2s duration\n- Single file modification (~13 lines added)\n- Clean implementation following ultra-modular patterns\n- Total hook size: ~50 lines (within target range)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760667504593,
+      "type": "gotcha",
+      "content": "Critical Discovery: The notification system was built for chat-react but the actual running UI is the old vanilla JavaScript system (evidenced by Logger.js, EventBus.js, ProviderIconManager logs). The React UI we modified is not being loaded. Need to either:\n1. Switch extension to load chat-react instead of vanilla UI\n2. Add notifications to the vanilla JavaScript UI system instead",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760667561470,
+      "type": "decision",
+      "content": "Clarification: Sementix has TWO separate chat UIs:\n1. Vanilla JavaScript UI in src/ui/templates/base.html (CURRENTLY ACTIVE - logs show EventBus.js, Logger.js)\n2. React UI in src/ui/app/chat-react (where we built notifications)\n\nThe running chat is using vanilla JavaScript system. Options:\nA) Add notifications to vanilla JavaScript UI (matching existing architecture)\nB) Switch extension to use React chat UI instead\n\nUser likely wants option A since vanilla UI is currently in use.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760667718013,
+      "type": "decision",
+      "content": "Vanilla JS Notification Module Architecture Plan:\n- Follow existing ultra-modular patterns (HeaderController, ConfirmationController)\n- NotificationController orchestrator (~120 lines)\n- 6-8 micro-components (~30-50 lines each)\n- EventBus integration (already in place)\n- Glassmorphism design (matching existing theme)\n- Toast-style notifications (top-right default)\n- Provider switch notification on 'provider.switch.requested.v1' event\n- Template injection in base.html\n- CSS file in templates/css/\n- Similar structure to React version but vanilla JS",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760668047781,
+      "type": "decision",
+      "content": "Vanilla JavaScript Notification Module Implementation Complete:\n- Created 8 ultra-modular files (NotificationController + 6 components + 1 factory)\n- Created notifications.css with glassmorphic styling (~250 lines)\n- Updated base.html (added container + CSS link)\n- Updated UIControllerManager.js (registered NotificationController)\n- Updated ProviderIconManager.js (emit notification on provider switch)\n- Total: 9 new files, 3 files modified\n- Follows existing ultra-modular patterns exactly\n- Provider switch now shows \"Switched to [Provider]\" info notification\n- EventBus integration complete - ready for testing",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760668400896,
+      "type": "gotcha",
+      "content": "CSS URI Placeholder Fix: {{NOTIFICATIONS_CSS_URI}} not replaced - needed to add 'notifications' property to CssResourcePaths and CssResourceUris interfaces in ResourceTypes.ts, and add path configuration in ResourceManager.ts getCssResourcePaths() method. All CSS files must be registered in the resource manager for URI replacement to work.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760668483240,
+      "type": "error",
+      "content": "TypeScript compilation error: CssUriResolver.ts missing 'notifications' property in returned CssResourceUris object. After adding notifications to the type interfaces, forgot to add it to the actual URI resolver implementation that builds the URIs object.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760668515212,
+      "type": "decision",
+      "content": "Fixed TypeScript compilation error: Added missing 'notifications' property to CssUriResolver.ts return object. This completes the 3-file update needed for notification CSS: ResourceTypes (interfaces), ResourceManager (config), and CssUriResolver (implementation).",
+      "metadata": {}
+    }
+  ]
+}

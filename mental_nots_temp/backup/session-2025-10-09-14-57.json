@@ -1,0 +1,24 @@
+{
+  "sessionId": "2025-10-09-14-57",
+  "startTime": 1760011078297,
+  "entries": [
+    {
+      "timestamp": 1760011078299,
+      "type": "note",
+      "content": "Architecture Research: Current Message Flow\n\n**Current Architecture:**\n1. UI sends message via User Input → EventBus\n2. Extension receives via Bridge Handler\n3. Extension calls ClaudeCodeService.askClaudeAsConversation()\n4. ClaudeCodeService → ConversationManager → CLIExecutor\n5. CLIExecutor spawns Claude CLI with --output-format stream-json\n6. Response comes back as NDJSON (newline-delimited JSON)\n7. NDJSONParser parses complete response\n8. Extension sends complete response back to UI\n9. UI displays via AgentMessagesManager\n\n**Key Discovery:**\n- Claude CLI ALREADY supports streaming via stream-json format!\n- CLIExecutor currently collects ALL stdout before returning\n- We need to modify CLIExecutor to emit chunks in real-time\n- NDJSON format: Each line is a complete JSON object\n\n**Streaming Infrastructure in UI:**\n- misc_tests/chat-ui-demo has complete StreamingController + StreamingEngine\n- Supports 4 visual modes: default, scanner, fire-spark, matrix\n- Has chunk handling, pause/resume, visual effects\n\n**Next Steps:**\n- Add streaming config flag\n- Modify CLIExecutor to emit data chunks as they arrive\n- Create async generator in ConversationManager\n- Wire up extension bridge streaming events\n- Connect UI to receive and display streaming chunks",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760012161944,
+      "type": "note",
+      "content": "Phase 1 Complete: Mock Infrastructure ✅\n\nCreated:\n1. StreamingConfig.ts - enabled/useMockResponse flags, 50ms chunk delay\n2. streaming-response.ndjson - 13 NDJSON lines with thinking/text/final_result\n3. MockStreamingGenerator.ts - Reads file, yields lines with delays\n4. test-mock-generator.ts - Test harness\n\nNext: Phase 2 - Wire up CLIExecutor.executeStreaming()",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760013767810,
+      "type": "decision",
+      "content": "## 📝 Next Session Summary - Streaming Implementation\n\n### ✅ COMPLETED (Phases 1-3):\n**Backend streaming infrastructure is DONE and TESTED:**\n- StreamingConfig with mock toggle ✅\n- MockStreamingGenerator reads real response.json, yields 3 chunks ✅\n- CLIExecutor.executeStreaming() + claudeMessageStreaming() ✅\n- ConversationManager.askClaudeAsConversationStream() parses NDJSON ✅\n- ClaudeCodeService.askClaudeAsConversationStream() wrapper ✅\n- Bridge event types defined (chat.stream.start/chunk/complete/error) ✅\n- Test verified: 3 messages stream with 50ms delays ✅\n\n### 🎯 REMAINING WORK (Phases 4-6) - ~30 min:\n\n**Phase 4 - Extension Integration:**\n1. Add `processMessageAsConversationStream()` to ClaudeCodeCLIAdapter\n2. Modify MessageRouter.routeUserMessage() line 38:\n   - Check if streaming enabled\n   - Iterate async generator: `for await (const chunk of stream)`\n   - Emit bridge events: `postToUI({ event: 'chat.stream.chunk.v1', payload })`\n\n**Phase 5 - UI Events:**\n1. Add constants to `ChatEventConstants.js`: CHAT_STREAM_START/CHUNK/COMPLETE\n2. Map bridge events → UI events in event mapper\n\n**Phase 6 - UI Display:**\n1. Add to AgentMessagesManager.js:\n   - `startStreamingMessage()` - replace placeholder\n   - `appendStreamChunk(chunk)` - accumulate text\n   - `completeStreamingMessage()` - apply markdown\n2. Wire events to methods\n\n### 🔑 KEY FILES FOR NEXT SESSION:\n- `MessageRouter.ts` (line 38) - THE critical integration point\n- `ClaudeCodeCLIAdapter.ts` - Add streaming method\n- `AgentMessagesManager.js` - Add 3 streaming methods\n- `ChatEventConstants.js` - Add UI event constants\n\n### 💡 CRITICAL INSIGHT:\n**MessageRouter.routeUserMessage() line 38** is where blocking → streaming happens. Everything before that line works perfectly (async generators yield chunks). Everything after needs to emit bridge events instead of waiting.\n\n### 🚀 EXPECTED RESULT:\nSend message in WebUI → see 3 chunks appear with 50ms delays → real-time streaming! 💥\n\n### 🛠️ NO TESTING NEEDED YET:\nAll backend tested. Next session = wire to UI, then ONE test shows streaming live!",
+      "metadata": {}
+    }
+  ]
+}

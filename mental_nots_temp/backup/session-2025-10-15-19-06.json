@@ -1,0 +1,30 @@
+{
+  "sessionId": "2025-10-15-19-06",
+  "startTime": 1760544361870,
+  "entries": [
+    {
+      "timestamp": 1760544361872,
+      "type": "decision",
+      "content": "Codex CLI NDJSON thread.started event contains thread_id that must be captured for session continuity. When converting events to universal messages, need to extract and store this thread_id from the first thread.started event. Example: {\"type\":\"thread.started\",\"thread_id\":\"0199e89c-2ab0-7cc0-8d1b-7b68c8aeb331\"}",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760544617980,
+      "type": "decision",
+      "content": "Building modular factory for Codex CLI command construction. Need to support: 1) new chat (exec) vs resume (exec resume <thread_id>), 2) dynamic flag management (add/remove flags), 3) session continuity support. Factory pattern will separate command building logic from execution.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760544889607,
+      "type": "decision",
+      "content": "Completed modular Codex CLI command factory implementation:\n1. CodexCommandConfig.ts - Configuration interface with SandboxMode types and DEFAULT_CODEX_CONFIG\n2. CodexCommandBuilder.ts - Fluent builder pattern with methods: setCommandType(), setThreadId(), setPrompt(), withJson(), withDangerouslyBypass(), build()\n3. CodexCommandFactory.ts - Factory with createNewChatCommand() and createResumeCommand() static methods\n4. Updated CodexCLIExecutor.ts - Added sessionId parameter, uses factory to auto-choose between exec vs exec resume\n5. Updated StreamingApiHandler.ts - Passes sessionId to executor for CLI mode session continuity\n\nResult: CLI mode now supports session continuity via \"codex exec resume <thread_id>\" when sessionId is provided",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760545165077,
+      "type": "gotcha",
+      "content": "Bug fix: Codex CLI flag order was incorrect. Flags must come BEFORE subcommands, not after. Fixed CodexCommandBuilder.build() to output: codex exec --json --dangerously-bypass... resume <thread_id> \"prompt\" instead of: codex exec resume <thread_id> --json... Error was: \"error: unexpected argument '--json' found\"",
+      "metadata": {}
+    }
+  ]
+}

@@ -29,6 +29,7 @@ class ConversationSearcher:
         self,
         query: str,
         user_id: str,
+        project_id: str,
         limit: int = 10,
         where_filter: Optional[Dict[str, Any]] = None,
         min_similarity: float = 0.0
@@ -62,7 +63,7 @@ class ConversationSearcher:
         results = await self.vector_repository.search(
             query_embedding=query_embedding,
             user_id=user_id,
-            project_id="conversations",
+            project_id=project_id,
             limit=limit,
             where_filter=combined_filter,
             collection_prefix="conversations"

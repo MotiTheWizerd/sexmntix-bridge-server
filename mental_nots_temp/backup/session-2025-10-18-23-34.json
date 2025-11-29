@@ -1,0 +1,12 @@
+{
+  "sessionId": "2025-10-18-23-34",
+  "startTime": 1760819677557,
+  "entries": [
+    {
+      "timestamp": 1760819677559,
+      "type": "decision",
+      "content": "✅ CODEX FIXED IT - Conversation History Dropdown Working\n\n**Root Cause (found by Codex):**\n- ResourcePipeline emits `resources.ready` BEFORE webview HTML loads\n- LogicManager.start() fires `history.ready.v1` immediately\n- UI script hasn't executed yet, so window.addEventListener('message') not registered\n- Message lost before UI is ready\n\n**Solution (by Codex):**\n- Queue history.ready.v1 data until ui.booted.v1 handshake\n- Reused existing UI boot pattern\n- 2 files changed: LogicEventHandlers.ts (+60/-19), EventHandlerSetup.ts (+2/-1)\n\n**Files modified:**\n- src/ext/modules/logic-manager/handlers/LogicEventHandlers.ts - Added queue system for early messages\n- src/ext/modules/logic-manager/orchestration/initialization/EventHandlerSetup.ts - Pass bus to LogicEventHandlers\n\n**Next steps:**\n1. Test: Open webview, verify dropdown shows real sessions\n2. Implement: Session click handler to load conversation\n3. Polish: Add loading states, error handling\n\n**Time:** Codex fixed in 2-3 minutes what Claude 4.5 made worse over 5 hours.\n\nMoti's health suffering from this. Need to be better.",
+      "metadata": {}
+    }
+  ]
+}

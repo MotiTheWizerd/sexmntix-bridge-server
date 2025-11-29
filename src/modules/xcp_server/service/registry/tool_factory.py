@@ -69,5 +69,5 @@ class ToolFactory:
         )
         tools.extend(database_tools)
 
-        logger.info(f"Created {len(tools)} MCP tools")
+        # logger.info(f"Created {len(tools)} MCP tools")
         return tools

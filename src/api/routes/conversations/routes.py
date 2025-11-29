@@ -8,6 +8,7 @@ from src.api.dependencies.logger import get_logger
 from src.api.dependencies.vector_storage import create_vector_storage_service
 from src.api.schemas.conversation import (
     ConversationCreate,
+    ConversationCreateV2,
     ConversationResponse,
     ConversationSearchRequest,
     ConversationSearchResult,
@@ -38,6 +39,30 @@ async def create_conversation(
         conversation_id=data.conversation_id,
         model=data.model,
         conversation_messages=[msg.model_dump() for msg in data.conversation],
+        user_id=data.user_id,
+        project_id=data.project_id,
+        session_id=data.session_id,
+    )
+    return conversation
+
+
+@router.post("/raw", response_model=ConversationResponse, status_code=201)
+async def create_conversation_raw(
+    data: ConversationCreateV2,
+    db: AsyncSession = Depends(get_db_session),
+    event_bus: EventBus = Depends(get_event_bus),
+    logger: Logger = Depends(get_logger),
+):
+    """Create a new conversation using the `conversation_messages` field.
+
+    This endpoint accepts the same data that the service layer expects and
+    will insert the conversation into the DB and schedule vector storage.
+    """
+    service = build_conversation_service(db_session=db, event_bus=event_bus, logger=logger)
+    conversation = await service.create_conversation(
+        conversation_id=data.conversation_id,
+        model=data.model,
+        conversation_messages=[msg.model_dump() for msg in data.conversation_messages],
         user_id=data.user_id,
         project_id=data.project_id,
         session_id=data.session_id,
@@ -89,7 +114,7 @@ async def search_conversations(
     try:
         vector_service = create_vector_storage_service(
             user_id=search_request.user_id,
-            project_id="conversations",
+            project_id=search_request.project_id,
             embedding_service=request.app.state.embedding_service,
             event_bus=request.app.state.event_bus,
             logger=logger,
@@ -99,6 +124,7 @@ async def search_conversations(
         results = await service.search_conversations(
             query=search_request.query,
             user_id=search_request.user_id,
+            project_id=search_request.project_id,
             limit=search_request.limit,
             min_similarity=search_request.min_similarity,
             model=search_request.model,
@@ -120,9 +146,19 @@ async def fetch_memory(
 ):
     """Fetch synthesized memory from conversation search results."""
     try:
+        if not search_request.project_id:
+            raise HTTPException(status_code=400, detail="project_id is required")
+
         orchestrator = ConversationOrchestrator(logger=logger)
+        logger.info(
+            "[FETCH_MEMORY] received request",
+            extra={
+                "user_id": search_request.user_id,
+                "project_id": search_request.project_id,
+                "session_id": search_request.session_id,
+            },
+        )
         return await orchestrator.fetch_memory(search_request, request)
     except Exception as e:
         logger.error(f"Memory fetch failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Memory fetch failed: {str(e)}")
-

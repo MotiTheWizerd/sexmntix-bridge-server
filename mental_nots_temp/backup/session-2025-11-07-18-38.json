@@ -1,0 +1,66 @@
+{
+  "sessionId": "2025-11-07-18-38",
+  "startTime": 1762533485369,
+  "entries": [
+    {
+      "timestamp": 1762533485371,
+      "type": "note",
+      "content": "Moti greeted me and provided a comprehensive welcome message. He's reminding me about the Sementix project - a VS Code extension that transforms terminal-based Claude Code into a visual, collaborative interface. Key features include real-time streaming, permission system, designer controls, multi-state architecture, and semantic memory. Ready to continue working on the project.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762533626389,
+      "type": "gotcha",
+      "content": "PROBLEM IDENTIFIED: Sticky scroll not working. Previous fix (sticky-scroll-wrapper-fix-nov-6) scrolled the WRAPPER container (.message-list-container), but current code at line 92 scrolls the MESSAGE-LIST element directly (this.messageList.scrollTop). This is the regression - we changed the scroll target from wrapper back to message-list.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762533653175,
+      "type": "note",
+      "content": "ANALYSIS: ScrollManager correctly scrolls #message-lists-wrapper (line 20). The streaming system uses scrollToBottomIfEngaged() which checks user engagement via inputFocusTracker. Need to verify: (1) Is streaming using ScrollManager or old MessageListController? (2) Is inputFocusTracker working properly?",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762533707595,
+      "type": "gotcha",
+      "content": "DIAGNOSIS: Sticky scroll system is MISSING the scroll event listener!\n\nThe system has:\n✅ InputFocusTracker - Tracks user engagement (focus/blur)\n✅ ScrollManager - Scrolls wrapper correctly (scrollToBottomIfEngaged)\n✅ User engagement gets SET to true when user focuses input or sends message\n\n❌ MISSING: Scroll event listener to SET engagement to FALSE when user scrolls up!\n\nThe engagement state only becomes FALSE when user manually blurs (InputFocusTracker line 81), but NEVER when user scrolls up. This means once engaged, scroll stays stuck forever even if user scrolls up to read old messages.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762533763017,
+      "type": "note",
+      "content": "CORRECTION: User says sticky scroll is NOT working during Claude streaming. It's not about detecting user scrolling - the basic auto-scroll during streaming is broken. Need to trace the streaming flow to see why scrollToBottomIfEngaged() isn't working.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762533792240,
+      "type": "gotcha",
+      "content": "ROOT CAUSE FOUND!\n\nCSS shows:\n- #message-lists-wrapper (line 38-40): overflow-y: HIDDEN ❌\n- .message-list (line 15-17): overflow-y: AUTO ✅\n\nScrollManager.js (line 17-20) tries to scroll #message-lists-wrapper which has overflow:hidden!\n\nThis is the regression! Memory says we fixed it Nov 6 by scrolling wrapper, but CSS has wrapper set to overflow:hidden. The scroll is happening on .message-list (which has overflow:auto) but JS is trying to scroll the wrapper (which can't scroll because overflow:hidden).",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762533882239,
+      "type": "decision",
+      "content": "FIX PLAN: Change ScrollManager.scrollToBottom() and isAtBottom() to use domReferences.getMessageList(chatId) to get the correct .message-list element (per chat), then scroll that element instead of #message-lists-wrapper.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762533910111,
+      "type": "note",
+      "content": "FIXED: Updated ScrollManager.js to scroll the .message-list element (which has overflow-y: auto) instead of #message-lists-wrapper (which has overflow: hidden). Both scrollToBottom() and isAtBottom() now use domReferences.getMessageList(chatId) to get the correct scroll container per chat.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762534227010,
+      "type": "gotcha",
+      "content": "NEW ISSUE: Sticky scroll works after user focuses input once, but doesn't work on initial load. User has to click/focus the input field first before sticky scroll activates. This is because userEngagedByChat Map starts empty (not engaged by default).",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762534413539,
+      "type": "note",
+      "content": "FIXED: Changed InputFocusTracker._getUserEngaged() to return true by default (using ?? operator instead of ||). Now new chats are automatically engaged, so sticky scroll works immediately on first message without requiring user to focus input first.",
+      "metadata": {}
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "sessionId": "2025-10-28-11-28",
+  "startTime": 1761643690214,
+  "entries": [
+    {
+      "timestamp": 1761643690216,
+      "type": "note",
+      "content": "Starting research on gemini-cli integration. Goal: Understand how to use Gemini like Claude/Codex and identify headless feature limitations. User mentioned they just added gemini-cli.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761643821356,
+      "type": "decision",
+      "content": "User insight: Headless mode may not be sufficient. User suggests using the code inside the Gemini CLI directly instead of the headless interface. This makes sense - we need the same level of control Claude Code and Codex have.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761643871464,
+      "type": "decision",
+      "content": "## Gemini CLI Integration Research - Key Findings\n\n**Headless Limitations:**\n- Only returns final JSON with stats, no streaming events\n- No tool_use_start/tool_use_end visibility  \n- No real-time thinking display\n- Batch processing model (not suitable for live UI)\n\n**Solution: Use @google/gemini-cli-core Package**\n\nThe gemini-cli has a core package that exports:\n1. GeminiChat - Streaming chat with event system\n2. Turn - Event types (Content, ToolCallRequest, ToolCallResponse, Thought, etc.)\n3. GeminiEventType enum - Proper event typing\n4. All tools, config, and utilities\n\n**Event Types Available:**\n- Content (model responses)\n- ToolCallRequest \n- ToolCallResponse\n- ToolCallConfirmation\n- Thought\n- Error\n- Finished\n- Retry\n- and more...\n\n**Next Steps:**\n- Import @google/gemini-cli-core into Sementix\n- Create adapter similar to Codex that uses GeminiChat.sendMessageStream()\n- Transform Gemini events to our universal message format\n- Get same real-time experience as Claude/Codex",
+      "metadata": {}
+    }
+  ]
+}

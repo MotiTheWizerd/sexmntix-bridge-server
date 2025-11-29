@@ -1,0 +1,12 @@
+{
+  "sessionId": "2025-11-07-14-59",
+  "startTime": 1762520359199,
+  "entries": [
+    {
+      "timestamp": 1762520359201,
+      "type": "note",
+      "content": "Session started with Moti. Context refreshed: We're debugging the chat slide-effect animation trigger timing bug. Last attempt (height tracking + threshold) made timing worse. The animation should trigger when content overflow is detected, but second trigger is firing too early.",
+      "metadata": {}
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "sessionId": "2025-11-06-14-43",
+  "startTime": 1762432997674,
+  "entries": [
+    {
+      "timestamp": 1762432997676,
+      "type": "note",
+      "content": "Session started with Moti - refreshed context on Sementix project. Recent work includes:\n- UI action-specific formatter migration (clean orchestrator pattern)\n- Tool result payload refactoring (nested action-specific structure)\n- Permission system fixes for streaming mode\n- Header UI refinements with dropdown and new-chat button\n- Input auto-refocus for better UX\n\nCurrently checking git status to see what's in progress...",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762433217537,
+      "type": "note",
+      "content": "Fixed build errors after Moti removed logger methods from ChunkDebugLogger:\n- Removed calls to deleted methods: logYieldingChunk, logChunkingStart, logCodeBlocks, logNoCodeBlocks, logChunkingComplete, logPlainTextBeforeBlock, logAtomicCodeBlock, logRemainingText, logRawChunk, logBufferSplit\n- Fixed unused variable linting errors (removed unused 'i' parameter, changed to 'index' where needed)\n- Removed ChunkDebugLogger from constructor parameters in TextChunker and StreamingNDJSONProcessorOrchestrator\n- Removed unused imports\n- Build passed successfully ✓",
+      "metadata": {}
+    }
+  ]
+}

@@ -1,0 +1,156 @@
+{
+  "sessionId": "2025-10-24-15-00",
+  "startTime": 1761307215282,
+  "entries": [
+    {
+      "timestamp": 1761307215284,
+      "type": "note",
+      "content": "Session start - reviewing last session's work with Moti:\n\nLast session (2025-10-24):\n- Completed Phase 1-2 of tab system placeholder refactoring\n- Centralized 'waiting_for_id' magic strings → PLACEHOLDER_CHAT_ID constant\n- Created PlaceholderTransitionHandler (160 lines extracted)\n- Simplified AutoTabCreator (140→122 lines, 4→1 event listeners = 75% reduction)\n- Fixed VS Code webview security/path resolution issues\n- Modified 7 files with centralized constants\n\nCRITICAL BUG IDENTIFIED FOR THIS SESSION:\nchatId routing bug - UI sends first tab's ID regardless of which tab is active\n- User switches to Tab 2\n- User sends message  \n- Message incorrectly sent with Tab 1's chatId\n- Message appears in wrong tab\n\nInvestigation areas flagged:\n1. MessageSendHandler - Check if getting correct active chatId\n2. ChatTabManager.getActiveChatId() - Verify returns correct tab\n3. Message payload construction - Ensure active chatId included\n\nContext from memory search:\n- Extension is source of truth for chatIds (not UI)\n- 'waiting_for_id' placeholder system established on 2025-10-23\n- Multi-chat architecture has had routing bugs before (2025-10-16)\n- Previous work shows message routing issues with chatId injection",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761307387669,
+      "type": "gotcha",
+      "content": "CORRECTION: Bug is NOT about chatId routing - chatIds are sending correctly!\n\nBug is actually: All tabs are sending the SAME session ID\n\nWaiting for Moti to provide examples to understand the exact issue...",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761307537125,
+      "type": "error",
+      "content": "BUG IDENTIFIED: Message payload missing sessionId!\n\nCurrent payload only has:\n- message\n- chatId  \n- timestamp\n\nMISSING: sessionId\n\nBefore tab system: There was a single place (likely user module) where we grabbed the sessionId and included it in message payloads.\n\nAfter tab refactoring: sessionId got lost - not being included in message payloads anymore!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761307581326,
+      "type": "note",
+      "content": "FINDINGS:\n\nMessageSendHandler.js:57 creates event with:\n- createChatMessageSend(enrichedMessage.text, contexts, chatId)\n\nChatEventFactories.js:8-16 shows payload structure:\n{\n  message,\n  contexts (optional),\n  chatId (optional),\n  timestamp\n}\n\n❌ NO sessionId being added to payload!\n\nMemory shows sessionId used to be extracted somewhere before tab system refactoring. Need to find where sessionId lives and add it to message payload.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761307623598,
+      "type": "decision",
+      "content": "💡 ROOT CAUSE IDENTIFIED:\n\nBEFORE TAB SYSTEM:\n- Single global sessionId stored in SessionStateHandler.js:9\n- ChatOutgoingMappers.js:28 gets it via uiStateCoordinator.getSessionId()\n- Worked fine for single conversation\n\nAFTER TAB SYSTEM:\n- Multiple chats, each with own sessionId (ChatStore.js:30)\n- BUT ChatOutgoingMappers still tries to get GLOBAL sessionId\n- ChatStore.sessionId property exists but is NEVER SET!\n- Extension sends sessionId per chat, but UI never stores it per-chat\n\nTHE FIX:\n1. When Extension sends sessionId for a chat, store it in ChatStore per chatId\n2. In ChatOutgoingMappers, get sessionId from active chat, not global state\n3. Change: uiStateCoordinator.getSessionId() → chatTabManager.getSessionId(chatId)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761307711025,
+      "type": "gotcha",
+      "content": "CORRECTION: Moti says the EXTENSION ChatStore should manage chat-to-session mapping, NOT the UI!\n\nArchitecture clarification:\n- Extension = Source of truth for chatId → sessionId mapping\n- UI should NOT store sessionId\n- UI should SEND chatId with messages\n- Extension maps chatId → sessionId when routing messages to provider\n\nNeed to investigate Extension side ChatStore and message routing!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761307802008,
+      "type": "decision",
+      "content": "🔍 ARCHITECTURE PROBLEM IDENTIFIED:\n\nCurrent flow (WRONG):\n1. SessionIdChunkExtractor extracts sessionId from chunk\n2. Calls stateEmitter.setSessionId(sessionId)  \n3. StateEmitter sets sessionId on GLOBAL UIStateManager\n4. ❌ No connection to ChatInstance - sessionId is global, not per-chat!\n\nWhat SHOULD happen:\n1. SessionIdChunkExtractor extracts sessionId + chatId from chunk\n2. Find ChatInstance by chatId\n3. Call chatInstance.setSessionId(sessionId)\n4. ChatInstance stores sessionId per-chat\n5. When sending message, lookup ChatInstance by chatId and get its sessionId\n\nFiles involved:\n- SessionIdChunkExtractor.ts:30 - calls stateEmitter (global)\n- StateEmitter.ts:61 - sets sessionId globally\n- ChatInstance.ts:136 - HAS setSessionId method, but never called!\n- ChunkProcessor.ts - needs chatId to find correct ChatInstance",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761307816125,
+      "type": "decision",
+      "content": "💡 SOLUTION DESIGN:\n\nProblem: SessionIdChunkExtractor.extract() calls stateEmitter.setSessionId() which sets GLOBAL sessionId. Need to set sessionId PER ChatInstance.\n\nSolution:\n1. Pass ChatInstanceManager to SessionIdChunkExtractor (or ChunkProcessor)\n2. Extract chatId from chunk (same place we extract sessionId)\n3. Find ChatInstance by chatId\n4. Call chatInstance.setSessionId(sessionId)\n\nWhen sending messages:\n1. MessageRouter already has chatId from user message\n2. Get ChatInstance by chatId\n3. Get sessionId from chatInstance.getSessionId()\n4. Pass sessionId to provider\n\nFiles to modify:\n- SessionIdChunkExtractor.ts - add chatInstanceManager, extract chatId, set per-instance\n- MessageRouter.ts - inject ChatInstanceManager\n- ChunkProcessor.ts - pass ChatInstanceManager to SessionIdChunkExtractor\n- MessageDispatcher/Provider - get sessionId from ChatInstance when sending\n\nNeed to trace where chatId flows through streaming chunks...",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761307953552,
+      "type": "decision",
+      "content": "💡 MOTI'S ARCHITECTURE CLARIFICATION:\n\nNOT using ChatInstance to store sessionId individually.\n\nINSTEAD: Create/use a **ChatStore on Extension** (host) that maintains array of chat objects:\n\n```javascript\n[\n  { chatId: 'chat-1234', sessionId: 'session-abc' },\n  { chatId: 'chat-5678', sessionId: 'session-xyz' }\n]\n```\n\nFLOW:\n1. User sends message with chatId\n2. ChatStore.findByChatId(chatId) → get sessionId\n3. Send message to provider with sessionId\n\nWhen sessionId comes back from provider:\n1. Extract sessionId + chatId from chunk\n2. ChatStore.setSessionId(chatId, sessionId)\n3. Store mapping in array\n\nMuch simpler than using ChatInstance!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761308040623,
+      "type": "gotcha",
+      "content": "💡 MOTI CORRECTION: We already HAVE a chat store on the Extension!\n\nChatInstanceManager already exists and manages ChatInstance objects.\nEach ChatInstance ALREADY HAS sessionId property (line 136 in ChatInstance.ts)\n\nWe don't need to create a new ChatStore - just USE the existing ChatInstanceManager!\n\nThe fix is simpler:\n1. When sessionId comes from provider → find ChatInstance by chatId → chatInstance.setSessionId()\n2. When sending message → find ChatInstance by chatId → chatInstance.getSessionId() → include in message\n\nChatInstanceManager is already injected in various places - need to pass it to SessionIdChunkExtractor!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761308114978,
+      "type": "note",
+      "content": "PLAN MODE ACTIVATED - Creating testable stage plan\n\nMoti wants:\n1. Stage-by-stage implementation (testable increments)\n2. Logger with prefix for easy tracking/debugging\n3. No execution until plan approved\n\nNeed to design plan that:\n- Breaks work into small testable stages\n- Each stage can be tested independently\n- Uses consistent logger prefix for tracking flow\n- Makes it easy to see where sessionId is being set/retrieved",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761308432208,
+      "type": "note",
+      "content": "✅ ALL STAGES COMPLETE - Ready for Testing!\n\nIMPLEMENTED:\n1. Stage 1: ChatInstanceManager injection chain ✅\n   - ModuleFactory → MessageRouter → ChunkProcessor → SessionIdChunkExtractor\n   - Logger: \"[SessionId-Flow] ✅ ChatInstanceManager injected into SessionIdChunkExtractor\"\n\n2. Stage 2: Store sessionId per ChatInstance ✅\n   - SessionIdChunkExtractor.extract() now stores sessionId in ChatInstance\n   - Logger: \"[SessionId-Flow] 🔑 SessionId extracted: XXX for chatId: YYY\"\n   - Logger: \"[SessionId-Flow] ✅ Stored sessionId in ChatInstance: YYY\"\n\n3. Stage 3: Retrieve sessionId when sending ✅\n   - MessageRouter.routeUserMessage() gets sessionId from ChatInstance\n   - Logger: \"[SessionId-Flow] 📤 Sending message for chatId: XXX, sessionId: YYY\"\n\nFILES MODIFIED:\n- ModuleFactory.ts (added chatInstanceManager param)\n- LogicManager.ts (pass chatInstanceManager to factory)\n- StartupOrchestrator.ts (pass chatInstanceManager to factory)\n- MessageRouter.ts (added chatInstanceManager, get sessionId before sending)\n- ChunkProcessor.ts (added chatInstanceManager param)\n- SessionIdChunkExtractor.ts (store sessionId per chat, added logging)\n\nBUILD STATUS: ✅ All builds successful\n\nNEXT: Manual testing with multiple chats to verify sessionId isolation",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761308638462,
+      "type": "error",
+      "content": "🐛 TEST RESULT: Both tabs getting same sessionId!\n\nNeed to investigate:\n1. Are we creating separate ChatInstances for each tab?\n2. Is the chatId being passed correctly through chunks?\n3. Is extract() being called per-chat or globally?\n\nLogs to follow:\n- [SessionId-Flow] prefix - shows sessionId extraction and storage\n- [MessageRouter] - shows chatId assignment\n- [ChatInstance] - shows chat creation\n- [ChatStore] - if UI side logs",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761308764202,
+      "type": "decision",
+      "content": "🔍 ANALYZING MOTI'S LOGS:\n\nKEY OBSERVATIONS:\n\n1. ✅ ChatInstanceManager injection working:\n   - \"[SessionId-Flow] ✅ ChatInstanceManager injected into SessionIdChunkExtractor\"\n   - Appears 3 times (3 extension reloads)\n\n2. ✅ Different chatIds being created:\n   - 42bf7078-c928-4863-b9fb-e6e358f208be\n   - 5478257b-1f84-4dd6-a3d7-bbaf13707c64\n   - e1c0142e-ff71-4ee1-b0e0-fc4de5cf8ccd\n   - etc.\n\n3. ❌ CRITICAL: NO sessionId extraction logs!\n   - Missing: \"[SessionId-Flow] 🔑 SessionId extracted\"\n   - Missing: \"[SessionId-Flow] ✅ Stored sessionId in ChatInstance\"\n   \n4. ❌ SMOKING GUN - Line shows sessionId ALREADY in ExtensionMessage:\n   ```\n   [MessageRouter] Converting to ExtensionMessage: \n   {id: 'msg-1761308582600', content: 'my name is moti', \n    sessionId: '13a832e3-0d46-4426-b7b1-09ab86afac70', <<<--- ALREADY HERE!\n    chatId: 'waiting_for_id'}\n   ```\n   Then IMMEDIATELY AFTER:\n   ```\n   [MessageRouter] Assigned chatId for new conversation: 5478257b-1f84-4dd6-a3d7-bbaf13707c64\n   ```\n\n5. 🔍 Next message uses SAME sessionId:\n   ```\n   Converting to ExtensionMessage: \n   {content: 'what is my name', \n    sessionId: '13a832e3-0d46-4426-b7b1-09ab86afac70', <<<--- SAME!\n    chatId: '42bf7078-c928-4863-b9fb-e6e358f208be'}\n   ```\n\nDIAGNOSIS:\n- SessionId is being added to ExtensionMessage BEFORE MessageRouter.routeUserMessage()\n- This means it's coming from the UI → Extension bridge mapping (ChatOutgoingMappers!)\n- ChatOutgoingMappers.mapChatMessageSend() gets sessionId from UIStateCoordinator (GLOBAL!)\n- That's the OLD code path we need to remove!\n\nTHE FIX NEEDED:\n- ChatOutgoingMappers should NOT add sessionId (or make it optional)\n- Let MessageRouter be the ONLY place that adds sessionId from ChatInstance",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761308847835,
+      "type": "decision",
+      "content": "🎯 PLANNING MODE - Root Cause Analysis Complete\n\nPROBLEM IDENTIFIED:\nUI (ChatOutgoingMappers.js) adds GLOBAL sessionId from UIStateCoordinator.getSessionId()\nThis happens BEFORE Extension MessageRouter can add per-chat sessionId from ChatInstance\n\nCURRENT FLOW (BROKEN):\n1. UI: User sends message with chatId\n2. UI: ChatOutgoingMappers.mapChatMessageSend() adds sessionId from UIStateCoordinator (GLOBAL!)\n3. Extension: MessageRouter receives message with sessionId already set\n4. Extension: Our code to get sessionId from ChatInstance is ignored (message already has sessionId)\n5. Extension: Provider receives WRONG (global) sessionId\n\nSOLUTION:\nRemove sessionId injection from UI side - let ONLY Extension manage sessionId via ChatInstance\n\nNeed to investigate:\n- Where does UI's UIStateCoordinator get sessionId?\n- Is it safe to remove sessionId from ChatOutgoingMappers?\n- Will this break anything else?",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761308929456,
+      "type": "decision",
+      "content": "✅ RESEARCH COMPLETE - Understanding the Architecture\n\nCURRENT ARCHITECTURE:\n\nUI Side (GLOBAL sessionId):\n1. Extension sends: 'ui.session.state.change.v1' with sessionId\n2. StateEventMappers.mapSessionStateChange() receives it\n3. SessionStateHandler stores it GLOBALLY (single sessionId for all tabs)\n4. When user sends message: ChatOutgoingMappers.mapChatMessageSend() adds this GLOBAL sessionId\n5. Message sent to Extension with wrong (global) sessionId\n\nExtension Side (PER-CHAT sessionId):\n1. MessageRouter receives message (already has wrong sessionId from UI)\n2. Our new code tries to add correct sessionId from ChatInstance\n3. BUT message already has sessionId field set, so it gets ignored\n4. Provider receives wrong sessionId\n\nTHE SOLUTION:\nRemove sessionId from UI → Extension message flow entirely\nLet Extension be SOLE owner of sessionId (stored per ChatInstance)\n\nWHY THIS IS SAFE:\n- Extension sends sessionId back to UI in streaming chunks (for display/history)\n- Extension sends 'ui.session.state.change.v1' (UI can still track for display)\n- UI doesn't NEED to send sessionId - Extension manages it per-chat\n- Backward compatibility: If UI sends sessionId, Extension will override it",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761309023723,
+      "type": "note",
+      "content": "✅ IMPLEMENTATION COMPLETE - Ready for Final Testing\n\nCHANGES MADE:\n1. ChatOutgoingMappers.js:26-42 - Removed sessionId from UI → Extension messages\n   - Removed: const sessionId = this.uiStateCoordinator?.getSessionId()\n   - Removed: sessionId: sessionId from bridgePayload\n   - Added: Clear comments explaining architectural decision\n\nBUILD STATUS: ✅ Successful\n\nWHAT CHANGED:\n- UI no longer sends sessionId to Extension\n- Extension MessageRouter adds sessionId from ChatInstance (per-chat)\n- SessionIdChunkExtractor stores sessionId in ChatInstance (per-chat)\n\nTESTING READY:\nReload extension and test with 2 tabs - each should get separate sessionId now!\n\nLook for logs:\n- [SessionId-Flow] 🔑 SessionId extracted: XXXX for chatId: YYY\n- [SessionId-Flow] ✅ Stored sessionId in ChatInstance: YYY\n- [SessionId-Flow] 📤 Sending message for chatId: YYY, sessionId: XXXX",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761309307970,
+      "type": "error",
+      "content": "🐛 NEW BUG IDENTIFIED - Session Not Resuming\n\nTEST RESULTS:\n✅ Each chat gets DIFFERENT sessionId (isolation working!)\n❌ Each message in SAME chat starts NEW session (continuation broken!)\n\nEXPECTED:\nChat 1, Message 1: Session A (new)\nChat 1, Message 2: Session A (resume)\nChat 1, Message 3: Session A (resume)\n\nACTUAL:\nChat 1, Message 1: Session A (new)\nChat 1, Message 2: Session B (new!) ← WRONG\nChat 1, Message 3: Session C (new!) ← WRONG\n\nROOT CAUSE:\nOur code in MessageRouter.ts:147-157 gets sessionId from ChatInstance, but:\n1. We check if chatInstance exists\n2. We check if sessionId exists\n3. If sessionId exists, we ADD it to extMessage\n4. BUT: We're not checking if the chatInstance was JUST CREATED or already exists!\n\nTHE ISSUE:\nWhen SessionIdChunkExtractor extracts sessionId from provider response, it stores in ChatInstance.\nBUT: MessageRouter runs BEFORE provider responds!\nSo: First message has no sessionId (correct), provider responds with sessionId, we store it.\n     Second message SHOULD get that stored sessionId, but it's not being retrieved!\n\nNeed to investigate:\n1. Is ChatInstance persisting across messages?\n2. Is sessionId being stored correctly?\n3. Is sessionId retrieval working in MessageRouter?",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761309340045,
+      "type": "decision",
+      "content": "🔍 ROOT CAUSE IDENTIFIED - Duplicate ChatId Generation\n\nPROBLEM: Two places generate chatIds, causing chatId mismatch!\n\nFLOW (BROKEN):\n1. User sends message with chatId: \"waiting_for_id\"\n2. MessageRouter.routeUserMessage() line 142-144:\n   - Sees \"waiting_for_id\" (PLACEHOLDER_CHAT_ID)\n   - Generates NEW chatId: \"abc-123\"\n   - Tries to get ChatInstance by \"abc-123\"\n3. Message goes to LogicManager.handleUIMessage()\n4. LogicManager calls ChatRouter.routeMessage() line 34-38:\n   - STILL has chatId: \"waiting_for_id\" (original!)\n   - Sees PLACEHOLDER_CHAT_ID again\n   - Generates DIFFERENT chatId: \"xyz-789\"\n   - Creates NEW ChatInstance with \"xyz-789\"\n5. Result: ChatInstance created with wrong chatId!\n\nTHE FIX:\nMessageRouter should NOT generate chatId - let ChatRouter do it!\nOR: MessageRouter's chatId should be passed through properly\n\nNeed to check: Where does LogicManager.handleUIMessage get called and what does it receive?",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761309365470,
+      "type": "note",
+      "content": "🔍 TRACING MESSAGE FLOW:\n\n1. UI sends message with chatId (from ChatStore)\n2. Extension receives via EventBus: 'chat.message.user.v1'\n3. UserMessageHandler.handle() calls MessageRouter.routeUserMessage()\n4. MessageRouter.routeUserMessage() (line 130-182):\n   - Converts payload to ExtensionMessage\n   - Checks if chatId is placeholder/missing\n   - If yes: generates NEW chatId (line 143)\n   - Gets ChatInstance by chatId\n   - Gets sessionId from ChatInstance\n   - Sends to provider\n5. BUT WAIT: LogicManager.handleUIMessage() ALSO exists and uses ChatRouter!\n\nNeed to understand:\n- Does UserMessageHandler call MessageRouter OR LogicManager?\n- Is there duplicate message routing?\n- Where does the chatId generation conflict happen?",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761309380306,
+      "type": "decision",
+      "content": "✅ MESSAGE FLOW CONFIRMED:\n\nCORRECT FLOW (No duplicate routing):\n1. UI sends: 'chat.message.user.v1' event with payload\n2. UserMessageHandler.setup() listens on EventBus\n3. UserMessageHandler.handle() calls MessageRouter.routeUserMessage()\n4. MessageRouter is the ONLY place that processes user messages\n\nLogicManager.handleUIMessage() is NOT used for this flow - it's likely for other message types.\n\nSo the problem is ONLY in MessageRouter.routeUserMessage():\n- Line 142-144: Generates NEW chatId if sees PLACEHOLDER_CHAT_ID\n- Line 148: Tries to get ChatInstance with that NEW chatId\n- But ChatInstance doesn't exist yet with that chatId!\n- Provider responds with sessionId\n- SessionIdChunkExtractor stores sessionId in ChatInstance (with different chatId?)\n\nWAIT - Need to check: What chatId does the UI send?\n- First message: UI sends \"waiting_for_id\" (PLACEHOLDER_CHAT_ID)\n- Second message: UI should send the REAL chatId (from tab)\n\nNeed to verify: Is UI sending correct chatId on second message?",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761309414151,
+      "type": "decision",
+      "content": "🔍 UNDERSTANDING THE PLACEHOLDER SYSTEM:\n\nUI Side Flow:\n1. User sends first message\n2. MessageSendHandler.handleSend() (line 48-53):\n   - Checks if active chat exists\n   - If not: Creates chat with chatId = 'waiting_for_id' (PLACEHOLDER)\n   - Sends message with chatId = 'waiting_for_id'\n\n3. Extension processes message:\n   - MessageRouter sees 'waiting_for_id'\n   - Generates REAL chatId (UUID)\n   - Sends response back with REAL chatId\n\n4. UI receives response with REAL chatId:\n   - PlaceholderTransitionHandler.transition() should be called\n   - Renames 'waiting_for_id' → real chatId in ChatStore\n   - Updates DOM and tabs\n\n5. User sends second message:\n   - MessageSendHandler.handleSend() line 48:\n   - Gets active chatId (should be REAL chatId now)\n   - Sends message with REAL chatId\n\nHYPOTHESIS: PlaceholderTransitionHandler might not be triggered!\nIf UI never transitions from 'waiting_for_id' to real chatId, then:\n- Every message sends 'waiting_for_id'\n- Extension generates new chatId each time\n- Creates new ChatInstance each time\n- Result: New session every message!\n\nNeed to verify: Is chat.tab.created event being sent and handled?",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761309443586,
+      "type": "decision",
+      "content": "🎯 ROOT CAUSE IDENTIFIED!\n\nPROBLEM: Extension never tells UI what the real chatId is!\n\nCURRENT FLOW (BROKEN):\n1. UI creates tab with 'waiting_for_id'\n2. UI sends message with chatId: 'waiting_for_id'\n3. Extension MessageRouter line 142-144:\n   - Sees 'waiting_for_id'\n   - Generates NEW chatId (e.g., 'abc-123')\n   - Creates ChatInstance with 'abc-123'\n4. Extension processes message with 'abc-123'\n5. ❌ Extension NEVER sends 'abc-123' back to UI!\n6. UI still thinks chatId is 'waiting_for_id'\n7. User sends second message\n8. UI sends chatId: 'waiting_for_id' (still!)\n9. Extension sees 'waiting_for_id' again\n10. Generates ANOTHER new chatId (e.g., 'xyz-789')\n11. Creates NEW ChatInstance with 'xyz-789'\n12. Result: New session every message!\n\nTHE FIX:\nExtension must send chatId back to UI after creating ChatInstance!\nUI's PlaceholderTransitionHandler.transition() needs to be triggered.\n\nOptions:\nA. Extension sends 'chat.tab.created.v1' event with real chatId\nB. Extension includes chatId in first streaming chunk\nC. Extension sends dedicated event after chatId generation\n\nNeed to find: How was this supposed to work? Where should Extension notify UI of chatId?",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761309591606,
+      "type": "decision",
+      "content": "🔍 NEW DISCOVERY - UI IS Sending Real ChatId!\n\nMoti's logs show:\n```\nchatId: \"fa10ddb7-3fc7-4f22-8a4f-10b23873cd16\"\nmessage: \"hello\"\n```\n\nSo UI IS sending the correct chatId (not 'waiting_for_id').\n\nThis means:\n- PlaceholderTransitionHandler IS working\n- UI ChatStore IS being updated correctly\n- The problem is on the EXTENSION side!\n\nNew hypothesis:\nExtension receives correct chatId, but somewhere between:\n1. Receiving message with chatId\n2. Creating/retrieving ChatInstance\n3. Storing sessionId in ChatInstance\n4. Retrieving sessionId from ChatInstance\n\nSomething is failing. Need to check if ChatInstance is being persisted properly or if it's being recreated each time.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761309703344,
+      "type": "note",
+      "content": "📝 SESSION SUMMARY - For Next Session\n\nCURRENT STATUS:\n✅ Phase 1 Complete: ChatInstanceManager injected through dependency chain\n✅ Phase 2 Complete: SessionIdChunkExtractor stores sessionId per ChatInstance\n✅ Phase 3 Complete: UI no longer sends global sessionId\n✅ Each tab gets DIFFERENT sessionId (isolation working!)\n❌ Session continuation broken: Each message creates NEW session\n\nROOT CAUSE IDENTIFIED:\nWhen provider response arrives with sessionId, the chatId in the chunk might not match the ChatInstance chatId.\nNeed to investigate: Does the streaming chunk contain the correct chatId to lookup the right ChatInstance?\n\nPROBLEM FOR NEXT SESSION:\n\"When the event gets to the host (Extension), it needs to extract the correct sessionId by the chatId it carries from the host store (ChatInstanceManager)\"\n\nCurrent flow:\n1. UI sends message with chatId: \"abc-123\"\n2. Extension MessageRouter receives with chatId: \"abc-123\"\n3. Extension creates/gets ChatInstance by chatId\n4. Provider responds with sessionId in chunk\n5. SessionIdChunkExtractor needs to find correct ChatInstance by chunk.chatId\n6. Store sessionId in that specific ChatInstance\n\nINVESTIGATION NEEDED:\n1. Does streaming chunk contain chatId?\n2. Is chatId correctly passed through streaming pipeline?\n3. Is SessionIdChunkExtractor looking up correct ChatInstance?\n\nFILES TO REVIEW NEXT:\n- StreamingResponseHandler.ts - Check chatId propagation\n- SessionIdChunkExtractor.ts - Verify ChatInstance lookup\n- Provider response chunks - Verify chatId is included",
+      "metadata": {}
+    }
+  ]
+}

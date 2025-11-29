@@ -1,0 +1,60 @@
+{
+  "sessionId": "2025-10-24-16-48",
+  "startTime": 1761313734663,
+  "entries": [
+    {
+      "timestamp": 1761313734665,
+      "type": "gotcha",
+      "content": "Moti reports error responses not triggering complete event like normal user/assistant messages. This is the SAME bug we fixed before but now manifesting for error message type specifically. Previous fix added 'error' to allowedTypes in AssistantMessageProcessor, but there may be another layer preventing completion events for error messages.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761313883232,
+      "type": "gotcha",
+      "content": "FOUND THE BUG! Error messages early return at line 99 in ChunkProcessor.js, completely bypassing AutoCompletionDetector.detectAndComplete() which only runs for normal text chunks. AutoCompletionDetector only looks for 'final_result' type with complete=true (line 29), but error messages have type='error'. Solution: Make error messages use type='assistant' with error flag, OR add error completion detection to AutoCompletionDetector.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761313927371,
+      "type": "decision",
+      "content": "PLAN: Simplify error messages to use normal assistant flow with error flag. Change error messages from separate type='error' early-return path to type='final_result' with error field and complete=true. This ensures AutoCompletionDetector triggers completion event for errors just like normal messages. UI will check error flag to render error card vs normal text.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761314234669,
+      "type": "decision",
+      "content": "COMPLETED: Simplified error message flow to use normal completion path. Changed from type='error' with early return to type='final_result' with error field. This ensures errors trigger AutoCompletionDetector just like normal messages, fixing the stuck \"THOUGHTS FORMING\" indicator. Updated both Claude and Codex providers + all UI extractors + documentation.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761314309159,
+      "type": "note",
+      "content": "SUCCESS! All changes complete. Extension TypeScript build successful. Error messages now use type='final_result' with error field instead of separate type='error'. This ensures errors flow through AutoCompletionDetector and properly trigger completion events, fixing the stuck indicator bug. The vanilla JS UI changes don't need a separate build - they're loaded directly.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761314436651,
+      "type": "gotcha",
+      "content": "NEW BUG DISCOVERED: Codex has TWO error event types: 'turn.failed' (turn completion errors - fixed) and 'error' (runtime errors like MCP timeouts - DROPPED!). EventRouter.ts line 66-69 returns empty array for 'error' events, so they never reach UI. Need to transform 'error' events into ConversationMessages with error field + complete:true, similar to turn.failed.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761314585713,
+      "type": "decision",
+      "content": "FIXED: Codex runtime error events (type='error') were being dropped completely by EventRouter returning empty array. Created ErrorEventTransformer to transform runtime errors into final_result messages with error field and complete:true, just like turn.failed errors. This fixes the bug where error messages flash and then disappear with stuck indicator.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761314798069,
+      "type": "note",
+      "content": "ISSUE CLARIFICATION: 4 duplicate error messages appear then disappear. Root cause: BOTH runtime 'error' events AND 'turn.failed' events create separate error messages for the SAME error. Solution: Ignore runtime 'error' events (since turn.failed will handle it), BUT make sure errors don't disappear - they should stay visible like normal messages.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761315029792,
+      "type": "decision",
+      "content": "FIXED DUPLICATE ERRORS: Runtime 'error' events were creating separate error messages that duplicated 'turn.failed' errors. Reverted to ignoring runtime errors (just warnings). Now only turn.failed creates error messages. This eliminates duplication (4 error flashes), prevents multiple completion events, and ensures errors persist like normal messages without disappearing.",
+      "metadata": {}
+    }
+  ]
+}

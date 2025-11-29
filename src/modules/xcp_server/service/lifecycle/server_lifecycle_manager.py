@@ -42,7 +42,7 @@ class ServerLifecycleManager:
         if not self._config.enabled:
             raise XCPServerNotEnabledError()
 
-        self._logger.info("Starting XCP server")
+        # self._logger.info("Starting XCP server")
 
         if self._config.transport.value == "stdio":
             # Run stdio server (blocking)
@@ -65,7 +65,7 @@ class ServerLifecycleManager:
             self._logger.info("XCP server is disabled, not starting background task")
             return None
 
-        self._logger.info("Starting XCP server in background")
+        # self._logger.info("Starting XCP server in background")
 
         self._server_task = asyncio.create_task(self.start())
         return self._server_task

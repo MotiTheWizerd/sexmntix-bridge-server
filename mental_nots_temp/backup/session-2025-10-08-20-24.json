@@ -1,0 +1,72 @@
+{
+  "sessionId": "2025-10-08-20-24",
+  "startTime": 1759944240746,
+  "entries": [
+    {
+      "timestamp": 1759944240748,
+      "type": "note",
+      "content": "Session 2025-10-08-18-34 got corrupted. Moti provided previous session notebook showing COMPLETE ultra-modular refactoring of FileMonitor feature:\n\n✅ FileMonitor.tsx: 102 lines → 66 lines (8 modules: hooks, components, types)\n✅ JobsList: 133 lines → 77 lines TSX, 210 lines → 5 CSS modules (10 React modules total)\n✅ NewJobForm: 245 lines → 138 lines TSX, 295 lines → 7 CSS modules (13 React modules total + final ScriptCommandField refinement)\n\nPATTERN APPLIED:\n- Custom hooks for business logic (state, actions, validation, submission)\n- Micro-components for presentation (fields, states, cards)\n- Clean orchestrators with dependency injection\n- Modular CSS by concern\n- Single responsibility per module\n\nReady to continue work or move to next component/feature.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1759944314094,
+      "type": "error",
+      "content": "Build error in JobManager.ts line 147: 'onChange' does not exist in type 'WatchCallbacks' and parameter 'event' has implicit 'any' type. Need to investigate and fix.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1759944349216,
+      "type": "gotcha",
+      "content": "Found the issue: JobManager.ts using wrong watch() API. Using 'onChange' but should use onAdd/onModify/onDelete. Also debounceMs and recursive should be in separate config parameter. Callbacks receive filePath: string, not event object.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1759944522016,
+      "type": "decision",
+      "content": "Build errors fixed successfully! \n\nTwo issues resolved:\n1. JobManager.ts: Fixed FileWatcherService API usage - replaced 'onChange' with onAdd/onModify/onDelete callbacks, moved debounceMs/recursive to config parameter\n2. NewJobForm hooks: Fixed React setState type compatibility - changed FormActions from simplified types to proper Dispatch<SetStateAction<T>>, used type-only imports for verbatimModuleSyntax\n\nBuild now compiles cleanly.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1759944750242,
+      "type": "note",
+      "content": "Starting new refactoring task: Extract browse button into host component. Creating ui-host-components folder in src\\ext\\ for reusable UI components that bridge extension and webview.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1759945167875,
+      "type": "decision",
+      "content": "Browse button refactoring COMPLETE! ✅\n\nTRANSFORMATION:\nCreated ui-host-components architecture for reusable UI operations\n\nEXTENSION SIDE (src/ext/ui-host-components/):\n✅ folder-picker/FolderPickerOptions.ts - Preset dialog options (watch, scan, generic, multiple)\n✅ folder-picker/FolderPickerService.ts - VS Code dialog wrapper with static methods\n✅ index.ts - Central export point for all UI host services\n✅ FileMonitorMessageHandler.ts - Refactored to use FolderPickerService (10 lines → 2 lines)\n\nREACT SIDE (src/ui/.../shared/):\n✅ BrowseFolderField/ - Shared reusable component (input + browse button)\n✅ FolderPathField - Refactored to use BrowseFolderField (38 lines → 26 lines)\n✅ ScanFiles - Refactored to use BrowseFolderField (inline JSX → single component)\n\nBENEFITS:\n- Single source of truth for folder picking\n- Reusable across all features (not just file-monitor)\n- Consistent UX for folder selection\n- Extension side: 119-130 (12 lines) → 121-123 (3 lines) = 75% reduction\n- React side: Eliminated duplicate folder input patterns\n\nBuild successful!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1759945588868,
+      "type": "note",
+      "content": "User reports \"create & activate still not reacting\" - need to investigate what's not working. User opened Sidebar.css. Should research the issue before making changes.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1759945776516,
+      "type": "note",
+      "content": "Issue clarified: File watcher not triggering when new files are added. Need to investigate why onAdd callback isn't firing when files are created.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1759945865185,
+      "type": "gotcha",
+      "content": "FOUND THE ISSUE! FileWatcherService.start() is never called. In DependencyContainer.getJobManager():\n- Creates FileWatcherService\n- Creates JobManager\n- JobManager.initialize() registers watchers via watch()\n- BUT FileWatcherService.start() is never called\n\nResult: Watchers are registered but never started (this.running = false), so fs.watch() is never set up. Need to call fileWatcher.start() after creating service.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1759946136641,
+      "type": "decision",
+      "content": "Fixed file watcher not triggering issue! Added fileWatcher.start() in DependencyContainer before jobManager.initialize(). This ensures FileWatcherService is running when jobs are loaded/started, so fs.watch() is properly set up for file change events.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1759947237746,
+      "type": "note",
+      "content": "Session wrap-up: File watcher fix successful! User confirmed it's triggering in console. Error is expected (wrong folder path). User is tired, going to sleep. Creating delta memory for tomorrow's continuation.",
+      "metadata": {}
+    }
+  ]
+}

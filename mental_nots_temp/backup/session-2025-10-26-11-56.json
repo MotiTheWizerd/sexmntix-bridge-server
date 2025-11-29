@@ -1,0 +1,30 @@
+{
+  "sessionId": "2025-10-26-11-56",
+  "startTime": 1761472600490,
+  "entries": [
+    {
+      "timestamp": 1761472600493,
+      "type": "note",
+      "content": "Refreshed memory on our last streaming tool work. Found detailed delta memory from 2025-10-26 showing we fixed tool positioning by switching from re-rendering to incremental append. Key change: tools now inserted inside .stream-text container, chunks appended with +=. Markdown temporarily disabled. Multi-tab isolation issue discovered but still INCOMPLETE.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761472734596,
+      "type": "decision",
+      "content": "CRITICAL ARCHITECTURE DECISION from Moti:\n\nOn stream completion, we should:\n1. Rename .stream-text to .stream-text-segment (preserving the completed content)\n2. Create a NEW .stream-text element right above the indicator for the next stream\n\nThis creates a segmented approach where each turn gets its own segment, preventing text from different turns from mixing. This should solve the multi-tab isolation issue since each turn is in its own DOM segment.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761472734680,
+      "type": "note",
+      "content": "Key insight: Instead of reusing one .stream-text container across all turns, we segment it. On completion: .stream-text → .stream-text-segment. On new stream: create fresh .stream-text above indicator. This architectural pattern provides clean turn isolation.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761472796489,
+      "type": "note",
+      "content": "Starting implementation planning for stream segmentation architecture. Moti confirmed the approach: on completion rename .stream-text → .stream-text-segment, on new stream create fresh .stream-text above indicator.",
+      "metadata": {}
+    }
+  ]
+}

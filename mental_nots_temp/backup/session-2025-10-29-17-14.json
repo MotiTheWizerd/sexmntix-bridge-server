@@ -1,0 +1,72 @@
+{
+  "sessionId": "2025-10-29-17-14",
+  "startTime": 1761750879232,
+  "entries": [
+    {
+      "timestamp": 1761750879234,
+      "type": "note",
+      "content": "Working on Claude markdown converter to HTML - currently not working well. Moti created an example that might make more sense for the implementation.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761751052817,
+      "type": "decision",
+      "content": "Key architectural difference discovered:\n- Current: Character-by-character streaming parser (real-time, stateful, for UI rendering)\n- New example: Line-by-line batch parser (cleaner API, returns structured AST)\n\nBoth have their place - need to clarify Moti's goal: replace streaming parser or add batch parser for different use case?",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761751185009,
+      "type": "gotcha",
+      "content": "ISSUE FOUND with new parser:\n- parseChunk() returns 'partial_line' for incomplete lines\n- BUT it doesn't buffer/merge them with next chunk\n- Result: split patterns like '**bo|ld**' never complete\n- Each chunk is parsed independently with no state carryover\n\nExample:\nChunk 2: \"This is **bold\" → {type: \"partial_line\", content: \"This is **bold\"}\nChunk 3: \"** text\\n\" → {type: \"paragraph\", content: \"** text\"} (no bold detected!)\n\nNeed to add partial line buffering to MarkdownParser.parseChunk()",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761751228421,
+      "type": "note",
+      "content": "Clarification: The new parser in docs/formatter/claude/markdown-parser/ is just an EXAMPLE/REFERENCE for identifying markdown patterns, not a complete formatter to integrate. \n\nMoti says current formatter \"not working well\" - need to identify what's actually broken.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761751360109,
+      "type": "decision",
+      "content": "Fixed FilenameRecognizer bug:\n- OLD regex: /\\.[a-z]{2,4}$/i matched bare extensions like .js, .ts, .py\n- NEW regex: /[^.\\s]+\\.[a-z]{2,4}$/i requires filename before extension\n- This prevents false positives where \".js\" in text gets treated as a file\n\nStill need to investigate text truncation issues - unclear if it's formatter or UI display problem.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761751517376,
+      "type": "gotcha",
+      "content": "NEW ISSUES FOUND:\n1. File extensions appear BEFORE filenames (txt before requirements.txt)\n2. Backtick handler detecting parts of filenames prematurely\n3. Folders (.claude, .vscode, node_modules) not detected as folders\n4. File badges breaking up inline text flow\n\nExample: \"requirements.txt\" appears as \"txt\" badge then \"requirements.txt\" text\nLikely: backtick handler matching backticks that don't exist or detecting pattern boundaries wrong",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761751667359,
+      "type": "decision",
+      "content": "Moti is right - we're not identifying the core issues properly. Need to either:\n1. Fully understand what's broken and fix it systematically\n2. Remove current formatter and rebuild from scratch using new parser as reference\n\nCurrent visible issues from screenshot:\n- Text truncation: \"Hello! I'm Claude, here\" (cut mid-sentence)\n- File badges appearing incorrectly\n- Text flow is broken\n\nNeed to step back and diagnose root cause properly.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761752226646,
+      "type": "decision",
+      "content": "✅ COMPLETED: Fixed Claude Markdown Formatter Issues\n\nChanges Made:\n1. Fixed FilenameRecognizer.js - regex now requires filename before extension\n   - OLD: /\\.[a-z]{2,4}$/i (matched .js, .ts, .py)\n   - NEW: /[^.\\s]+\\.[a-z]{2,4}$/i (requires file.js, package.json)\n\n2. Added missing code block state fields to StateFactory.js:\n   - inCodeBlock, codeBlockLanguage, codeBlockContent\n   - codeBlockBacktickBuffer, inLanguageDetection\n   - inBacktick, backtickContent\n\n3. Integrated CodeBlockPatternHandler into CharacterStreamParser.js:\n   - Imported handler\n   - Added to constructor\n   - Placed at HIGHEST priority (before inline file handler)\n\nBuild: ✅ Passed with no errors\n\nNext: Test in browser to verify fixes work",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761753423303,
+      "type": "decision",
+      "content": "DECISION: Removing character-by-character formatter completely\n\nReasons:\n1. Only works on streaming chunks, misses initial text\n2. HTML already contains backticks as literal text\n3. Too complex with state management across chunks\n4. Fundamental architecture issue - can't format what's already rendered\n\nNew approach:\n- Remove ClaudeFormatter, CharacterStreamParser, all pattern handlers\n- Create simple post-processor that runs on complete HTML\n- Format ALL backticks/markdown after streaming completes\n- Much simpler, actually works on all content",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761753535416,
+      "type": "decision",
+      "content": "✅ COMPLETED: Removed complex formatter, added simple post-processor\n\nChanges:\n1. Disabled ClaudeFormatter in MarkdownRenderer.js\n   - Now just escapes HTML for safety\n   - No character-by-character processing\n\n2. Added backtick formatting in MessagePostProcessor.js\n   - Runs AFTER streaming completes\n   - Simple regex: `([^`]+)` → <code> tags\n   - Detects filenames with extension check\n   - Escapes HTML properly\n\nBenefits:\n- Much simpler (50 lines vs 1000+ lines)\n- Actually works on ALL text (not just streaming chunks)\n- No state management complexity\n- No chunk boundary issues\n\nBuild: ✅ Passed\n\nNext: Reload extension and test",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761754675768,
+      "type": "decision",
+      "content": "✅ COMPLETED: Successfully removed all formatter code\n\nChanges:\n1. MarkdownRenderer.js - Removed all formatter logic, just appends raw text\n2. DependencyContainer.js - Commented out formatter imports, getFormatterRegistry() returns null\n3. MessagePostProcessor.js - Removed all backtick formatting code and debug logs\n4. DELETED entire formatters directory (1000+ lines removed)\n5. Build successful - no errors\n\nResult:\n- Clean slate, no broken code\n- App still works, just no formatting (backticks show as raw text)\n- Ready to rebuild properly from scratch\n\nNext: Build a simple, working markdown formatter that actually handles backticks correctly",
+      "metadata": {}
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "sessionId": "2025-10-31-02-57",
+  "startTime": 1761872276015,
+  "entries": [
+    {
+      "timestamp": 1761872276017,
+      "type": "note",
+      "content": "Moti asked me to remember our module refactoring patterns. Found extensive documentation of our \"Ultra-Modular Refactoring\" methodology used across 20+ components since October 2025.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761873563049,
+      "type": "note",
+      "content": "Phase 1 progress: Created StreamingLogger service and refactored ChunkProcessor (8→2 logs) and MarkdownRenderer (8→3 logs). Removed 5 commented FLOW_DEBUGGING logs. Moving to ClaudeFormatter next.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761873734455,
+      "type": "note",
+      "content": "Phase 1 almost complete! Refactored ClaudeFormatter (3→1 logs). High-impact files done: ChunkProcessor, MarkdownRenderer, ClaudeFormatter. Remaining: LineBufferManager, IncompleteBufferRenderer, AutoCompletionDetector. Logging reduction is working great!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761875079567,
+      "type": "decision",
+      "content": "Successfully completed UI improvements! Changed Prism theme to Tomorrow Night (darker), removed gray background from code blocks (.code-content .prism-highlighted), and eliminated all flashy streaming animations (cursor blinking, pulsing). Changed all incomplete chunk opacity from 0.6 to 1.0 for full visibility. Modified 7 CSS files for clean, distraction-free streaming experience.",
+      "metadata": {}
+    }
+  ]
+}

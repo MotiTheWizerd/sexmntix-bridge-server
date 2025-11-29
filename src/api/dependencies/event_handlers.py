@@ -42,7 +42,7 @@ def initialize_event_handlers(
         logger.info("Event handlers already initialized")
         return
 
-    logger.info("Initializing internal event handlers...")
+    # logger.info("Initializing internal event handlers...")
 
     # Create memory log handler instance with services needed to create VectorStorageService dynamically
     memory_handlers = MemoryLogStorageHandlers(
@@ -90,4 +90,4 @@ def initialize_event_handlers(
     )
 
     _handlers_initialized = True
-    logger.info("Internal event handlers registered successfully (memory_log, mental_note, conversation)")
+    # logger.info("Internal event handlers registered successfully (memory_log, mental_note, conversation)")

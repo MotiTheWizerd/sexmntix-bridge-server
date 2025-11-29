@@ -1,0 +1,18 @@
+{
+  "sessionId": "2025-10-17-18-35",
+  "startTime": 1760715334100,
+  "entries": [
+    {
+      "timestamp": 1760715334102,
+      "type": "note",
+      "content": "Found UI streamer render delay in ChunkProcessor.js:85-91. Currently set to 100ms timeout after final result chunk before triggering auto-completion. This delay ensures all text has been rendered before completion event fires.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760715385131,
+      "type": "decision",
+      "content": "Changed UI streamer render delay from 100ms to 250ms in ChunkProcessor.js:91. User (Moti) requested this change to allow more buffer time before auto-completion event fires after final result chunk.",
+      "metadata": {}
+    }
+  ]
+}

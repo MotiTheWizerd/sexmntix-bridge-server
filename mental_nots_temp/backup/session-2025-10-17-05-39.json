@@ -1,0 +1,60 @@
+{
+  "sessionId": "2025-10-17-05-39",
+  "startTime": 1760668780776,
+  "entries": [
+    {
+      "timestamp": 1760668780779,
+      "type": "note",
+      "content": "Session start: Investigating {{NOTIFICATIONS_CSS_URI}} placeholder replacement issue. Notification system fully built but CSS not loading due to template placeholder not being replaced by ResourcePipeline.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760668845074,
+      "type": "gotcha",
+      "content": "Found the issue! TemplateInjector.ts buildTokenMap() method is missing the {{NOTIFICATIONS_CSS_URI}} token mapping on line 69. CssUriResolver has the notifications property (line 43) but TemplateInjector doesn't map it to the placeholder token.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760668908390,
+      "type": "decision",
+      "content": "Fixed the CSS loading issue by adding '{{NOTIFICATIONS_CSS_URI}}': cssUris.notifications.toString() to TemplateInjector.ts line 70. The complete chain now works: ResourceManager config → CssUriResolver resolution → TemplateInjector token mapping → base.html placeholder replacement.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760669041650,
+      "type": "note",
+      "content": "User feedback: Notifications are too large for the small chat UI. Need to make them much smaller.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760669141425,
+      "type": "decision",
+      "content": "Made notifications much smaller for small chat UI:\n- Container: max-width 420px → 280px, padding 16px → 10px, gap 12px → 8px\n- Card: padding 16px → 8px 10px, border-radius 12px → 8px, gap 12px → 8px\n- Icon: 20px → 14px\n- Message: font-size 14px → 12px, line-height 1.5 → 1.4\n- Close button: 24px → 18px, SVG 14px → 10px\n- Progress bar: height 3px → 2px, border-radius 12px → 8px",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760669171784,
+      "type": "note",
+      "content": "User wants design changes to notifications: keep the timer/progress bar, make design more flat (less glassmorphic), darker background, and add opacity (more transparent).",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760669225450,
+      "type": "note",
+      "content": "User also wants notifications positioned at bottom-right instead of top-right. Need to change default position in NotificationController.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760669549130,
+      "type": "decision",
+      "content": "Transformed notification design: flat, dark, transparent + bottom-right position. CSS changes: background rgba(15,15,18,0.75), removed backdrop-filter blur, simplified shadow, 6px border-radius, opacity hover. Default position changed from 'top-right' to 'bottom-right' in NotificationFactory.js:20.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760669557989,
+      "type": "note",
+      "content": "Session complete! Successfully fixed CSS loading issue and redesigned notifications to be flat, dark, transparent, smaller, and positioned at bottom-right. User is happy with the result.",
+      "metadata": {}
+    }
+  ]
+}

@@ -78,14 +78,14 @@ class XCPServerService:
         # Tools (for backward compatibility)
         self.tools: List[BaseTool] = []
 
-        self.logger.info(
-            "XCPServerService initialized",
-            extra={
-                "enabled": self.config.enabled,
-                "server_name": self.config.server_name,
-                "transport": self.config.transport.value
-            }
-        )
+        # self.logger.info(
+        #     "XCPServerService initialized",
+        #     extra={
+        #         "enabled": self.config.enabled,
+        #         "server_name": self.config.server_name,
+        #         "transport": self.config.transport.value
+        #     }
+        # )
 
     def initialize(self):
         """Initialize the XCP server and tools

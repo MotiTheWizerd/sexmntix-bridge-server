@@ -111,7 +111,8 @@ class ChromaDBClient:
 
     def get_conversation_collection(
         self,
-        user_id: str
+        user_id: str,
+        project_id: str
     ) -> Collection:
         """
         Get or create a separate collection for conversations.
@@ -134,8 +135,8 @@ class ChromaDBClient:
         # Pass user_id directly without prefixing to avoid double-prefix bug
         # The user_id should already be in the correct format from upstream
         return self.collection_manager.get_collection(
-            user_id,            # Don't prefix - already formatted upstream
-            "conversations",    # Fixed project_id for all conversations
+            user_id,
+            project_id,
             collection_prefix="conversations"  # No trailing _ - naming_strategy adds it
         )
 

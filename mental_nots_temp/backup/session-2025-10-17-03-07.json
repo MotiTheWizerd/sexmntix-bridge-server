@@ -1,0 +1,36 @@
+{
+  "sessionId": "2025-10-17-03-07",
+  "startTime": 1760659631467,
+  "entries": [
+    {
+      "timestamp": 1760659631471,
+      "type": "gotcha",
+      "content": "Error with PrismHighlighter.js path - webview trying to load from ui-controllers/services/ instead of ui-logic/services/. File exists in correct location, imports are using correct relative paths. Likely a VSCode webview cache issue.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760661997121,
+      "type": "decision",
+      "content": "Successfully integrated FileIconService into MarkdownFormatter to replace generic emojis with real VSCode icons in file badges. Modified 3 files: MarkdownFormatter.js (added getFileIcon method), main.js (preload icon service), ui-messages-list.css (style iconify-icon elements).",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760662180921,
+      "type": "gotcha",
+      "content": "CSP Gotcha: Iconify needs connect-src permissions to fetch icon data from APIs (api.iconify.design, api.unisvg.com, api.simplesvg.com). Added these to base.html CSP to fix \"Refused to connect\" errors.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760663048558,
+      "type": "decision",
+      "content": "Enhanced file type listings in MarkdownFormatter with real VSCode icons from FileIconService + smart contextual emojis (📊 for counts, 📝 for docs, ⚙️ for config, etc.). Pattern matches \"**Python files (.py)**: 114 files - description\" and renders with beautiful styling.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760663875124,
+      "type": "decision",
+      "content": "Implemented smart contextual icons for tool notifications. ToolIconMapper now detects file operations (uses FileIconService for .js, .json, etc.) and command types (git→git icon, npm→npm icon, python→python icon). Falls back to emojis gracefully. Maintains existing gradient backgrounds.",
+      "metadata": {}
+    }
+  ]
+}

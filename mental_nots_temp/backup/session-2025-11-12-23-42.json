@@ -1,0 +1,18 @@
+{
+  "sessionId": "2025-11-12-23-42",
+  "startTime": 1762983735812,
+  "entries": [
+    {
+      "timestamp": 1762983735814,
+      "type": "note",
+      "content": "Session start with Moti. Memory refresh shows we've been heavily focused on the permission system:\n\nKey recent achievements:\n1. Complete permission dialog redesign - moved from glassmorphism to compact dark metallic theme\n2. 3-choice permission system (Allow Once, Allow for Session, Always Allow)\n3. Fixed permission routing for multi-tab support\n4. System messages for permission refusals (orange messages in chat)\n5. Multi-state architecture to prevent dialog disappearing issues\n\nCurrent git status shows:\n- Modified files across permission system, streaming handlers, UI controllers\n- Several new files: AllowedToolsTracker.ts, AllowedToolsResolver.ts, ScopedBashPermissionResolver.ts\n- Recent commits about \"3 choice system\" and \"permission design\"\n\nLooking at untracked delta memories in git status:\n- proactive-permission-system-per-session-implementation.json\n- scoped-bash-permission-leakage-fix.json  \n- three-choice-permission-system-per-chat-session.json\n\nThese suggest we just implemented the 3-choice system and fixed bash permission scoping!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762984862172,
+      "type": "note",
+      "content": "Documentation task completed successfully!\n\nCreated comprehensive documentation in docs/memory/ folder:\n\n1. 01-embedding-model.md - Google's text-embedding-004 API details\n2. 02-text-to-vector-flow.md - Complete flow from text to vector storage\n3. 03-chromadb-storage.md - Vector database storage implementation\n4. 04-semantic-search.md - Semantic search process and algorithms\n5. 05-architecture-overview.md - System architecture, design patterns, minimal example\n6. 06-flow-diagrams.md - Visual diagrams of all processes\n7. README.md - Navigation guide for all docs\n\nEach file is focused, well-structured, and includes:\n- Clear explanations\n- Code examples\n- Visual diagrams (ASCII art)\n- File references with exact paths\n- Practical examples for Python replication\n\nPerfect for understanding the embedding process and replicating in Python later!",
+      "metadata": {}
+    }
+  ]
+}

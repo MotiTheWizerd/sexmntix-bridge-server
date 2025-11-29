@@ -50,6 +50,7 @@ async def create_conversation(
     embedding: List[float],
     conversation_data: Dict[str, Any],
     user_id: str,
+    project_id: str,
     memory_index: Optional[int] = None,
     session_id: Optional[str] = None
 ) -> str:
@@ -73,7 +74,7 @@ async def create_conversation(
         Conversation ID string
     """
     # Get conversation-specific collection (separate from memory_logs/mental_notes)
-    collection = client.get_conversation_collection(user_id)
+    collection = client.get_conversation_collection(user_id, project_id)
 
     # Generate unique ID for memory unit
     if memory_index is not None:
@@ -139,7 +140,8 @@ async def create_conversation(
 async def read_conversation(
     client: ChromaDBClient,
     conversation_id: str,
-    user_id: str
+    user_id: str,
+    project_id: str
 ) -> Optional[Dict[str, Any]]:
     """
     Retrieve a conversation by ID.
@@ -152,7 +154,7 @@ async def read_conversation(
     Returns:
         Conversation document dict or None if not found
     """
-    collection = client.get_conversation_collection(user_id)
+    collection = client.get_conversation_collection(user_id, project_id)
 
     result = collection.get(ids=[conversation_id])
 
@@ -168,6 +170,7 @@ async def delete_conversation(
     client: ChromaDBClient,
     conversation_id: str,
     user_id: str,
+    project_id: str,
     actual_conversation_id: Optional[str] = None
 ) -> bool:
     """
@@ -182,7 +185,7 @@ async def delete_conversation(
     Returns:
         True if deleted from ChromaDB, False if not found or error occurred
     """
-    collection = client.get_conversation_collection(user_id)
+    collection = client.get_conversation_collection(user_id, project_id)
 
     try:
         # Delete from ChromaDB
@@ -199,7 +202,8 @@ async def delete_conversation(
 
 async def count_conversations(
     client: ChromaDBClient,
-    user_id: str
+    user_id: str,
+    project_id: str
 ) -> int:
     """
     Count the number of conversations in the collection.
@@ -211,7 +215,7 @@ async def count_conversations(
     Returns:
         Number of conversations in collection
     """
-    collection = client.get_conversation_collection(user_id)
+    collection = client.get_conversation_collection(user_id, project_id)
     return collection.count()
 
 
@@ -219,6 +223,7 @@ async def search_conversations(
     client: ChromaDBClient,
     query_embedding: List[float],
     user_id: str,
+    project_id: str,
     limit: int = 10,
     where_filter: Optional[Dict[str, Any]] = None,
     min_similarity: Optional[float] = None
@@ -239,8 +244,8 @@ async def search_conversations(
     """
     from src.infrastructure.chromadb.utils import sanitize_filter
 
-    # Get conversation collection (user-scoped only)
-    collection = client.get_conversation_collection(user_id)
+    # Get conversation collection (user+project scoped)
+    collection = client.get_conversation_collection(user_id, project_id)
     collection_count = collection.count()
 
     print(f"[CONVERSATION_SEARCH] Searching user_id={user_id}, collection={collection.name}, count={collection_count}, limit={limit}")

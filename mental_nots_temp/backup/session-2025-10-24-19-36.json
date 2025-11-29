@@ -1,0 +1,66 @@
+{
+  "sessionId": "2025-10-24-19-36",
+  "startTime": 1761323801955,
+  "entries": [
+    {
+      "timestamp": 1761323801957,
+      "type": "gotcha",
+      "content": "SESSION RECAP: Provider Selection Bug - User clicks provider in popup, providerId stored in UI ChatStore, but gets LOST during placeholder→UUID transition via PlaceholderTransitionHandler.renameChatId(), causing Extension to receive wrong/missing providerId",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761323934503,
+      "type": "decision",
+      "content": "ARCHITECTURE DECISION: Provider storage pattern change - BEFORE: chatId + sessionId stored in ChatInstance/ChatStore → NEW: Also store providerId in ChatStore. When user sends message, fetch providerId from ChatStore and include in message payload to know which provider to use. This creates per-tab provider isolation at the source.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761324029421,
+      "type": "note",
+      "content": "FLOW ANALYSIS - Provider Selection (appears to be working correctly):\n\n1. User clicks \"+\" button → ChatTabManager.handleNewChatClick()\n2. Shows ProviderSelectionPopup\n3. User selects provider → popup callback: providerId → ChatTabManager.createNewChat(providerId)\n4. createNewChat(providerId) → ChatOperationsCoordinator.createNewChat(providerId)\n5. ChatOperationsCoordinator calls store.create() then store.updateProviderId(chatId, providerId)\n6. ChatStore stores providerId in chat object (line 31)\n\nWhen user sends message:\n7. ChatOutgoingMappers.mapChatMessageSend() fetches providerId from ChatStore (line 54-55)\n8. Includes providerId in bridgePayload to Extension\n\nThe infrastructure looks complete! Need to test if it's actually working.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761324084374,
+      "type": "gotcha",
+      "content": "BUG FOUND: When user clicks provider icon in header, ProviderEventHandler.handleProviderSwitchRequest() only updates global provider UI state via stateManager.setActive(). It does NOT update ChatStore.providerId for the active chat! This is why messages still go to the old provider.\n\nFIX: Need to inject ChatTabManager into ProviderEventHandler and call chatTabManager.store.updateProviderId(activeChatId, provider) when provider icon clicked.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761324141061,
+      "type": "note",
+      "content": "USER CORRECTION: Provider icons in header are NOT visible on screen - they were already removed from the UI. The issue is NOT with header provider clicks. User wants to:\n1. First remove the old provider click code (cleanup)\n2. Then look at logs to debug the actual provider selection popup issue\n\nSo the bug is specifically with the provider POPUP (when clicking + button), not header icons.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761324441769,
+      "type": "error",
+      "content": "BUG CONFIRMED: UI correctly stores providerId='claude' and logs show ChatOutgoingMappers should include it in payload. BUT Extension side completely ignores it! Extension creates chat with providerId='openai' (default), then MessageRouter uses global active provider 'codex'. \n\nThe providerId is NOT being passed from UI to Extension in the message payload, OR Extension is receiving it but not using it.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761324794225,
+      "type": "note",
+      "content": "DIAGNOSTIC LOGGING ADDED: Changed .debug() to .info() in:\n1. EventMapperOrchestrator.setChatTabManager() - line 142\n2. ChatOutgoingMappers.setChatTabManager() - line 38\n3. ChatOutgoingMappers.mapChatMessageSend() - lines 57, 66, 70\n\nThese logs will now be visible during:\n- Extension startup (injection phase)\n- Message sending (providerId fetching phase)\n\nBuild completed successfully. Ready for testing.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761324923365,
+      "type": "decision",
+      "content": "BUG FIXED: BridgeHandler.js (modules/core/events/) was missing setProvidersUIManager() method and setChatTabManager() was incomplete. \n\nBEFORE:\n- setChatTabManager() only injected into messageTransport\n- No setProvidersUIManager() method\n\nAFTER:\n- Added setProvidersUIManager() method that injects into eventMapper\n- Fixed setChatTabManager() to inject into BOTH messageTransport AND eventMapper\n\nThis ensures ChatOutgoingMappers can access ChatTabManager to fetch providerId from ChatStore.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761325039186,
+      "type": "error",
+      "content": "CRITICAL MISTAKE: Edited the wrong BridgeHandler! There are TWO BridgeHandler files:\n1. src/ui/modules/core/events/BridgeHandler.js (WRONG - I edited this)\n2. src/ui/modules/ui-logic/core/events/BridgeHandler.js (CORRECT - the one actually used)\n\nError: this.eventMapper.setChatTabManager is not a function - because the EventMapper in the wrong BridgeHandler doesn't have this method.\n\nNeed to: REVERT my changes to wrong file, then fix the CORRECT file.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761325252387,
+      "type": "decision",
+      "content": "FIX COMPLETED: Provider selection injection chain fixed properly.\n\nWHAT WAS DONE:\n1. Reverted bad changes to BridgeHandler.js (removed calls to non-existent methods)\n2. Added missing facade methods to EventMapper.js:\n   - setProvidersUIManager()\n   - setChatTabManager()\n3. Added methods to BridgeHandler.js properly:\n   - setProvidersUIManager() - injects into eventMapper\n   - Updated setChatTabManager() - injects into both messageTransport AND eventMapper\n\nFILES MODIFIED:\n- src/ui/modules/core/events/BridgeHandler.js\n- src/ui/modules/core/events/bridge-handler/mapping/EventMapper.js\n\nBuild successful. Ready for testing.",
+      "metadata": {}
+    }
+  ]
+}

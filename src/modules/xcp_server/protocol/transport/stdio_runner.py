@@ -58,13 +58,13 @@ class StdioRunner:
         if not self.config.enabled:
             raise XCPServerNotEnabledError()
 
-        self.logger.info(
-            "Starting XCP MCP Server with stdio transport",
-            extra={
-                "server_name": self.config.server_name,
-                "version": self.config.server_version
-            }
-        )
+        # self.logger.info(
+        #     "Starting XCP MCP Server with stdio transport",
+        #     extra={
+        #         "server_name": self.config.server_name,
+        #         "version": self.config.server_version
+        #     }
+        # )
 
         # Publish server started event
         self.event_bus.publish(

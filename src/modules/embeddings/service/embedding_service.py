@@ -66,10 +66,10 @@ class EmbeddingService:
         self.response_builder = ResponseBuilder(provider.provider_name)
         self.batch_processor = BatchProcessor()
 
-        self.logger.info(
-            f"EmbeddingService initialized with provider: {provider.provider_name}, "
-            f"cache_enabled: {cache_enabled}"
-        )
+        # self.logger.info(
+        #     f"EmbeddingService initialized with provider: {provider.provider_name}, "
+        #     f"cache_enabled: {cache_enabled}"
+        # )
 
     async def generate_embedding(
         self,

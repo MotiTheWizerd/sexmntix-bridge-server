@@ -1,0 +1,30 @@
+{
+  "sessionId": "2025-10-23-17-38",
+  "startTime": 1761230309675,
+  "entries": [
+    {
+      "timestamp": 1761230309678,
+      "type": "gotcha",
+      "content": "Claude Code Streaming Issue Found:\n- All text chunks coming through as type=final_result with complete=true\n- Should be: text chunks → agent_message, only FINAL chunk → final_result\n- StreamingConversationStrategy transforms result.success → final_result\n- But NDJSONProcessor is SPLITTING the result text into multiple chunks\n- Each chunk gets transformed to final_result separately\n- Need to understand: Are these chunked by NDJSONProcessor or does Claude CLI send them pre-chunked?",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761230735849,
+      "type": "gotcha",
+      "content": "Claude Code streaming chunks now correctly typed:\n- Chunks 0-1: type=final_result, complete=false (session init - correct)\n- Chunks 2-6: type=agent_message, complete=false (streaming text - correct!)\n- But UI not displaying them - no ChunkProcessor logs\n- Chunks arrive at UI (EventEmissionStep emitted) but not rendered\n- Same issue as Codex - UI doesn't handle agent_message chunks?",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761233327460,
+      "type": "decision",
+      "content": "## Claude Code Streaming Debug Session - Flow Tracking Plan\n\n**Problem**: `stream_event` chunks are being received by ClaudeCodeCLIAdapter but not rendering in UI. Need to trace the complete flow.\n\n**Chunks received**:\n- ✅ system.init (1) - renders \"Session started: ...\"  \n- ❌ stream_event (12+) - NOT rendering (these contain the actual text!)\n- ❌ assistant (1) - NOT rendering\n- ✅ result (15) - being processed\n\n**Flow to trace**:\n1. ClaudeCodeCLIAdapter receives raw NDJSON chunks\n2. StreamingConversationStrategy transforms chunks to universal format\n3. StreamingResponseHandler emits chunks to UI\n4. ProviderWorkingDetector checks for stream start\n5. UIEventEmitter sends chunks to UI\n6. UI receives chunks and routes to ChunkProcessor\n7. ChunkProcessor validates streaming element and renders\n\n**Strategy**: Add \"FLOW_DEBUGGING:\" prefix to all logs tracking chunk movement through the pipeline.\n",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761233644747,
+      "type": "decision",
+      "content": "## FLOW_DEBUGGING Logs Implementation Complete\n\n**Added comprehensive flow tracking logs with \"FLOW_DEBUGGING:\" prefix**\n\n### Files Modified:\n\n1. **StreamingConversationStrategy.ts** - Tracks raw NDJSON chunks → universal message transformation\n   - Logs each raw chunk received with type, event details, delta text\n   - Logs each transformation (system.init, stream_event, etc.)\n   - Logs when chunks are yielded or skipped\n\n2. **StreamingResponseHandler.ts** - Tracks message generator → UI emission\n   - Logs messages received from generator\n   - Logs chunked messages before validation\n   - Logs before/after emitting to UI via UIEventEmitter\n\n3. **UIEventEmitter.ts** - Tracks chunk emission to UI bridge\n   - Logs when emitStreamChunk() is called\n   - Logs chunk details (type, content, index)\n   - Logs after posting to UI\n\n4. **IncomingProcessorOrchestrator.js** - Tracks UI-side chunk reception\n   - Logs when chat.stream.chunk.v1 event received\n   - Logs validation results\n   - Logs before/after emitting to UI eventBus\n\n5. **ChunkProcessor.js** - Tracks chunk processing and rendering\n   - Logs entry with chunk details\n   - Logs content extraction results\n   - Logs accumulation and markdown rendering\n   - All existing logs enhanced with FLOW_DEBUGGING prefix\n\n### Expected Log Flow:\n```\n[StreamingConversationStrategy] Raw chunk received\n[StreamingConversationStrategy] Yielding stream_event → agent_message\n[StreamingResponseHandler] Received message from generator\n[StreamingResponseHandler] About to emit to UI\n[UIEventEmitter] emitStreamChunk() called\n[IncomingProcessorOrchestrator] Received chat.stream.chunk.v1\n[ChunkProcessor] append() ENTRY\n[ChunkProcessor] Content extracted\n[ChunkProcessor] Accumulating chunk text\n[ChunkProcessor] Rendering markdown\n[ChunkProcessor] Chunk processing complete\n```\n\nBuild completed successfully. Ready to test and identify where chunks are being dropped.\n",
+      "metadata": {}
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "sessionId": "2025-11-13-12-53",
+  "startTime": 1763031232702,
+  "entries": [
+    {
+      "timestamp": 1763031232705,
+      "type": "decision",
+      "content": "User insight: Current CLI-based architecture creates unnecessary complexity. Should migrate to Anthropic SDK for:\n- Native tool control (proactive permissions!)\n- Direct interruption support\n- No NDJSON parsing overhead\n- Modern, maintained API\n- Full conversation control\n\nPlan: Document migration strategy now, execute after completing permission system. User estimates 1-2 days with proper architecture. Will build as new module for clean separation.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1763033132019,
+      "type": "decision",
+      "content": "Session summary: Explored Claude Agent SDK as replacement for CLI architecture. Created 4 test scripts demonstrating streaming, tool usage, and permission callbacks. Key discovery: SDK has all tools built-in, permission system works via allowedTools (pre-approved) vs canUseTool callback (ask user). Successfully tested permission flow. Created comprehensive migration plan in docs/. User pausing here - will return to implement actual integration.",
+      "metadata": {}
+    }
+  ]
+}

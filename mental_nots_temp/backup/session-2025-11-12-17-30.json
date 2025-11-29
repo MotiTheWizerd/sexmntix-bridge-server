@@ -1,0 +1,36 @@
+{
+  "sessionId": "2025-11-12-17-30",
+  "startTime": 1762961422122,
+  "entries": [
+    {
+      "timestamp": 1762961422124,
+      "type": "note",
+      "content": "User wants grid size changes to not stop animations - they should recalculate and continue smoothly. Current behavior: when grid size slider changes, animations stop. Need to investigate setGridSize() method and animation lifecycle.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762961459743,
+      "type": "decision",
+      "content": "FOUND THE ISSUE: Both CSSWaveController and ColorGradientWaveController have isActive() and continue() methods. The architecture is ALREADY DESIGNED to support seamless grid size changes! The problem is that continue() checks if animation is active before recalculating - but we're calling stopAll() which sets isActive to false. Need to verify if this is working as intended or if there's a bug in the flow.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762961683324,
+      "type": "decision",
+      "content": "Fixed grid size animation continuation bug by removing isActive() check from continue() methods in both CSSWaveController and ColorGradientWaveController. The orchestrator already tracks which animations were active, so continue() should trust it and not second-guess by checking isActive (which returns false after stopAll()).",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762962122587,
+      "type": "note",
+      "content": "User wants animations to continue SEAMLESSLY when grid size changes - no restart, no flicker. The animations should recalculate but maintain their current position in the wave cycle. Need to investigate how to preserve animation timing state during grid transitions.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762962138483,
+      "type": "gotcha",
+      "content": "The animation restart is unavoidable with current architecture because: 1) Grid size change requires SVG regeneration (lines 107-108 in GridStateManager), 2) SVG regeneration destroys and recreates ALL DOM elements, 3) New elements have no animation state - they start fresh. The CSS animations are tied to the DOM elements, and when elements are destroyed, their animation state is lost. Need to explore: pause approach, or timing preservation strategy.",
+      "metadata": {}
+    }
+  ]
+}

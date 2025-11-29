@@ -1,0 +1,72 @@
+{
+  "sessionId": "2025-11-08-04-00",
+  "startTime": 1762567230546,
+  "entries": [
+    {
+      "timestamp": 1762567230566,
+      "type": "note",
+      "content": "Working on welcome screen CSS - Adding new fade-out/fade-in animation layer for logo cubes. User wants random cubes to fade to ~0 opacity and fade back in, creating a \"breathing\" or \"blinking out\" effect alongside existing flash and gradient rotation animations.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762567470328,
+      "type": "decision",
+      "content": "Successfully added fade-out animation layer to welcome screen. Now have 3 independent animations: flash (brightens), fade-out (dims to 0.05), gradient rotation (continuous). CSS transition increased to 1s for smoother fade effects. Build successful.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762567515540,
+      "type": "note",
+      "content": "Doubled fade-out animation speed: fadeOutDuration 1200→2400ms, fadeInDuration 1000→2000ms, CSS transition 1s→2s. Creates slower, more gentle breathing effect.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762567574807,
+      "type": "note",
+      "content": "Reduced fade-out frequency to prevent too many cubes fading simultaneously: minDelay 3000→5000ms, maxDelay 8000→12000ms. Creates more sparse, subtle breathing effect with fewer cubes fading at once.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762567680285,
+      "type": "note",
+      "content": "Adding fourth animation layer: border radius morphing. Cubes will randomly change their rx attribute (border-radius) to create shape-shifting effect alongside flash, fade-out, and gradient rotation.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762567720151,
+      "type": "decision",
+      "content": "Successfully added fourth animation layer: radius morphing. Cubes randomly morph between sharp corners (rx=0), normal (rx=3), and round (rx=10). Config: 6-15s delays, 2.5s morph + 2s return. CSS transition added for smooth shape-shifting. Now have 4 independent animations: flash, fade-out, radius morph, gradient rotation.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762567798599,
+      "type": "note",
+      "content": "Reduced flash brightness from 1.0 to 0.85 opacity to prevent overly bright flashes. Creates more subtle, harmonious flash effect that doesn't overpower other animations.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762567864954,
+      "type": "note",
+      "content": "Added \"Sementix\" text beneath logo cubes with silver metallic gradient. Text positioned at bottom center of SVG (y=115) with horizontal silver gradient (#555 → #fff → #555) for brushed metal effect. Font: 14px, 600 weight, 0.8 opacity, letter-spacing 0.1em.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762568103306,
+      "type": "decision",
+      "content": "Provider Selection Flow Analysis (2025-11-08)\n\nFLOW:\n1. User clicks \"New Chat\" button\n2. ChatTabManager.handleNewChatClick() is called\n3. It creates/shows ProviderSelectionPopup\n4. User selects provider, popup calls createNewChat(providerId)\n5. WelcomeScreen hides when first chat created\n\nKEY CONNECTIONS:\n- ChatTabManager has ProviderSelectionPopup instance (line 52, 136)\n- MessageListFactory owns WelcomeScreen instance (line 19)\n- WelcomeScreen.hide() called by MessageListFactory when first message-list created (line 63)\n- ChatTabManager receives onNewChat callback injected into dependencies (line 89)\n\nTRIGGER FROM WELCOME:\n- WelcomeScreen doesn't directly trigger provider selection\n- Need to add button/handler to WelcomeScreen that calls onNewChat\n- onNewChat callback is passed through dependencies to any UI component\n",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762568280703,
+      "type": "decision",
+      "content": "Replaced \"Welcome to Sementix\" heading with interactive \"Start New Chat\" button. Wired callback flow: WelcomeScreen button → onNewChatClick → ChatTabManager.handleNewChatClick() → ProviderSelectionPopup. Button has metallic silver gradient matching logo aesthetic with hover/active states.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762568520419,
+      "type": "decision",
+      "content": "Added UI hiding when welcome screen is active. Uses body.welcome-active CSS class to hide message list, user input, and notifications while keeping header visible. Creates clean, focused welcome experience with only header + animated logo + Start New Chat button visible.",
+      "metadata": {}
+    }
+  ]
+}

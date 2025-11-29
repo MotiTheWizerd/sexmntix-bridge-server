@@ -1,0 +1,84 @@
+{
+  "sessionId": "2025-10-15-20-17",
+  "startTime": 1760548667758,
+  "entries": [
+    {
+      "timestamp": 1760548667759,
+      "type": "note",
+      "content": "Session start: Moti returned for continuation. Reviewed recent memories showing excellent progress on streaming/permission systems. Last session completed critical bug fix for missing Claude content types (MCP, web tools, code execution) + permission dialog state transition. Ready to continue building.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760549047744,
+      "type": "decision",
+      "content": "Starting permission persistence implementation. Current state: permission dialog works for session-only, but no persistence. Need to add: Settings integration, UI checkbox, 'always_allow' logic, and permission cache. Plan created with 6 steps.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760550009093,
+      "type": "decision",
+      "content": "COMPLETED: Permission persistence system fully implemented. \n- Settings interface + SettingsManager with permission preferences storage\n- UI checkbox \"Remember my choice\" with metallic glass styling\n- AllowButtonHandler sends 'always_allow' when checkbox checked\n- PermissionWorkflowManager saves preferences to settings.json\n- Auto-approval logic checks saved preferences before showing dialog\n- Circular dependency resolved via deferred injection pattern\nBuild successful - zero TypeScript errors.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760551036896,
+      "type": "error",
+      "content": "BUG FOUND: Codex CLI starts new chat every turn - agent has no memory. Logs show sessionId is consistent but agent says \"I don't have any memory of prior work in this session\". Process exits with code 1. Need to investigate conversation history passing to Codex CLI.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760551288644,
+      "type": "gotcha",
+      "content": "Codex CLI issue root cause identified: Uses file-based session persistence at ~/.codex/sessions/ with 'resume' subcommand, unlike Claude's stdin approach. Session files may not be created/loaded properly. Process exits with code 1 indicating error. Need to: 1) Check if session files exist, 2) Capture stderr output, 3) Verify thread_id extraction from events.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760551337630,
+      "type": "error",
+      "content": "CRITICAL: User says Codex conversation history was working fine BEFORE. Something we just changed broke it. Recently modified: PermissionChunkProcessor (made methods async), PermissionWorkflowManager (added auto-approval), MessageRouter (added injection). Need to check if async changes to PermissionChunkProcessor broke the call chain.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760551496670,
+      "type": "decision",
+      "content": "FIXED: Codex conversation history bug caused by permission persistence changes. Made PermissionChunkProcessor methods async but callers didn't await them. Fixed by: 1) ChunkProcessor.processChunk() now async with await on permission calls, 2) StreamingResponseHandler awaits processChunk(). Build successful. This restores proper async flow and fixes conversation state corruption.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760552049471,
+      "type": "error",
+      "content": "BUG: CodexCLIExecutor timeout (30s default) kills process even when streaming is active. Timeout starts at process spawn, not per-chunk. For long conversations, this is too aggressive. Need to either: 1) Increase timeout significantly, 2) Implement keepalive that resets on chunk receipt, or 3) Remove timeout for streaming mode.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760552125389,
+      "type": "decision",
+      "content": "FIXED: Codex timeout issue. Changed from fixed 30s timeout to keepalive mechanism that resets on each chunk. Now supports indefinitely long streaming as long as chunks keep coming. If no chunks for 30s (hang), then timeout triggers. This is proper streaming API behavior.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760552258967,
+      "type": "gotcha",
+      "content": "Codex CLI not running in workspace folder - same issue we had with Claude. Need to pass workspaceFolder from CodexService to StreamingApiHandler to CodexCLIExecutor as cwd option. This ensures Codex CLI runs in correct directory for file access.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760552335839,
+      "type": "decision",
+      "content": "FIXED: Codex CLI workspace folder issue. Added workspaceFolder parameter through the chain: CodexService -> StreamingApiHandler -> CodexCLIExecutor (as cwd). Now Codex CLI runs in correct workspace directory for file access, same as Claude CLI.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760553446710,
+      "type": "decision",
+      "content": "FIXED: Codex thinking steps now accumulate instead of replacing. Changed ReasoningChunkHandler to append new thinking-step divs. Added CSS for visual separation with border-left, separators between steps, and smooth fade-in animation. Users now see complete thinking process unfold.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760553677384,
+      "type": "decision",
+      "content": "SESSION COMPLETE: Epic session with Moti fixing multiple critical Codex integration issues. Completed permission persistence system, fixed conversation history bug, resolved timeout issues, added workspace folder support, and improved thinking steps display. All features working beautifully. Moti is happy! See you soon. ❤️",
+      "metadata": {}
+    }
+  ]
+}

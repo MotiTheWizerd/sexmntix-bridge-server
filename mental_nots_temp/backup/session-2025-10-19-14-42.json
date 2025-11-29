@@ -1,0 +1,66 @@
+{
+  "sessionId": "2025-10-19-14-42",
+  "startTime": 1760874154866,
+  "entries": [
+    {
+      "timestamp": 1760874154878,
+      "type": "note",
+      "content": "Stage 1 implementation complete! No build needed for vanilla JS changes.\n\nModified files:\n1. HeaderDropdown.js - Added setChatTabManager() + handleSessionClick() logic\n2. HeaderController.js - Added setChatTabManager() passthrough\n3. ChatTabManagerInjector.js - Added injection to HeaderController\n\nReady to test: Reload extension → Open history dropdown → Click session → Should create new tab!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760874280702,
+      "type": "note",
+      "content": "STAGE 2 PLANNING: UI → Extension → UI flow for loading conversation messages\n\nUser wants:\n1. UI: Click session → send event to extension\n2. Extension: Receive event → fetch session from UserConversationHistory\n3. Extension: Send loaded session data back to UI\n4. UI: Receive loaded session → replay messages\n\nNeed to research:\n- Existing events we can reuse (history.ready.v1 pattern?)\n- Extension-UI communication pattern\n- Event contracts and validation",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760874386518,
+      "type": "decision",
+      "content": "STAGE 2 RESEARCH COMPLETE - Event Architecture Understanding:\n\nUI → EXTENSION FLOW:\n1. UI emits: eventBus.emit('bridge.send', { event: 'custom.event.v1', payload: {...} })\n2. BridgeSendHandler catches 'bridge.send' → passthrough to extension\n3. Extension receives event via bridge\n\nEXTENSION → UI FLOW:\n1. Extension: postToUI({ event: 'custom.event.v1', payload: {...} })\n2. LogicEventHandlers forwards via logicEventBus\n3. UI receives via IncomingProcessor → eventBus\n\nEXISTING PATTERN (history.ready.v1):\n- Extension emits on logicEventBus\n- LogicEventHandlers.setupHistoryReadyHandler() listens\n- Forwards to UI via postToUI()\n- UI receives via BridgeHandler.handleIncomingMessage()\n- HistoryEventMappers maps to UI event\n- HeaderDropdown receives 'history.ready.v1'\n\nCAN REUSE: bridge.send pattern for UI → Extension\nNEED NEW: \n1. history.session.load.request.v1 (UI → Extension)\n2. history.session.loaded.v1 (Extension → UI)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760874423595,
+      "type": "note",
+      "content": "Found the pattern! FileOpenHandler shows how to handle UI → Extension requests:\n1. UI emits: bridge.send with event 'file.open.requested.v1'\n2. Extension: bridgeBus.on('file.open.requested.v1', handler)\n3. Handler processes request and sends response back to UI\n\nSame pattern can be used for session loading!",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760874439690,
+      "type": "decision",
+      "content": "COMPLETE ARCHITECTURE PLAN FOR STAGE 2:\n\nREUSABLE PATTERNS FOUND:\n✅ File.open.requested.v1 pattern - perfect template!\n✅ history.ready.v1 - shows how to emit session data to UI\n✅ bridgeBus event handling in UIEventHandlers.ts\n✅ HistoryDataProvider - already exists for fetching sessions\n\nNEW EVENTS NEEDED:\n1. history.session.load.request.v1 (UI → Extension)\n   - Payload: { sessionId: string, chatId: string }\n2. history.session.loaded.v1 (Extension → UI)\n   - Payload: { sessionId: string, chatId: string, messages: SessionMessage[] }\n\nIMPLEMENTATION FLOW:\nUI Side:\n- HeaderDropdown.handleSessionClick() → emit bridge.send\nExtension Side:\n- Create SessionLoadHandler (like FileOpenHandler)\n- Handler fetches from UserConversationHistory\n- Sends messages back via postToUI\nUI Side:\n- Receive history.session.loaded.v1\n- Replay messages into the tab",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760874478132,
+      "type": "note",
+      "content": "Research complete! Ready to prepare comprehensive plan for Stage 2.\n\nKey findings:\n- UIEventHandlers orchestrates all UI → Extension event handlers\n- HandlersLifecycle.setupAll() registers all handlers\n- HistoryDataProvider already exists with getSession() method\n- FileOpenHandler is perfect template pattern\n- All infrastructure exists, just need to wire new handler",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760874943929,
+      "type": "decision",
+      "content": "STAGE 2 COMPLETE! ✅\n\nSuccessfully implemented complete event-driven architecture for loading session messages:\n\nEXTENSION SIDE:\n✅ SessionLoadHandler.ts - Handles history.session.load.request.v1\n✅ UIEventHandlers.ts - Wired into handler system\n✅ HandlersLifecycle.ts - Registered for setup\n✅ Uses HistoryDataProvider.getSessionData() to fetch messages\n\nUI SIDE:\n✅ chat.json - Added 3 new events to contract\n✅ HistoryEventMappers.js - Maps incoming events to UI\n✅ IncomingEventsConfig.js - Registers events for validation\n✅ HeaderDropdown.js - Emits request, handles response\n\nFLOW:\n1. User clicks session → HeaderDropdown.handleSessionClick()\n2. Create new tab with sessionId\n3. Emit bridge.send with history.session.load.request.v1\n4. SessionLoadHandler receives request\n5. Loads session from UserConversationHistory\n6. Sends history.session.loaded.v1 back to UI\n7. HeaderDropdown.handleSessionLoaded() logs messages\n8. Ready for Stage 3 (message replay)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760875224382,
+      "type": "note",
+      "content": "User wants loading state when loading historical conversations:\n1. Show loading indicator in tab while waiting for session data from extension\n2. Clear loading when messages arrive\n3. Use existing state management infrastructure (ChatStore has isStreaming, can add isLoadingHistory)",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760875275163,
+      "type": "note",
+      "content": "Research findings for loading state:\n- PlaceholderCreator exists for creating placeholders in message list\n- HistoryMenuBuilder has buildLoadingState() for dropdown loading\n- ChatStore tracks isStreaming state\n- Need to create similar placeholder/loading indicator for when session is loading from history\n- Show \"Loading conversation...\" in the new tab's message list while waiting",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760875618731,
+      "type": "decision",
+      "content": "Creating delta memory for conversation history loading implementation (Stages 1 & 2).\n\nCOMPLETED:\n✅ Stage 1: Click session → Create new tab\n✅ Stage 2: Request session from extension → Receive messages\n\nIN PROGRESS:\n⏳ Planning loading state indicator using ChatStore.isLoadingHistory\n\nNEXT SESSION:\n- Implement loading state (add to ChatStore, show/clear indicator)\n- Stage 3: Replay messages into the new tab",
+      "metadata": {}
+    }
+  ]
+}

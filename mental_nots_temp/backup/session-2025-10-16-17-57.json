@@ -1,0 +1,24 @@
+{
+  "sessionId": "2025-10-16-17-57",
+  "startTime": 1760626661867,
+  "entries": [
+    {
+      "timestamp": 1760626661871,
+      "type": "note",
+      "content": "Starting new session focused on chat UI design. Moti emphasized this is complex UI work - need to remember and learn the architecture thoroughly.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760626675343,
+      "type": "note",
+      "content": "## Chat UI Architecture Summary\n\n**Core Architecture:**\n- Ultra-modular design with 22+ focused components\n- Multi-chat tab system with isolated per-chat state\n- Real-time streaming with CSS visibility toggling (not innerHTML replacement)\n- Orchestrator pattern with micro-components for single responsibility\n\n**Key Components:**\n1. ChatTabManager (refactored from 465 lines to 7 modules)\n2. MessageListFactory - creates isolated message-list DOMs per chat\n3. DOMStateManager - handles CSS visibility toggling between tabs\n4. AgentMessagesManager (refactored from 620 lines)\n5. StreamingChunkRouter - routes streaming chunks to correct chat\n6. MessageManagerRouter - handles message routing with chatId propagation\n\n**Recent Critical Issues (INCOMPLETE/BUGS):**\n1. Streaming element references going stale after tab switching\n2. DOM selector mismatch causing streaming bugs\n3. Provider isolation needs UI-Extension sync via event emission\n4. Message routing still has chatId injection issues in some paths\n\n**Architecture Patterns:**\n- Dependency injection for all components\n- Event-driven architecture for cross-module communication\n- Builder pattern for complex UI elements\n- CSS visibility for tab switching (prevents DOM destruction)\n\n**UI Features:**\n- Glassmorphism design\n- Tab icons and visual indicators\n- Stop button with vivid state\n- Scrolling message list\n- Multi-provider support (Claude, Codex)\n- Permission dialogs in streaming mode",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1760626814059,
+      "type": "note",
+      "content": "Task: Improve streaming indicator - make it bigger and change text from \"Streaming\" to \"Waiting to <provider name>\"",
+      "metadata": {}
+    }
+  ]
+}

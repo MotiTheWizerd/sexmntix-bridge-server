@@ -78,7 +78,7 @@ class VectorStorageService:
             similarity_filter=self.similarity_filter
         )
 
-        self.logger.info("VectorStorageService initialized with modular components")
+        # self.logger.info("VectorStorageService initialized with modular components")
 
     async def store_memory_vector(
         self,
@@ -408,6 +408,7 @@ class VectorStorageService:
         conversation_db_id: int,
         conversation_data: Dict[str, Any],
         user_id: str,
+        project_id: str,
         session_id: str = None,
         gemini_analysis: List[Dict[str, Any]] = None
     ) -> tuple[List[str], List[List[float]]]:
@@ -487,6 +488,7 @@ class VectorStorageService:
                 embedding=embedding,
                 conversation_data=memory_unit,  # Store memory unit, not full conversation
                 user_id=user_id,
+                project_id=project_id,
                 memory_index=idx,
                 session_id=session_id
             )
@@ -509,6 +511,7 @@ class VectorStorageService:
         self,
         query: str,
         user_id: str,
+        project_id: str,
         limit: int = 10,
         where_filter: Optional[Dict[str, Any]] = None,
         min_similarity: float = 0.0
@@ -556,6 +559,7 @@ class VectorStorageService:
             client=chromadb_client,
             query_embedding=query_embedding,
             user_id=user_id,
+            project_id=project_id,
             limit=limit,
             where_filter=where_filter,
             min_similarity=min_similarity

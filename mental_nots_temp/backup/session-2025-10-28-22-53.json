@@ -1,0 +1,24 @@
+{
+  "sessionId": "2025-10-28-22-53",
+  "startTime": 1761684833691,
+  "entries": [
+    {
+      "timestamp": 1761684833693,
+      "type": "note",
+      "content": "hi champ",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761685060299,
+      "type": "note",
+      "content": "Explained semantic search architecture to Moti - covering Google embeddings, ChromaDB vector storage, HNSW indexing, L2 distance calculation, and recency boosting algorithm",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1761685219570,
+      "type": "note",
+      "content": "Explaining provider adapter architecture to Moti - showing IProviderAdapter interface, ClaudeCodeCLIAdapter (20+ micro-components), GeminiAdapter (simpler streaming), CodexAdapter (ultra-modular), and event transformation pipeline",
+      "metadata": {}
+    }
+  ]
+}

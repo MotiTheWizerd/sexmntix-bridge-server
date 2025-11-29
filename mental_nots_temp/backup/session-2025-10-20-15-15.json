@@ -1,0 +1,12 @@
+{
+  "sessionId": "2025-10-20-15-15",
+  "startTime": 1760962534788,
+  "entries": [
+    {
+      "timestamp": 1760962534789,
+      "type": "note",
+      "content": "User reports tools not showing when restoring chat from history. Memory shows this is the EXACT same issue from conversation-history-ui-display-failed-attempt - messages load but content blocks (tools/thinking) don't render, only plain text shows.",
+      "metadata": {}
+    }
+  ]
+}

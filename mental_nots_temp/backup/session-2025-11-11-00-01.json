@@ -1,0 +1,30 @@
+{
+  "sessionId": "2025-11-11-00-01",
+  "startTime": 1762812110600,
+  "entries": [
+    {
+      "timestamp": 1762812110602,
+      "type": "decision",
+      "content": "Fixed focus effect bug on message input. The issue was .message-input:focus was trying to change border-color but .message-input has no border. The actual border is on .input-row parent element, which already has :focus-within working correctly. Removed the conflicting border-color from .message-input:focus.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762812518226,
+      "type": "decision",
+      "content": "Updated send button border to match options dropdown styling - changed from var(--border-secondary) to rgba(122, 162, 247, 0.15) for visual consistency in the user input toolbar.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762812586914,
+      "type": "decision",
+      "content": "Reduced stop button size to 37x37 (1px smaller than send button's 38x38) for subtle scale effect when transitioning to stop state.",
+      "metadata": {}
+    },
+    {
+      "timestamp": 1762812642164,
+      "type": "decision",
+      "content": "Updated stop button border to use provider primary color (--claude-primary: #CC785C) instead of error state color for brand consistency.",
+      "metadata": {}
+    }
+  ]
+}
