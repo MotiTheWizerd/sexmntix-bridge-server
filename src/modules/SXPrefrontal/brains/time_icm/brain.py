@@ -21,10 +21,11 @@ class TimeICMBrain:
     Resolves time expressions to start/end windows in UTC.
     """
 
-    def __init__(self, model: Optional[SXPrefrontalModel] = None):
+    def __init__(self, model: Optional[SXPrefrontalModel] = None, logger: Optional[Any] = None):
         self.model = model or SXPrefrontalModel()
+        self.logger = logger
 
-    def resolve(self, text: str, now: Optional[datetime] = None, tz_offset_minutes: Optional[int] = None) -> Dict[str, Any]:
+    def resolve(self, text: str, now: Optional[datetime] = None, tz_offset_minutes: Optional[int] = None, debug: bool = False) -> Dict[str, Any]:
         now = now or datetime.now(timezone.utc)
         if now.tzinfo is None:
             now = now.replace(tzinfo=timezone.utc)
@@ -36,6 +37,7 @@ class TimeICMBrain:
             tz_offset_minutes=tz_offset_minutes
         )
 
+        raw = None
         try:
             raw = self.model.generate(
                 prompt=user_prompt,
@@ -45,9 +47,17 @@ class TimeICMBrain:
             )
             parsed = self._parse_json(raw)
             normalized = self._normalize(parsed, now=now, tz_offset_minutes=tz_offset_minutes, original_text=text)
+            if debug:
+                normalized["debug"] = {"raw": raw}
             return normalized
-        except Exception:
-            return DEFAULT_OUTPUT.copy()
+        except Exception as e:
+            if self.logger:
+                self.logger.error("[TimeICM] failed to parse/resolve", extra={"error": str(e), "raw": raw})
+            result = DEFAULT_OUTPUT.copy()
+            if debug:
+                result["debug"] = {"error": str(e), "raw": raw, "system_prompt": system_prompt, "user_prompt": user_prompt}
+            result["notes"] = f"failed to resolve: {e}"
+            return result
 
     def _parse_json(self, raw: str) -> Dict[str, Any]:
         raw = raw.strip()

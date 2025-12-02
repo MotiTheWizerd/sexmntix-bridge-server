@@ -34,7 +34,31 @@ def build_memory_synthesis_prompt(
         >>> results = [{"document": {...}, "metadata": {...}, "similarity": 0.85}]
         >>> prompt = build_memory_synthesis_prompt(results, query="What do you know about project X?")
     """
-    formatted_results = json.dumps(search_results, indent=2)
+    # Create a clean copy with truncated text to avoid blowing up the context window
+    clean_results = []
+    for result in search_results:
+        clean_item = result.copy()
+        
+        # Truncate turns if present
+        if "turns" in clean_item and isinstance(clean_item["turns"], list):
+            clean_turns = []
+            for turn in clean_item["turns"]:
+                if not isinstance(turn, dict):
+                    continue
+                clean_turn = turn.copy()
+                # Truncate user/assistant text to avoid massive context
+                if "user" in clean_turn and isinstance(clean_turn["user"], str):
+                    if len(clean_turn["user"]) > 1500:
+                        clean_turn["user"] = clean_turn["user"][:1500] + "...[truncated]"
+                if "assistant" in clean_turn and isinstance(clean_turn["assistant"], str):
+                    if len(clean_turn["assistant"]) > 1500:
+                        clean_turn["assistant"] = clean_turn["assistant"][:1500] + "...[truncated]"
+                clean_turns.append(clean_turn)
+            clean_item["turns"] = clean_turns
+            
+        clean_results.append(clean_item)
+
+    formatted_results = json.dumps(clean_results, indent=2)
 
     query_context = ""
     if query:

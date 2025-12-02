@@ -15,7 +15,7 @@ class SXThalamusConfig:
     enabled: bool = True
     """Enable/disable SXThalamus preprocessing"""
 
-    timeout_seconds: float = 30.0
+    timeout_seconds: float = 120.0
     """Timeout for API calls in seconds"""
 
     max_retries: int = 2
@@ -29,7 +29,7 @@ class SXThalamusConfig:
         Environment variables:
             SXTHALAMUS_ENABLED: Enable/disable the service (default: true)
             GEMINI_API_KEY: Google Gemini API key (loaded in client via load_dotenv)
-            SXTHALAMUS_TIMEOUT: Timeout in seconds (default: 30.0)
+            SXTHALAMUS_TIMEOUT: Timeout in seconds (default: 120.0)
             SXTHALAMUS_MAX_RETRIES: Max retry attempts (default: 2)
 
         Returns:
@@ -37,6 +37,6 @@ class SXThalamusConfig:
         """
         return cls(
             enabled=os.getenv("SXTHALAMUS_ENABLED", "true").lower() == "true",
-            timeout_seconds=float(os.getenv("SXTHALAMUS_TIMEOUT", "30.0")),
+            timeout_seconds=float(os.getenv("SXTHALAMUS_TIMEOUT", "120.0")),
             max_retries=int(os.getenv("SXTHALAMUS_MAX_RETRIES", "2"))
         )

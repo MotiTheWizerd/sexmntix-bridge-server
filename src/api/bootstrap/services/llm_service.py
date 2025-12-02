@@ -26,7 +26,7 @@ def initialize_llm_service(
 
     llm_service = LLMService(
         db_manager=db_manager,
-        default_timeout=30.0
+        default_timeout=120.0
     )
 
     logger.info("LLM service initialized")

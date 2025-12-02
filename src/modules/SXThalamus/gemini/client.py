@@ -20,14 +20,14 @@ class GeminiClient:
     def __init__(
         self,
         model: str = "gemini-2.0-flash",
-        timeout_seconds: float = 30.0
+        timeout_seconds: float = 120.0
     ):
         """
         Initialize Gemini API client.
 
         Args:
             model: Model identifier (default: gemini-2.0-flash)
-            timeout_seconds: Request timeout in seconds (default: 30.0)
+            timeout_seconds: Request timeout in seconds (default: 120.0)
 
         Raises:
             GeminiAuthError: If client initialization fails

@@ -60,7 +60,6 @@ from src.modules.embeddings import (
     ProviderConfig,
     EmbeddingCache,
 )
-from src.modules.SXPrefrontal import CompressionBrain
 
 
 BATCH_SIZE = 50
@@ -187,11 +186,6 @@ def parse_args():
         action="store_true",
         help="Reset progress file before starting"
     )
-    parser.add_argument(
-        "--no-compress",
-        action="store_true",
-        help="Disable compression; embed raw turns instead of semantic units"
-    )
     return parser.parse_args()
 
 
@@ -224,8 +218,7 @@ def _extract_message_text(msg: Any) -> str:
 
 
 def prepare_conversation_text(
-    conversation: Conversation,
-    compression_brain: Optional[CompressionBrain] = None
+    conversation: Conversation
 ) -> str:
     """
     Normalize conversation turns into paired user/assistant objects for embedding.
@@ -314,22 +307,6 @@ def prepare_conversation_text(
             }
         )
 
-    if compression_brain:
-        semantic_units: List[str] = []
-        for turn in turns:
-            user_text = turn.get("user", "")
-            assistant_text = turn.get("assistant", "")
-            try:
-                compressed = compression_brain.compress(user_text, assistant_text)
-                unit = compressed.get("semantic_unit", "").strip()
-                if unit:
-                    semantic_units.append(unit)
-            except Exception:
-                continue
-        if semantic_units:
-            return "\n".join(semantic_units)
-        # Fallback to original turns if compression fails
-
     return json.dumps(turns, ensure_ascii=False, sort_keys=True)
 
 
@@ -390,8 +367,7 @@ async def populate_embeddings(
     resume: bool,
     start_from: Optional[int],
     delay: float,
-    reset_progress: bool,
-    use_compression: bool
+    reset_progress: bool
 ):
     """Main function to populate conversation embeddings."""
 
@@ -481,7 +457,7 @@ async def populate_embeddings(
             if sample_conversations:
                 print("Sample conversations:")
                 for i, conv in enumerate(sample_conversations, 1):
-                    text = prepare_conversation_text(conv, compression_brain=compression_brain)
+                    text = prepare_conversation_text(conv)
                     msg_count = len(conv.raw_data.get('conversation', []))
                     print(f"\n{i}. Conversation ID: {conv.id}")
                     print(f"   Model: {conv.model}")
@@ -527,22 +503,11 @@ async def populate_embeddings(
         cache_enabled=False  # Disable cache for batch processing
     )
 
-    # Compression brain (optional)
-    compression_brain = None
-    if use_compression:
-        try:
-            compression_brain = CompressionBrain()
-            print("Compression: ENABLED (semantic units)")
-        except Exception as e:
-            print(f"Warning: CompressionBrain init failed, falling back to raw turns. Error: {e}")
-            compression_brain = None
-    else:
-        print("Compression: DISABLED (raw turns)")
-
     print("Services initialized")
     print(f"Embedding model: {embedding_config.model_name}")
     print(f"Batch size: {batch_size}")
     print(f"Delay between batches: {delay}s")
+    print("Text preparation: raw conversation turns (compression disabled)")
     print()
 
     batch_num = 0
@@ -589,7 +554,7 @@ async def populate_embeddings(
 
             for conv in conversations:
                 try:
-                    text = prepare_conversation_text(conv, compression_brain=compression_brain)
+                    text = prepare_conversation_text(conv)
 
                     if not text or text == "[]":
                         print(f"  ⊘ Skipped {conv.id[:8]}... (no text content)")
@@ -751,8 +716,7 @@ def main():
         resume=args.resume,
         start_from=args.start_from,
         delay=args.delay,
-        reset_progress=args.reset_progress,
-        use_compression=not args.no_compress
+        reset_progress=args.reset_progress
     ))
 
 

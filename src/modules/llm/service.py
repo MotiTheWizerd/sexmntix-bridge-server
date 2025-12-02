@@ -26,7 +26,7 @@ class LLMService:
     def __init__(
         self,
         db_manager: DatabaseManager,
-        default_timeout: float = 30.0
+        default_timeout: float = 120.0
     ):
         """
         Initialize LLM service.

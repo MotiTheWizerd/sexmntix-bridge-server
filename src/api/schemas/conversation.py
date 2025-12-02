@@ -126,7 +126,7 @@ class ConversationSearchRequest(BaseModel):
     user_id: str  # Required: UUID from users table
     project_id: str  # Required: project scope provided by client/request
     limit: Optional[int] = 10
-    min_similarity: Optional[float] = 0.0
+    min_similarity: Optional[float] = 0.7
     model: Optional[str] = None  # Filter by specific AI model
     session_id: Optional[str] = None  # Filter by session identifier
 

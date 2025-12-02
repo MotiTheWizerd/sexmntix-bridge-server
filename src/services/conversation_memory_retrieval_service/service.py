@@ -23,7 +23,7 @@ class ConversationMemoryRetrievalService:
         db_manager: DatabaseManager,
         embedding_service: EmbeddingService,
         default_limit: int = 5,
-        default_min_similarity: float = 0.5,
+        default_min_similarity: float = 0.7,
         time_icm: Optional[TimeICMBrain] = None,
         logger: Optional[Logger] = None,
     ):

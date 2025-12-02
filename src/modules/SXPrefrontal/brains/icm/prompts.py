@@ -23,7 +23,7 @@ Rules:
 - Keep "intent" concise (kebab-case or snake_case).
 - confidence is 0.0-1.0.
 - If unsure, set intent to "unknown", route to "fallback" or "triage", confidence <= 0.35.
-- retrieval_strategy: one of ["none","conversations","memory_logs","hybrid"].
+- retrieval_strategy: one of ["none","conversations","memory_logs","hybrid","time"].
 - required_memory: list of short strings describing what to retrieve (empty if none).
 - entities: array of key/value objects you extract, else [].
 - fallback: best safe default; use unknown/triage when unclear.
@@ -81,6 +81,42 @@ User: "not sure what happened, it broke again"
     "route": "triage"
   },
   "notes": "Ask a clarifying question."
+}
+
+Example 4 (retrospective time):
+User: "what did we do yesterday?"
+{
+  "intent": "time_retrospective",
+  "confidence": 0.86,
+  "confidence_reason": "Clear request for past-day window",
+  "route": "retrieve",
+  "required_memory": ["session_state", "conversation_history"],
+  "retrieval_strategy": "time",
+  "entities": [],
+  "fallback": {
+    "intent": "unknown",
+    "route": "triage"
+  },
+  "notes": "Clamp yesterday to prior calendar day 00:00-23:59 local."
+}
+
+Example 5 (prospective time):
+User: "i have a meeting next week at 2pm"
+{
+  "intent": "time_prospective",
+  "confidence": 0.84,
+  "confidence_reason": "Future scheduled event",
+  "route": "retrieve",
+  "required_memory": ["scheduled_events"],
+  "retrieval_strategy": "time",
+  "entities": [
+    {"type": "event", "value": "meeting"}
+  ],
+  "fallback": {
+    "intent": "unknown",
+    "route": "triage"
+  },
+  "notes": "Future event; capture exact datetime for scheduling or reminders."
 }
 """
 
