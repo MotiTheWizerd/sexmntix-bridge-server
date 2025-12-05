@@ -7,7 +7,9 @@ from src.api.formatters.conversation_formatter import ConversationFormatter
 from src.api.schemas.conversation import ConversationCreate
 from src.database.repositories import ConversationRepository
 from src.database.repositories.request_log import RequestLogRepository
+from src.database.repositories.request_log import RequestLogRepository
 from src.modules.SXThalamus.prompts import SXThalamusPromptBuilder
+from src.modules.SXPrefrontal import ICMBrain, TimeICMBrain, SXPrefrontalModel
 from src.modules.core import Logger
 from src.services.conversation_service import ConversationService
 from src.services.conversation_memory_pipeline import ConversationMemoryPipeline
@@ -55,10 +57,35 @@ class ConversationOrchestrator:
             embedding_service=request.app.state.embedding_service,
             logger=self.logger,
         )
+        llm_service = request.app.state.llm_service
+        
+        # Fetch user configuration for ICMs
+        user_config_service = llm_service.user_config_service
+        async with request.app.state.db_manager.session_factory() as session:
+            user_config = await user_config_service.get_user_config(search_request.user_id, session)
+        
+        # Configure Intent ICM
+        intent_config = user_config_service.get_icm_config(user_config, "intent_icm")
+        intent_model = SXPrefrontalModel(
+            provider=intent_config["provider"],
+            model=intent_config["model"]
+        )
+        intent_icm = ICMBrain(model=intent_model)
+        
+        # Configure Time ICM
+        time_config = user_config_service.get_icm_config(user_config, "time_icm")
+        time_model = SXPrefrontalModel(
+            provider=time_config["provider"],
+            model=time_config["model"]
+        )
+        time_icm = TimeICMBrain(model=time_model, logger=self.logger)
+
         pipeline = ConversationMemoryPipeline(
             retrieval_service=retrieval_service,
             db_manager=request.app.state.db_manager,
-            llm_service=request.app.state.llm_service,
+            llm_service=llm_service,
+            intent_icm=intent_icm,
+            time_icm=time_icm,
             logger=self.logger,
         )
 
@@ -114,5 +141,7 @@ def build_conversation_service(
 def build_vector_search_service(
     vector_service,
     logger: Logger,
+    db_session=None,
 ) -> ConversationService:
-    return ConversationService(vector_service=vector_service, logger=logger)
+    repo = ConversationRepository(db_session) if db_session else None
+    return ConversationService(vector_service=vector_service, repository=repo, logger=logger)

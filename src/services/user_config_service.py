@@ -105,8 +105,41 @@ class UserConfigService:
         # Return with defaults if worker not configured
         return {
             "provider": worker_config.get("provider", "google"),
-            "model": worker_config.get("model", "gemini-1.5-flash"),
+            "model": worker_config.get("model", "gemini-2.5-flash"),
             "enabled": worker_config.get("enabled", True)
+        }
+
+    def get_icm_config(
+        self,
+        user_config: Dict[str, Any],
+        icm_type: str
+    ) -> Dict[str, str]:
+        """
+        Extract configuration for a specific ICM component.
+
+        Args:
+            user_config: User configuration dictionary
+            icm_type: Type of ICM (intent_icm, time_icm, world_view_icm)
+
+        Returns:
+            Dict with provider and model
+        """
+        icm_configs = user_config.get("icm_config", {})
+        config = icm_configs.get(icm_type, {})
+        
+        # Defaults per type
+        defaults = {
+            "intent_icm": {"provider": "qwen", "model": None},
+            "time_icm": {"provider": "qwen", "model": None},
+            "world_view_icm": {"provider": "mistral", "model": "mistral-medium-2508"},
+            "identity_icm": {"provider": "google", "model": "gemini-2.5-flash"}
+        }
+        
+        default = defaults.get(icm_type, {"provider": "qwen", "model": None})
+        
+        return {
+            "provider": config.get("provider", default["provider"]),
+            "model": config.get("model", default["model"])
         }
     
     def invalidate_cache(self, user_id: str) -> None:
@@ -139,14 +172,28 @@ class UserConfigService:
             "background_workers": {
                 "conversation_analyzer": {
                     "provider": "google",
-                    "model": "gemini-1.5-flash",
+                    "model": "gemini-2.5-flash",
                     "enabled": True
                 },
                 "memory_synthesizer": {
                     "provider": "google",
-                    "model": "gemini-1.5-flash",
+                    "model": "gemini-2.5-flash",
                     "enabled": True
                 }
             },
-            "embedding_model": "models/text-embedding-004"
+            "embedding_model": "models/text-embedding-004",
+            "icm_config": {
+                "intent_icm": {
+                    "provider": "qwen",
+                    "model": None
+                },
+                "time_icm": {
+                    "provider": "qwen",
+                    "model": None
+                },
+                "world_view_icm": {
+                    "provider": "mistral",
+                    "model": "mistral-medium-2508"
+                }
+            }
         }

@@ -132,42 +132,68 @@ class ConversationService:
         session_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
-        Perform semantic search for conversations.
-
-        Searches the conversations_{hash} ChromaDB collection using vector embeddings
-        to find similar conversations based on semantic similarity.
+        Perform semantic search using pgvector via ConversationRepository.
 
         Args:
             query: Search query string
-            user_id: User identifier for scoping search
-            limit: Maximum number of results (default: 10)
-            min_similarity: Minimum similarity threshold 0.0-1.0 (default: 0.0)
-            model: Optional filter by AI model
-            session_id: Optional filter by session
+            user_id: User identifier
+            project_id: Project identifier
+            limit: Maximum number of results
+            min_similarity: Minimum similarity threshold
+            model: Optional filter by AI model (unsupported in pgvector search currently, filtered post-fetch if needed or requires repo update)
+            session_id: Optional filter
 
         Returns:
-            List of raw search results with metadata, distance, similarity
+            List of search results
         """
-        self.logger.info(
-            f"Searching conversations for: '{query[:100]}' "
-            f"(user: {user_id})"
-        )
+        self.logger.info(f"Searching conversations (pgvector): '{query[:100]}' (user: {user_id})")
 
-        # Build filter for model and session_id if provided
-        combined_filter = self._build_filter(model=model, session_id=session_id)
+        # 1. Generate embedding for query (using vector service's embedding service for consistency)
+        # Note: We assume vector_service is initialized, or we need direct access to embedding_service.
+        # ConversationService init takes vector_service, which has an embedding_service.
+        if not self.vector_service or not self.vector_service.storage_handler.embedding_service:
+             # Fallback or error if no embedding service available
+             # Ideally we should inject embedding_service directly into ConversationService
+             raise RuntimeError("Embedding service not available for search")
+        
+        embedding_result = await self.vector_service.storage_handler.embedding_service.generate_embedding(query)
+        query_embedding = embedding_result.embedding
 
-        # Search conversations using separate collection (user-scoped only)
-        results = await self.vector_service.search_similar_conversations(
-            query=query,
+        # 2. Search using repository
+        results_tuples = await self.repository.search_similar(
+            query_embedding=query_embedding,
             user_id=user_id,
             project_id=project_id,
+            model=model,
+            session_id=session_id,
             limit=limit,
-            where_filter=combined_filter,
             min_similarity=min_similarity
         )
 
-        self.logger.info(f"Found {len(results)} matching conversations")
-        return results
+        formatted_results = []
+        for conv, similarity in results_tuples:
+             # Extract content for 'document' field. Using raw content or a placeholder.
+             # pgvector stores the full payload in raw_data, which is a dict.
+             # This satisfies the Dict[str, Any] requirement of ConversationSearchResult.
+             document_content = conv.raw_data or {}
+             
+             formatted_results.append({
+                 "id": conv.conversation_id,  # Use conversation_id as the ID
+                 "document": document_content, # Expected be Dict by formatting schema
+                 "metadata": {
+                     "conversation_id": conv.conversation_id,
+                     "model": conv.model,
+                     "session_id": conv.session_id,
+                     "user_id": conv.user_id,
+                     "project_id": conv.project_id
+                 },
+                 "distance": 1.0 - similarity, # Approximation
+                 "similarity": similarity
+             })
+        
+        self.logger.info(f"Found {len(formatted_results)} matching conversations (pgvector)")
+        return formatted_results
+
 
     async def fetch_synthesized_memory(
         self,
@@ -215,6 +241,7 @@ class ConversationService:
             where_filter=combined_filter,
             min_similarity=min_similarity
         )
+
 
         self.logger.info(f"Found {len(results)} search results for memory synthesis")
 

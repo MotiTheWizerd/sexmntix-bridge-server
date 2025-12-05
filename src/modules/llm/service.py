@@ -4,7 +4,7 @@ LLM Service - Centralized language model management
 Handles user-specific model configuration and client caching.
 """
 
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.core.telemetry.logger import get_logger
@@ -12,6 +12,7 @@ from src.services.user_config_service import UserConfigService
 from src.database import DatabaseManager
 
 from .client import GeminiClient
+from .mistral_sdk.client import MistralClient
 
 logger = get_logger(__name__)
 
@@ -40,7 +41,7 @@ class LLMService:
         self.user_config_service = UserConfigService()
         
         # Cache for user-specific clients
-        self._client_cache: Dict[str, GeminiClient] = {}
+        self._client_cache: Dict[str, Union[GeminiClient, MistralClient]] = {}
         
         self.logger = logger
         self.logger.info("LLMService initialized")
@@ -49,7 +50,7 @@ class LLMService:
         self,
         user_id: str,
         worker_type: str = "conversation_analyzer"
-    ) -> GeminiClient:
+    ) -> Union[GeminiClient, MistralClient]:
         """
         Get or create Gemini client for specific user and worker.
         
@@ -84,10 +85,22 @@ class LLMService:
             )
             
             # Create and cache client
-            client = GeminiClient(
-                model=model,
-                timeout_seconds=self.default_timeout
-            )
+            if model.startswith("mistral"):
+                self.logger.info(
+                    f"Creating Mistral LLM client for user {user_id}, worker {worker_type}, model: {model}"
+                )
+                client = MistralClient(
+                    model=model,
+                    timeout_seconds=self.default_timeout
+                )
+            else:
+                self.logger.info(
+                    f"Creating Gemini LLM client for user {user_id}, worker {worker_type}, model: {model}"
+                )
+                client = GeminiClient(
+                    model=model,
+                    timeout_seconds=self.default_timeout
+                )
             
             self._client_cache[cache_key] = client
             

@@ -108,6 +108,7 @@ async def list_conversations(
 async def search_conversations(
     search_request: ConversationSearchRequest,
     request: Request,
+    db: AsyncSession = Depends(get_db_session),
     logger: Logger = Depends(get_logger),
 ):
     """Semantic search for conversations by meaning."""
@@ -120,7 +121,7 @@ async def search_conversations(
             logger=logger,
         )
 
-        service = build_vector_search_service(vector_service=vector_service, logger=logger)
+        service = build_vector_search_service(vector_service=vector_service, logger=logger, db_session=db)
         results = await service.search_conversations(
             query=search_request.query,
             user_id=search_request.user_id,

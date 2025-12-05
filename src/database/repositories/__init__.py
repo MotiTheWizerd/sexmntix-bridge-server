@@ -7,6 +7,7 @@ from .user_project.repository import UserProjectRepository
 from .icm_log.repository import IcmLogRepository
 from .retrieval_log.repository import RetrievalLogRepository
 from .request_log.repository import RequestLogRepository
+from .ai_world_view.repository import AIWorldViewRepository
 
 __all__ = [
     "BaseRepository",
@@ -18,4 +19,5 @@ __all__ = [
     "IcmLogRepository",
     "RetrievalLogRepository",
     "RequestLogRepository",
+    "AIWorldViewRepository",
 ]

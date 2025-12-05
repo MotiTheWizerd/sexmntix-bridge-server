@@ -210,12 +210,13 @@ class ConversationRepository(BaseRepository[Conversation]):
             .limit(limit)
         )
         return list(result.scalars().all())
-
     async def search_similar(
         self,
         query_embedding: List[float],
         user_id: Optional[str] = None,
         project_id: Optional[str] = None,
+        model: Optional[str] = None,
+        session_id: Optional[str] = None,
         limit: int = 10,
         min_similarity: float = 0.0,
         distance_metric: str = "cosine"
@@ -227,6 +228,8 @@ class ConversationRepository(BaseRepository[Conversation]):
             query_embedding: The embedding vector to search for (768 dimensions)
             user_id: Filter by user_id (optional)
             project_id: Filter by project_id (optional)
+            model: Filter by model (optional)
+            session_id: Filter by session_id (optional)
             limit: Maximum number of results to return
             min_similarity: Minimum similarity threshold (0.0 to 1.0)
             distance_metric: Distance metric to use ('cosine', 'l2', or 'inner_product')
@@ -241,6 +244,10 @@ class ConversationRepository(BaseRepository[Conversation]):
             conditions.append(Conversation.user_id == user_id)
         if project_id:
             conditions.append(Conversation.project_id == project_id)
+        if model:
+            conditions.append(Conversation.model == model)
+        if session_id:
+            conditions.append(Conversation.session_id == session_id)
 
         # Select distance operator based on metric
         if distance_metric == "cosine":

@@ -705,7 +705,7 @@ from src.modules.gemini import GeminiClient
 Make it easy to switch between models:
 ```python
 SXTHALAMUS_MODEL=gemini-2.0-flash      # Fast, good quality
-SXTHALAMUS_MODEL=gemini-1.5-pro        # Better quality, slower
+SXTHALAMUS_MODEL=gemini-2.5-pro        # Better quality, slower
 SXTHALAMUS_MODEL=claude-sonnet-4       # Use Claude API instead
 ```
 

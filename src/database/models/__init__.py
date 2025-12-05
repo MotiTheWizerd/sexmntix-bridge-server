@@ -8,5 +8,6 @@ from .enums import ProjectType
 from .icm_log import IcmLog
 from .retrieval_log import RetrievalLog
 from .request_log import RequestLog
+from .ai_world_view import AIWorldView
 
-__all__ = ["Base", "User", "MemoryLog", "MentalNote", "Conversation", "UserProject", "ProjectType", "IcmLog", "RetrievalLog", "RequestLog"]
+__all__ = ["Base", "User", "MemoryLog", "MentalNote", "Conversation", "UserProject", "ProjectType", "IcmLog", "RetrievalLog", "RequestLog", "AIWorldView"]
