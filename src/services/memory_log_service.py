@@ -9,6 +9,7 @@ from datetime import datetime
 from src.database.repositories import MemoryLogRepository
 from src.modules.core import EventBus, Logger
 from src.modules.vector_storage import VectorStorageService
+from src.modules.vector_storage.text_extraction.embedding_payload import EmbeddingPayloadBuilder
 from src.utils.date_range_calculator import DateRangeCalculator
 
 
@@ -38,6 +39,30 @@ class MemoryLogService:
         self.event_bus = event_bus
         self.logger = logger
         self.embedding_service = embedding_service
+
+    @staticmethod
+    def _build_embedding_document(memory_log_data: Dict[str, Any], fallback_task: str) -> Dict[str, Any]:
+        """
+        Build the curated embedding payload for API responses.
+
+        Args:
+            memory_log_data: Raw memory log dict from PostgreSQL
+            fallback_task: Task name to use if payload is empty
+
+        Returns:
+            Dict containing only the semantic fields used for embeddings
+        """
+        payload = EmbeddingPayloadBuilder.build(memory_log_data or {})
+        if payload:
+            return payload
+
+        fallback_summary = (
+            memory_log_data.get("summary")
+            or memory_log_data.get("lesson")
+            or fallback_task
+            or "untitled"
+        )
+        return {"summary": fallback_summary}
 
     def unwrap_request_body(self, body: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -207,10 +232,14 @@ class MemoryLogService:
         # Transform results to match Chroma-like response shape
         formatted_results = []
         for memory_log, similarity in results:
+            document_view = self._build_embedding_document(
+                memory_log.memory_log or {},
+                memory_log.task
+            )
             formatted_results.append({
                 "id": str(memory_log.id),
                 "memory_log_id": str(memory_log.id),
-                "document": memory_log.memory_log,
+                "document": document_view,
                 "metadata": {
                     "task": memory_log.task,
                     "agent": memory_log.agent,
@@ -290,10 +319,14 @@ class MemoryLogService:
         # Transform PostgreSQL results to ChromaDB-compatible format
         formatted_results = []
         for memory_log, similarity in results:
+            document_view = self._build_embedding_document(
+                memory_log.memory_log or {},
+                memory_log.task
+            )
             formatted_results.append({
                 "id": str(memory_log.id),
                 "memory_log_id": str(memory_log.id),
-                "document": memory_log.memory_log,
+                "document": document_view,
                 "metadata": {
                     "task": memory_log.task,
                     "agent": memory_log.agent,

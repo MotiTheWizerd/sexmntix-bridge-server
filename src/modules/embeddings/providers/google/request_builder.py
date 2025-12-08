@@ -19,7 +19,13 @@ class GoogleRequestBuilder:
 
     BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
-    def __init__(self, model_name: str = "models/text-embedding-004"):
+    DEFAULT_OUTPUT_DIM = 1536
+
+    def __init__(
+        self,
+        model_name: str = "models/gemini-embedding-001",
+        output_dimensionality: int = DEFAULT_OUTPUT_DIM
+    ):
         """
         Initialize request builder.
 
@@ -27,6 +33,7 @@ class GoogleRequestBuilder:
             model_name: Google embedding model name
         """
         self.model_name = model_name
+        self.output_dimensionality = output_dimensionality
 
     def build_embedding_url(self) -> str:
         """
@@ -49,6 +56,7 @@ class GoogleRequestBuilder:
         """
         return {
             "model": self.model_name,
+            "outputDimensionality": self.output_dimensionality,
             "content": {
                 "parts": [{"text": text}]
             }

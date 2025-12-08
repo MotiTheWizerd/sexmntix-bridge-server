@@ -10,7 +10,7 @@ class ProviderConfig(BaseModel):
     """Configuration for embedding providers."""
 
     provider_name: Literal["google", "openai", "local"] = "google"
-    model_name: str = "models/text-embedding-004"
+    model_name: str = "models/gemini-embedding-001"
     api_key: Optional[str] = None
     timeout_seconds: float = 30.0
     max_retries: int = 3

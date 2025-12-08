@@ -11,6 +11,8 @@ The Time ICM resolves relative time expressions in the user's query into absolut
 
 *   **File**: `src/modules/SXPrefrontal/brains/time_icm/brain.py`
 *   **Class**: `TimeICMBrain`
+*   **Default LLM Provider**: Mistral (`mistral-tiny`)
+*   **Supported Providers**: Mistral, Qwen, Gemini (configurable via user settings)
 
 ## Input
 
@@ -45,6 +47,26 @@ The Time ICM returns a dictionary with the following structure:
 
 *   `resolve(text, now, tz_offset_minutes)`: Main entry point for resolution.
 *   `_last_night_window(now, tz_offset_minutes)`: Helper (internal logic, though not directly exposed in the main `resolve` flow unless called specifically) to calculate "last night" windows.
+
+## Configuration
+
+The Time ICM uses **Mistral Tiny** by default for fast and cost-effective time resolution. Users can override the provider and model through their user configuration:
+
+```json
+{
+  "icm_config": {
+    "time_icm": {
+      "provider": "mistral",
+      "model": "mistral-tiny"
+    }
+  }
+}
+```
+
+**Supported Providers:**
+*   `mistral` - Mistral AI models (default: `mistral-tiny`)
+*   `qwen` - Qwen models
+*   `gemini` - Google Gemini models
 
 ## Default Response
 

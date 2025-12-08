@@ -44,45 +44,49 @@ class UserConfigService:
             {
                 "foreground_model": "gpt-4",
                 "background_workers": {...},
-                "embedding_model": "models/text-embedding-004"
+                "embedding_model": "models/gemini-embedding-001"
             }
         """
-        # Check cache first
-        if user_id in self._cache:
-            self.logger.debug(f"User config cache hit for user {user_id}")
-            return self._cache[user_id]
+        # TEMPORARY: Skip database lookup and always use defaults to avoid Gemini quota issues
+        self.logger.warning(f"[USER_CONFIG] Bypassing database, using default Mistral config for user {user_id}")
+        return self._get_default_config()
         
-        # Fetch from database
-        try:
-            # Note: Ususer_id to string if it's an integer
-            user_id_str = str(user_id)
+        # # Check cache first
+        # if user_id in self._cache:
+        #     self.logger.debug(f"User config cache hit for user {user_id}")
+        #     return self._cache[user_id]
+        
+        # # Fetch from database
+        # try:
+        #     # Note: Ususer_id to string if it's an integer
+        #     user_id_str = str(user_id)
             
-            result = await session.execute(
-                select(User).where(User.id == user_id_str)
-            )
-            user = result.scalar_one_or_none()
+        #     result = await session.execute(
+        #         select(User).where(User.id == user_id_str)
+        #     )
+        #     user = result.scalar_one_or_none()
             
-            if not user:
-                self.logger.warning(f"User {user_id} not found, using defaults")
-                return self._get_default_config()
+        #     if not user:
+        #         self.logger.warning(f"User {user_id} not found, using defaults")
+        #         return self._get_default_config()
             
-            config = {
-                "background_workers": user.background_workers,
-                "embedding_model": user.embedding_model
-            }
+        #     config = {
+        #         "background_workers": user.background_workers,
+        #         "embedding_model": user.embedding_model
+        #     }
             
-            # Cache the config
-            self._cache[user_id] = config
-            self.logger.debug(f"Cached config for user {user_id}")
+        #     # Cache the config
+        #     self._cache[user_id] = config
+        #     self.logger.debug(f"Cached config for user {user_id}")
             
-            return config
+        #     return config
             
-        except Exception as e:
-            self.logger.error(
-                f"Failed to fetch user config for {user_id}: {e}",
-                exc_info=True
-            )
-            return self._get_default_config()
+        # except Exception as e:
+        #     self.logger.error(
+        #         f"Failed to fetch user config for {user_id}: {e}",
+        #         exc_info=True
+        #     )
+        #     return self._get_default_config()
     
     def get_background_worker_config(
         self,
@@ -104,8 +108,8 @@ class UserConfigService:
         
         # Return with defaults if worker not configured
         return {
-            "provider": worker_config.get("provider", "google"),
-            "model": worker_config.get("model", "gemini-2.5-flash"),
+            "provider": worker_config.get("provider", "mistral"),
+            "model": worker_config.get("model", "mistral-medium-2508"),
             "enabled": worker_config.get("enabled", True)
         }
 
@@ -130,12 +134,12 @@ class UserConfigService:
         # Defaults per type
         defaults = {
             "intent_icm": {"provider": "qwen", "model": None},
-            "time_icm": {"provider": "qwen", "model": None},
+            "time_icm": {"provider": "mistral", "model": "mistral-tiny"},
             "world_view_icm": {"provider": "mistral", "model": "mistral-medium-2508"},
-            "identity_icm": {"provider": "google", "model": "gemini-2.5-flash"}
+            "identity_icm": {"provider": "mistral", "model": "mistral-tiny"}
         }
         
-        default = defaults.get(icm_type, {"provider": "qwen", "model": None})
+        default = defaults.get(icm_type, {"provider": "mistral", "model": "mistral-tiny"})
         
         return {
             "provider": config.get("provider", default["provider"]),
@@ -171,25 +175,25 @@ class UserConfigService:
         return {
             "background_workers": {
                 "conversation_analyzer": {
-                    "provider": "google",
-                    "model": "gemini-2.5-flash",
+                    "provider": "mistral",
+                    "model": "mistral-medium-2508",
                     "enabled": True
                 },
                 "memory_synthesizer": {
-                    "provider": "google",
-                    "model": "gemini-2.5-flash",
+                    "provider": "mistral",
+                    "model": "mistral-medium-2508",
                     "enabled": True
                 }
             },
-            "embedding_model": "models/text-embedding-004",
+            "embedding_model": "models/gemini-embedding-001",
             "icm_config": {
                 "intent_icm": {
                     "provider": "qwen",
                     "model": None
                 },
                 "time_icm": {
-                    "provider": "qwen",
-                    "model": None
+                    "provider": "mistral",
+                    "model": "mistral-tiny"
                 },
                 "world_view_icm": {
                     "provider": "mistral",

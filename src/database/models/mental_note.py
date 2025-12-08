@@ -17,9 +17,9 @@ class MentalNote(Base):
     note_type: Mapped[str] = mapped_column(String(50), default="note", index=True)
     meta_data: Mapped[dict] = mapped_column(JSONB, default=dict, server_default='{}')
 
-    # Vector embedding for semantic search (768 dimensions)
+    # Vector embedding for semantic search (1536 dimensions)
     # Using pgvector's Vector type for efficient similarity search
-    embedding: Mapped[Optional[list]] = mapped_column(Vector(768), nullable=True)
+    embedding: Mapped[Optional[list]] = mapped_column(Vector(1536), nullable=True)
 
     # User and project isolation for ChromaDB collections
     user_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)

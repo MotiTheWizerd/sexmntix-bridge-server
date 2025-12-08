@@ -29,7 +29,7 @@ class GoogleEmbeddingProvider(BaseEmbeddingProvider):
     - RetryHandler: Retry logic with exponential backoff
     - BatchProcessor: Concurrent batch processing with rate limiting
 
-    Uses the text-embedding-004 model.
+    Uses the Gemini `gemini-embedding-001` model by default.
     """
 
     def __init__(self, config: ProviderConfig):
@@ -45,10 +45,10 @@ class GoogleEmbeddingProvider(BaseEmbeddingProvider):
         super().__init__(config)
 
         if not config.api_key:
-            raise ValueError("Google API key is required")
+            raise ValueError("Google/Gemini API key is required")
 
         self.api_key = config.api_key
-        self.model = config.model_name or "models/text-embedding-004"
+        self.model = config.model_name or "models/gemini-embedding-001"
         self.timeout = config.timeout_seconds
 
         # Initialize components
@@ -78,7 +78,7 @@ class GoogleEmbeddingProvider(BaseEmbeddingProvider):
 
     async def generate_embedding(self, text: str) -> List[float]:
         """
-        Generate embedding using Google's text-embedding-004 model.
+        Generate embedding using Google's Gemini embedding endpoint.
 
         Delegates to specialized components for HTTP requests, retries,
         and response parsing.

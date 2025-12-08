@@ -129,7 +129,7 @@ async def create_conversation(
     # Force HNSW index rebuild for immediate searchability
     new_count = collection.count()
 
-    print(f"[CONVERSATION_CRUD] Added memory unit {conversation_id} to ChromaDB collection. Total count: {new_count}")
+    # print(f"[CONVERSATION_CRUD] Added memory unit {conversation_id} to ChromaDB collection. Total count: {new_count}")
 
     # Note: File storage is handled at conversation level, not per memory unit
     # Memory units are stored in ChromaDB only for semantic search
@@ -159,10 +159,10 @@ async def read_conversation(
     result = collection.get(ids=[conversation_id])
 
     if result["documents"] and len(result["documents"]) > 0:
-        print(f"[CONVERSATION_CRUD] Retrieved conversation {conversation_id}")
+        # print(f"[CONVERSATION_CRUD] Retrieved conversation {conversation_id}")
         return json.loads(result["documents"][0])
 
-    print(f"[CONVERSATION_CRUD] Conversation {conversation_id} not found")
+    # print(f"[CONVERSATION_CRUD] Conversation {conversation_id} not found")
     return None
 
 
@@ -190,13 +190,13 @@ async def delete_conversation(
     try:
         # Delete from ChromaDB
         collection.delete(ids=[conversation_id])
-        print(f"[CONVERSATION_CRUD] Deleted conversation {conversation_id} from ChromaDB")
+        # print(f"[CONVERSATION_CRUD] Deleted conversation {conversation_id} from ChromaDB")
 
 
 
         return True
     except Exception as e:
-        print(f"[CONVERSATION_CRUD] Failed to delete conversation {conversation_id}: {e}")
+        # print(f"[CONVERSATION_CRUD] Failed to delete conversation {conversation_id}: {e}")
         return False
 
 
@@ -248,7 +248,7 @@ async def search_conversations(
     collection = client.get_conversation_collection(user_id, project_id)
     collection_count = collection.count()
 
-    print(f"[CONVERSATION_SEARCH] Searching user_id={user_id}, collection={collection.name}, count={collection_count}, limit={limit}")
+    # print(f"[CONVERSATION_SEARCH] Searching user_id={user_id}, collection={collection.name}, count={collection_count}, limit={limit}")
 
     # Sanitize filter
     where_filter = sanitize_filter(where_filter)
@@ -262,7 +262,7 @@ async def search_conversations(
     )
 
     results_count = len(results.get('ids', [[]])[0]) if results.get('ids') else 0
-    print(f"[CONVERSATION_SEARCH] ChromaDB returned {results_count} results")
+    # print(f"[CONVERSATION_SEARCH] ChromaDB returned {results_count} results")
 
     # Convert to search result dicts
     search_results = []
@@ -283,11 +283,11 @@ async def search_conversations(
             similarity = 1.0 - (distance / 2.0) if distance <= 2.0 else 0.0
             
             # Log similarity scores for debugging
-            print(f"[CONVERSATION_SEARCH] Result {i}: distance={distance:.4f}, similarity={similarity:.4f}, min_threshold={min_similarity}")
+            # print(f"[CONVERSATION_SEARCH] Result {i}: distance={distance:.4f}, similarity={similarity:.4f}, min_threshold={min_similarity}")
 
             # Apply minimum similarity filter if provided
             if min_similarity is not None and similarity < min_similarity:
-                print(f"[CONVERSATION_SEARCH] Filtered out result {i} (similarity {similarity:.4f} < {min_similarity})")
+                # print(f"[CONVERSATION_SEARCH] Filtered out result {i} (similarity {similarity:.4f} < {min_similarity})")
                 continue
 
             search_results.append({
@@ -298,5 +298,5 @@ async def search_conversations(
                 "similarity": similarity
             })
 
-    print(f"[CONVERSATION_SEARCH] Returning {len(search_results)} results after filtering")
+    # print(f"[CONVERSATION_SEARCH] Returning {len(search_results)} results after filtering")
     return search_results

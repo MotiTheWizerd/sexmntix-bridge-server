@@ -27,9 +27,13 @@ def main():
     parser.add_argument("--text", type=str, default=None, help="Time expression text")
     parser.add_argument("--now", type=str, default=None, help="Override now in ISO format (e.g., 2025-11-25T10:00:00Z)")
     parser.add_argument("--tz-offset", type=int, default=None, help="Timezone offset minutes (e.g., 120 for UTC+2)")
+    parser.add_argument("--provider", type=str, default="mistral", help="LLM provider (mistral, qwen, gemini)")
+    parser.add_argument("--model", type=str, default=None, help="Model name (e.g., mistral-tiny)")
     args = parser.parse_args()
 
-    brain = TimeICMBrain()
+    from src.modules.SXPrefrontal.model import SXPrefrontalModel
+    model = SXPrefrontalModel(provider=args.provider, model=args.model)
+    brain = TimeICMBrain(model=model)
     now = parse_now(args.now) or datetime.now(timezone.utc)
 
     samples = [
@@ -44,6 +48,9 @@ def main():
     ]
 
     tests = [args.text] if args.text else samples
+
+    print(f"Testing Time ICM with provider: {args.provider}, model: {args.model or 'default'}")
+    print("=" * 70)
 
     for text in tests:
         print("=" * 70)

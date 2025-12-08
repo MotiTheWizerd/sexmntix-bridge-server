@@ -225,7 +225,7 @@ class ConversationRepository(BaseRepository[Conversation]):
         Perform semantic similarity search using pgvector.
 
         Args:
-            query_embedding: The embedding vector to search for (768 dimensions)
+            query_embedding: The embedding vector to search for (1536 dimensions)
             user_id: Filter by user_id (optional)
             project_id: Filter by project_id (optional)
             model: Filter by model (optional)
@@ -361,7 +361,7 @@ class ConversationRepository(BaseRepository[Conversation]):
         within a specific time period that are semantically relevant to the query.
 
         Args:
-            query_embedding: The embedding vector to search for (768 dimensions)
+            query_embedding: The embedding vector to search for (1536 dimensions)
             start_time: Start of time range (inclusive)
             end_time: End of time range (exclusive)
             user_id: Filter by user_id (optional)

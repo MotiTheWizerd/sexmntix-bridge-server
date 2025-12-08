@@ -11,7 +11,7 @@ class EmbeddingResponse(BaseModel):
     """Response schema for embedding generation."""
 
     text: str = Field(..., description="Original text that was embedded")
-    embedding: List[float] = Field(..., description="Vector embedding (typically 768 dimensions)")
+    embedding: List[float] = Field(..., description="Vector embedding (typically 1536 dimensions)")
     model: str = Field(..., description="Model used to generate embedding")
     provider: str = Field(..., description="Provider that generated the embedding")
     dimensions: int = Field(..., description="Number of dimensions in the embedding vector")
@@ -25,7 +25,7 @@ class EmbeddingResponse(BaseModel):
                 "embedding": [0.0234, -0.1234, 0.5678],
                 "model": "models/text-embedding-004",
                 "provider": "google",
-                "dimensions": 768,
+                "dimensions": 1536,
                 "cached": False,
                 "generated_at": "2025-11-12T10:30:00Z"
             }
@@ -49,7 +49,7 @@ class EmbeddingBatchResponse(BaseModel):
                         "embedding": [0.0234, -0.1234],
                         "model": "models/text-embedding-004",
                         "provider": "google",
-                        "dimensions": 768,
+                        "dimensions": 1536,
                         "cached": False,
                         "generated_at": "2025-11-12T10:30:00Z"
                     }

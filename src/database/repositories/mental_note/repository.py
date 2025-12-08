@@ -117,7 +117,7 @@ class MentalNoteRepository(BaseRepository[MentalNote]):
         Perform semantic similarity search using pgvector.
 
         Args:
-            query_embedding: The embedding vector to search for (768 dimensions)
+            query_embedding: The embedding vector to search for (1536 dimensions)
             user_id: Filter by user_id
             project_id: Filter by project_id
             limit: Maximum number of results to return

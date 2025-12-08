@@ -50,8 +50,8 @@ new_init = """        super().__init__(event_bus, logger)
         # Initialize embedding service
         embedding_config = ProviderConfig(
             provider_name="google",
-            model_name="models/text-embedding-004",
-            api_key=os.getenv("GOOGLE_API_KEY"),
+            model_name="models/gemini-embedding-001",
+            api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"),
             timeout_seconds=30.0,
             max_retries=3
         )

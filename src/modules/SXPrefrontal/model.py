@@ -90,28 +90,39 @@ class SXPrefrontalModel:
                 temperature=temperature or self.temperature
             )
         elif self.provider == "mistral":
-            # MistralClient.generate_content takes prompt only currently, 
-            # but we can prepend system prompt if needed or update client.
-            # For now, simple concatenation or just prompt.
+            # MistralClient.generate_content is async, need to handle in sync context
             full_prompt = prompt
             if system_prompt:
                 full_prompt = f"System: {system_prompt}\n\nUser: {prompt}"
-            # Note: MistralClient.generate_content is async, but this method is sync.
-            # We need to handle async execution here or change this method to async.
-            # Since QwenClient is sync, and this is a common interface, we might have a problem.
-            # However, looking at QwenClient, it seems to be sync.
-            # MistralClient was implemented as async.
-            # We should probably make SXPrefrontalModel.generate async, but that breaks interface.
-            # Or make MistralClient sync.
-            # For now, let's use a sync wrapper or run_until_complete.
+            
             import asyncio
-            return asyncio.run(self.client.generate_content(full_prompt))
+            try:
+                # Try to get existing event loop
+                loop = asyncio.get_running_loop()
+                # If we're here, loop is running - can't use asyncio.run()
+                # Create a new loop in a thread instead
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, self.client.generate_content(full_prompt))
+                    return future.result()
+            except RuntimeError:
+                # No running loop, safe to use asyncio.run()
+                return asyncio.run(self.client.generate_content(full_prompt))
+                
         elif self.provider == "gemini":
-            # GeminiClient is also async.
-            import asyncio
+            # GeminiClient is also async
             full_prompt = prompt
             if system_prompt:
                 full_prompt = f"{system_prompt}\n\n{prompt}"
-            return asyncio.run(self.client.generate_content(full_prompt))
+            
+            import asyncio
+            try:
+                loop = asyncio.get_running_loop()
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, self.client.generate_content(full_prompt))
+                    return future.result()
+            except RuntimeError:
+                return asyncio.run(self.client.generate_content(full_prompt))
         
         return ""

@@ -55,6 +55,19 @@ class GeminiClient:
             GeminiAPIError: If API call fails
             GeminiTimeoutError: If request times out
         """
+        # Log prompt size for debugging quota issues
+        prompt_length = len(prompt)
+        prompt_tokens_estimate = prompt_length // 4  # Rough estimate: 1 token ≈ 4 chars
+        
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(
+            f"[GEMINI_API] Sending request - "
+            f"Prompt length: {prompt_length} chars, "
+            f"Estimated tokens: {prompt_tokens_estimate}, "
+            f"Model: {self.model}"
+        )
+        
         try:
             # Call API with timeout
             response = await asyncio.wait_for(
@@ -63,7 +76,14 @@ class GeminiClient:
             )
 
             # Extract text from response
-            return self._extract_text(response)
+            result = self._extract_text(response)
+            
+            logger.info(
+                f"[GEMINI_API] Response received - "
+                f"Response length: {len(result)} chars"
+            )
+            
+            return result
 
         except asyncio.TimeoutError:
             raise GeminiTimeoutError(self.timeout_seconds)

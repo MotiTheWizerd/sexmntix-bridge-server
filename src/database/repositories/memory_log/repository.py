@@ -43,7 +43,7 @@ class MemoryLogRepository(BaseRepository[MemoryLog]):
         Perform semantic similarity search using pgvector.
 
         Args:
-            query_embedding: The embedding vector to search for (768 dimensions)
+            query_embedding: The embedding vector to search for (1536 dimensions)
             user_id: Filter by user_id (optional)
             project_id: Filter by project_id (optional)
             limit: Maximum number of results to return
@@ -111,7 +111,7 @@ class MemoryLogRepository(BaseRepository[MemoryLog]):
         Perform semantic similarity search with date filtering using pgvector.
 
         Args:
-            query_embedding: The embedding vector to search for (768 dimensions)
+            query_embedding: The embedding vector to search for (1536 dimensions)
             start_date: Filter records created on or after this date
             end_date: Filter records created on or before this date
             user_id: Filter by user_id (optional)

@@ -24,9 +24,9 @@ class MemoryLog(Base):
     # Document type for unified semantic space
     document_type: Mapped[str] = mapped_column(String(50), default="memory_log", index=True)
 
-    # Vector embedding for semantic search (768 dimensions)
+    # Vector embedding for semantic search (Gemini 1536 dimensions)
     # Using pgvector's Vector type for efficient similarity search
-    embedding: Mapped[Optional[list]] = mapped_column(Vector(768), nullable=True)
+    embedding: Mapped[Optional[list]] = mapped_column(Vector(1536), nullable=True)
 
     # User and project isolation for ChromaDB collections
     user_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)

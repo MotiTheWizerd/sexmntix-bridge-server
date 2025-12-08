@@ -26,7 +26,7 @@ class Conversation(Base):
         conversation_id: Unique conversation identifier (UUID from client)
         model: AI model used (e.g., "gpt-5-1-instant")
         raw_data: Complete conversation data (JSONB)
-        embedding: Vector embedding for semantic search (768 dimensions, nullable)
+        embedding: Vector embedding for semantic search (1536 dimensions, nullable)
         user_id: User identifier for multi-tenant isolation
         project_id: Project identifier for multi-tenant isolation
         session_id: Session identifier for grouping related conversations
@@ -46,9 +46,9 @@ class Conversation(Base):
     # Complete conversation data (messages array, metadata)
     raw_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
 
-    # Vector embedding for semantic search (768 dimensions)
+    # Vector embedding for semantic search (1536 dimensions)
     # Using pgvector's Vector type for efficient similarity search
-    embedding: Mapped[Optional[list]] = mapped_column(Vector(768), nullable=True)
+    embedding: Mapped[Optional[list]] = mapped_column(Vector(1536), nullable=True)
 
     # Multi-tenant isolation
     user_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)

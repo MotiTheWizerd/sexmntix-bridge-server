@@ -64,10 +64,10 @@ class MemoryLogFormatter:
             similarity = result.get("similarity", 0.0)
 
             # Extract fields
-            task = document.get("task", "untitled")
+            task = metadata.get("task") or document.get("task") or "untitled"
             component = document.get("component", "")
-            tags = document.get("tags", [])
-            summary = document.get("summary") or document.get("content", "")
+            tags = document.get("tags") or metadata.get("tags") or []
+            summary = document.get("summary") or document.get("lesson") or document.get("content", "")
             created_at = metadata.get("created_at", "")
 
             # Format date

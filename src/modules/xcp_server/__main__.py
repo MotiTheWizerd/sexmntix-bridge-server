@@ -77,16 +77,16 @@ async def main():
             yield session
 
     # Initialize Embedding Service
-    google_api_key = os.getenv("GOOGLE_API_KEY")
+    google_api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
     if not google_api_key:
-        logger.error("GOOGLE_API_KEY not set in environment")
+        logger.error("GOOGLE_API_KEY or GEMINI_API_KEY not set in environment")
         await db_manager.close()
         sys.exit(1)
    
     try:
         embedding_config = ProviderConfig(
             provider_name="google",
-            model_name=os.getenv("EMBEDDING_MODEL", "models/text-embedding-004"),
+            model_name=os.getenv("EMBEDDING_MODEL", "models/gemini-embedding-001"),
             api_key=google_api_key,
             timeout_seconds=float(os.getenv("EMBEDDING_TIMEOUT", "30.0")),
             max_retries=int(os.getenv("EMBEDDING_MAX_RETRIES", "3"))
@@ -116,15 +116,22 @@ async def main():
         if not chromadb_path:
            
             chromadb_path = str(project_root / "data" / "chromadb")
-        print("sds")
-        chromadb_client = ChromaDBClient(storage_path=chromadb_path)
+        
+        # Suppress stderr during ChromaDB init to prevent telemetry errors from breaking MCP
+        # ChromaDB has a telemetry bug that writes to stderr during initialization
+        # TODO: Remove this when migrating to PostgreSQL
+        import io
+        import contextlib
+        
+        with contextlib.redirect_stderr(io.StringIO()):
+            chromadb_client = ChromaDBClient(storage_path=chromadb_path)
+        
         vector_repository = VectorRepository(chromadb_client)
         # logger.info("ChromaDB client initialized")
        
     except Exception as e:
         logger.error(f"Failed to initialize ChromaDB: {e}")
         await db_manager.close()
-        print("here")  
         sys.exit(1)
    
     # Initialize Vector Storage Service
@@ -200,10 +207,14 @@ def cli_main():
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\nShutdown complete")
+        # Silent exit on Ctrl+C - don't print anything as stderr might be closed
         sys.exit(0)
     except Exception as e:
-        print(f"\nFatal error: {e}", file=sys.stderr)
+        # Try to print error, but ignore if stderr is closed
+        try:
+            print(f"\nFatal error: {e}", file=sys.stderr)
+        except ValueError:
+            pass  # stderr is closed, can't print
         sys.exit(1)
 
 

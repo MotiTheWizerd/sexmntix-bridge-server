@@ -7,7 +7,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.models.ai_world_view import AIWorldView
-from src.database.repositories.base.repository import BaseRepository
+from src.database.repositories.base.base_repository import BaseRepository
 
 
 class AIWorldViewRepository(BaseRepository[AIWorldView]):

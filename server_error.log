@@ -1,0 +1,42 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 189, in _run_module_as_main
+  File "<frozen runpy>", line 148, in _get_module_details
+  File "<frozen runpy>", line 112, in _get_module_details
+  File "c:\project\semantix-bridge\semantix-bridge-server\src\modules\xcp_server\__init__.py", line 8, in <module>
+    from .service.xcp_server_service import XCPServerService
+  File "c:\project\semantix-bridge\semantix-bridge-server\src\modules\xcp_server\service\__init__.py", line 11, in <module>
+    from .xcp_server_service import XCPServerService
+  File "c:\project\semantix-bridge\semantix-bridge-server\src\modules\xcp_server\service\xcp_server_service.py", line 15, in <module>
+    from src.modules.vector_storage.service import VectorStorageService
+  File "c:\project\semantix-bridge\semantix-bridge-server\src\modules\vector_storage\__init__.py", line 14, in <module>
+    from src.modules.vector_storage.service import VectorStorageService
+  File "c:\project\semantix-bridge\semantix-bridge-server\src\modules\vector_storage\service.py", line 16, in <module>
+    from src.infrastructure.chromadb.repository import VectorRepository
+  File "c:\project\semantix-bridge\semantix-bridge-server\src\infrastructure\chromadb\__init__.py", line 7, in <module>
+    from .client import ChromaDBClient
+  File "c:\project\semantix-bridge\semantix-bridge-server\src\infrastructure\chromadb\client.py", line 15, in <module>
+    import chromadb
+  File "C:\Users\Moti\AppData\Local\pypoetry\Cache\virtualenvs\semantic-bridge-server-ZVw9XJ58-py3.11\Lib\site-packages\chromadb\__init__.py", line 3, in <module>
+    from chromadb.api.client import Client as ClientCreator
+  File "C:\Users\Moti\AppData\Local\pypoetry\Cache\virtualenvs\semantic-bridge-server-ZVw9XJ58-py3.11\Lib\site-packages\chromadb\api\__init__.py", line 33, in <module>
+    import chromadb.utils.embedding_functions as ef
+  File "C:\Users\Moti\AppData\Local\pypoetry\Cache\virtualenvs\semantic-bridge-server-ZVw9XJ58-py3.11\Lib\site-packages\chromadb\utils\embedding_functions\__init__.py", line 46, in <module>
+    _all_classes.update(_import_all_efs())
+                        ^^^^^^^^^^^^^^^^^
+  File "C:\Users\Moti\AppData\Local\pypoetry\Cache\virtualenvs\semantic-bridge-server-ZVw9XJ58-py3.11\Lib\site-packages\chromadb\utils\embedding_functions\__init__.py", line 31, in _import_all_efs
+    module: ModuleType = importlib.import_module(f"{__name__}.{module_name}")
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\importlib\__init__.py", line 126, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Moti\AppData\Local\pypoetry\Cache\virtualenvs\semantic-bridge-server-ZVw9XJ58-py3.11\Lib\site-packages\chromadb\utils\embedding_functions\onnx_mini_lm_l6_v2.py", line 35, in <module>
+    class ONNXMiniLM_L6_V2(EmbeddingFunction[Documents]):
+  File "C:\Users\Moti\AppData\Local\pypoetry\Cache\virtualenvs\semantic-bridge-server-ZVw9XJ58-py3.11\Lib\site-packages\chromadb\utils\embedding_functions\onnx_mini_lm_l6_v2.py", line 37, in ONNXMiniLM_L6_V2
+    DOWNLOAD_PATH = Path.home() / ".cache" / "chroma" / "onnx_models" / MODEL_NAME
+                    ^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\pathlib.py", line 914, in home
+    return cls("~").expanduser()
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\pathlib.py", line 1385, in expanduser
+    raise RuntimeError("Could not determine home directory.")
+RuntimeError: Could not determine home directory.

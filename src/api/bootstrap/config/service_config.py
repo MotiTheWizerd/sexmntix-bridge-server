@@ -15,7 +15,7 @@ class EmbeddingConfig:
 
     api_key: Optional[str] = None
     provider_name: str = "google"
-    model_name: str = "models/text-embedding-004"
+    model_name: str = "models/gemini-embedding-001"
     timeout_seconds: float = 30.0
     max_retries: int = 3
     cache_size: int = 1000
@@ -24,7 +24,8 @@ class EmbeddingConfig:
 
     def __post_init__(self):
         """Load configuration from environment."""
-        self.api_key = os.getenv("GOOGLE_API_KEY")
+        # Support both historical GOOGLE_API_KEY and new GEMINI_API_KEY env vars
+        self.api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
         self.model_name = os.getenv("EMBEDDING_MODEL", self.model_name)
         self.timeout_seconds = float(os.getenv("EMBEDDING_TIMEOUT", str(self.timeout_seconds)))
         self.max_retries = int(os.getenv("EMBEDDING_MAX_RETRIES", str(self.max_retries)))

@@ -45,6 +45,6 @@ class User(Base):
     embedding_model: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
-        default="models/text-embedding-004",
-        server_default="models/text-embedding-004"
+        default="models/gemini-embedding-001",
+        server_default="models/gemini-embedding-001"
     )
